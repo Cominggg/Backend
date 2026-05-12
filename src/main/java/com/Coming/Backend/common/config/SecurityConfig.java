@@ -20,44 +20,44 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-  @Value("${app.cors.allowed-origins}")
-  private List<String> allowedOrigins;
+    @Value("${app.cors.allowed-origins}")
+    private List<String> allowedOrigins;
 
-  @Bean
-  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-    http
-        .csrf(AbstractHttpConfigurer::disable)
-        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-        .sessionManagement(session ->
-            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(auth -> auth
-            .requestMatchers(
-                "/api/auth/login/**",
-                "/api/auth/callback/**",
-                "/api/auth/refresh"
-            ).permitAll()
-            .requestMatchers(HttpMethod.GET,
-                "/api/artists/**",
-                "/api/concerts/**",
-                "/api/releases/**",
-                "/api/calendar"
-            ).permitAll()
-            .requestMatchers("/api/admin/**").hasRole("ADMIN")
-            .anyRequest().authenticated()
-        );
-    return http.build();
-  }
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/auth/login/**",
+                                "/api/auth/callback/**",
+                                "/api/auth/refresh"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/artists/**",
+                                "/api/concerts/**",
+                                "/api/releases/**",
+                                "/api/calendar"
+                        ).permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .anyRequest().authenticated()
+                );
+        return http.build();
+    }
 
-  @Bean
-  public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration config = new CorsConfiguration();
-    config.setAllowedOrigins(allowedOrigins);
-    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-    config.setAllowedHeaders(List.of("*"));
-    config.setAllowCredentials(true);
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
 
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", config);
-    return source;
-  }
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 }

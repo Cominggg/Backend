@@ -50,10 +50,11 @@ Repository interface는 domain 패키지에 위치한다. JpaRepository 확장 �
 
 ---
 
-## Google Java Style Guide 핵심 규칙
+## Java Style Guide 핵심 규칙
 
-- **들여쓰기**: 스페이스 2칸 (탭 사용 금지)
-- **줄 길이**: 100자 이하
+- **들여쓰기**: 스페이스 4칸 (탭 사용 금지)
+- **줄 길이**: 120자 이하
+- **continuation indent**: 줄 바꿈 시 다음 줄은 원래 줄 기준 최소 +8 스페이스
 - **중괄호**: Kernighan & Ritchie 스타일 — 여는 중괄호는 줄 끝에
 - **import**: wildcard import 금지 (`import java.util.*` 불가), static import는 마지막 그룹
 - **네이밍**:
