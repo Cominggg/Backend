@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️  커밋 전 워크플로우: /be-review → /simplify → /commit → /pr'"
+          }
+        ]
+      }
+    ]
+  }
+}
