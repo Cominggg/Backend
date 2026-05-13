@@ -1,5 +1,17 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys; data=json.load(sys.stdin); fp=data.get('tool_input',{}).get('file_path',''); blocked=['.env','.secret','application-prod','application-local','credentials','application-secret']; blocked_match=next((b for b in blocked if b in fp),None); print(json.dumps({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'deny','permissionDecisionReason':'시크릿 파일 수정 차단: '+fp}})) if blocked_match else None\"",
+            "statusMessage": "시크릿 파일 검사 중..."
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",
