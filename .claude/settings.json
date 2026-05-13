@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys; data=json.load(sys.stdin); fp=data.get('tool_input',{}).get('file_path',''); blocked=['.env','.secret','application-prod','application-local','credentials','application-secret']; blocked_match=next((b for b in blocked if b in fp),None); print(json.dumps({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'deny','permissionDecisionReason':'시크릿 파일 수정 차단: '+fp}})) if blocked_match else None\"",
+            "statusMessage": "시크릿 파일 검사 중..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️  커밋 전 워크플로우: /be-review → /simplify → /commit → /pr'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,os; d=json.loads(os.environ.get('CLAUDE_TOOL_INPUT','{}')); exit(0 if d.get('file_path','').endswith('.java') else 1)\" && cd /Users/youhyuk/Coming/Backend && ./gradlew compileJava --quiet 2>&1 | grep -E 'error:' | head -20"
+          }
+        ]
+      }
+    ]
+  }
+}
