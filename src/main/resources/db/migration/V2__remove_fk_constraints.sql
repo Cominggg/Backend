@@ -1,0 +1,16 @@
+ALTER TABLE artist_alias DROP CONSTRAINT artist_alias_artist_id_fkey;
+ALTER TABLE artist_url DROP CONSTRAINT artist_url_artist_id_fkey;
+ALTER TABLE user_follow_artist DROP CONSTRAINT user_follow_artist_user_id_fkey;
+ALTER TABLE user_follow_artist DROP CONSTRAINT user_follow_artist_artist_id_fkey;
+ALTER TABLE concert_booking_link DROP CONSTRAINT concert_booking_link_concert_id_fkey;
+ALTER TABLE concert_artist DROP CONSTRAINT concert_artist_concert_id_fkey;
+ALTER TABLE concert_artist DROP CONSTRAINT concert_artist_artist_id_fkey;
+ALTER TABLE user_concert_calendar DROP CONSTRAINT user_concert_calendar_user_id_fkey;
+ALTER TABLE user_concert_calendar DROP CONSTRAINT user_concert_calendar_concert_id_fkey;
+ALTER TABLE setlist DROP CONSTRAINT setlist_concert_id_fkey;
+ALTER TABLE setlist_track DROP CONSTRAINT setlist_track_setlist_id_fkey;
+ALTER TABLE release_group DROP CONSTRAINT release_group_artist_id_fkey;
+ALTER TABLE track DROP CONSTRAINT track_release_group_id_fkey;
+ALTER TABLE inquiry DROP CONSTRAINT inquiry_user_id_fkey;
+ALTER TABLE inquiry DROP CONSTRAINT inquiry_concert_id_fkey;
+ALTER TABLE inquiry DROP CONSTRAINT inquiry_artist_id_fkey;
