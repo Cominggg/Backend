@@ -1,5 +1,6 @@
 package com.Coming.Backend.common.exception;
 
+import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,7 +32,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void should_return_error_response_when_business_exception_thrown() {
         // given
-        BusinessException exception = new BusinessException(ErrorCode.CONCERT_NOT_FOUND);
+        BusinessException exception = new ConcertNotFoundException();
 
         // when
         ResponseEntity<ErrorResponse> response = handler.handleBusinessException(exception);
