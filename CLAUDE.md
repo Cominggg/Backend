@@ -12,6 +12,7 @@
 | Cache/Session | Redis |
 | Auth | OAuth2 (Google/Kakao) + JWT |
 | ORM | Spring Data JPA |
+| Util | Lombok |
 | Build | Gradle |
 
 ## 패키지 구조
@@ -36,10 +37,15 @@ com.Coming.Backend
 ```bash
 ./gradlew bootRun   # 로컬 실행
 ./gradlew test      # 전체 테스트
+./gradlew test --tests "com.Coming.Backend.artist.service.ArtistServiceTest"  # 단일 클래스 테스트
 ./gradlew build     # 빌드
 ```
 
+> 로컬 실행 전 PostgreSQL과 Redis가 구동 중이어야 한다.
+
 ## 명세 위치 (Cominggg/Specification)
+
+명세는 외부 레포에 있다. `/read-spec` 스킬로 접근한다.
 
 - ERD: `spec/erd.md`
 - 인증 정책: `spec/auth-policy.md`
@@ -66,11 +72,25 @@ com.Coming.Backend
 
 ## 개발 워크플로우
 
-코드 작성 완료 후 반드시 아래 순서를 지킨다:
+### 전체 흐름
 
 ```
-/be-review → /simplify → /commit → /pr
+구현 (레이어 단위) → 테스트 작성 → /be-review → /simplify → /commit → /pr
 ```
+
+### 테스트 작성 시점
+
+- **각 레이어(Service, Controller, Repository) 구현 직후** 해당 레이어 테스트를 작성한다.
+- 모든 구현을 마친 뒤 테스트를 몰아 쓰지 않는다. 구현 컨텍스트가 살아있을 때 작성해야 엣지케이스를 놓치지 않는다.
+- `/be-review` 실행 전, `./gradlew test`가 통과된 상태여야 한다.
+- 테스트 작성 시 `write-tests` 에이전트를 사용한다. (예: "ArtistService 테스트 작성해줘")
+
+### 병렬 테스트 작성
+
+- **도메인 간 병렬 가능**: 서로 독립적인 도메인(`artist`, `concert`, `calendar` 등)은 `write-tests` 에이전트를 병렬로 호출해 동시에 작성할 수 있다.
+- **레이어 간 병렬 금지**: 동일 도메인 내 Service + Controller 테스트를 동시에 작성하지 않는다. Controller 테스트는 Service의 계약을 전제하므로 순서대로 작성한다.
+
+### 커밋 전 체크리스트
 
 - `/be-review` 통과(🔴 critical 0건) 전에 `/commit`을 실행하지 않는다.
 - auth 관련 코드(JWT, OAuth2, Redis 토큰 처리) 작성 시 `/security-review`도 추가 실행한다.

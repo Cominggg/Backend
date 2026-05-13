@@ -47,6 +47,7 @@ Repository interface는 domain 패키지에 위치한다. JpaRepository 확장 �
 - Entity의 필드는 모두 `private`이다.
 - 상태 변경은 도메인 메서드를 통해서만 한다. `setter` 메서드를 만들지 않는다.
 - Lombok `@Setter`, `@Data`는 Entity에 사용하지 않는다.
+- Entity에 허용: `@Getter`, `@Builder`, `@RequiredArgsConstructor`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)`
 
 ---
 
@@ -85,29 +86,6 @@ Repository interface는 domain 패키지에 위치한다. JpaRepository 확장 �
 **주석**
 - WHY가 코드만으로 명확하지 않을 때만 작성한다.
 - WHAT을 설명하는 주석은 작성하지 않는다.
-
----
-
-## 테스트 작성 규칙
-
-**구조**
-- 모든 테스트는 `// given // when // then` 주석으로 구분한다.
-- 하나의 테스트는 하나의 동작만 검증한다.
-
-**네이밍**
-```
-should_[결과]_when_[조건]
-예) should_throw_when_concert_not_found
-    should_return_empty_list_when_no_following_artists
-```
-
-**단위 테스트** (`@ExtendWith(MockitoExtension.class)`)
-- Service 계층: Repository를 `@Mock`으로 처리한다.
-- 순수 도메인 로직: 의존성 없이 직접 테스트한다.
-
-**통합 테스트** (`@SpringBootTest`)
-- 실제 PostgreSQL을 사용한다. Mock DB(H2 등)를 사용하지 않는다.
-- DB 상태를 각 테스트 전후로 정리한다 (`@Transactional` 또는 직접 삭제).
 
 ---
 
