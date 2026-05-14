@@ -87,8 +87,8 @@ com.Coming.Backend
 
 ### 병렬 테스트 작성
 
-- **도메인 간 병렬 가능**: 독립 도메인끼리는 `write-tests` 에이전트를 병렬 호출 가능
-- **레이어 간 병렬 금지**: 동일 도메인 내 Service + Controller 테스트는 순서대로 작성 (Controller는 Service 계약을 전제)
+- **도메인 간 병렬**: 독립 도메인의 테스트는 `write-tests` 에이전트를 **단일 응답에서 병렬로 호출한다**
+- **레이어 간 순서 유지**: 동일 도메인 내 Service + Controller 테스트는 순서대로 작성한다 (Controller는 Service 계약을 전제)
 
 ### 커밋 전 체크리스트
 
