@@ -28,6 +28,7 @@ com.Coming.Backend
 ├── admin/         # 관리자
 └── common/
     ├── config/    # Security, Redis, CORS 설정
+    ├── entity/    # BaseEntity 등 공통 엔티티
     ├── exception/ # ErrorCode, GlobalExceptionHandler
     └── response/  # 공통 응답 DTO
 ```
@@ -81,14 +82,13 @@ com.Coming.Backend
 ### 테스트 작성 시점
 
 - **각 레이어(Service, Controller, Repository) 구현 직후** 해당 레이어 테스트를 작성한다.
-- 모든 구현을 마친 뒤 테스트를 몰아 쓰지 않는다. 구현 컨텍스트가 살아있을 때 작성해야 엣지케이스를 놓치지 않는다.
 - `/be-review` 실행 전, `./gradlew test`가 통과된 상태여야 한다.
 - 테스트 작성 시 `write-tests` 에이전트를 사용한다. (예: "ArtistService 테스트 작성해줘")
 
 ### 병렬 테스트 작성
 
-- **도메인 간 병렬 가능**: 서로 독립적인 도메인(`artist`, `concert`, `calendar` 등)은 `write-tests` 에이전트를 병렬로 호출해 동시에 작성할 수 있다.
-- **레이어 간 병렬 금지**: 동일 도메인 내 Service + Controller 테스트를 동시에 작성하지 않는다. Controller 테스트는 Service의 계약을 전제하므로 순서대로 작성한다.
+- **도메인 간 병렬 가능**: 독립 도메인끼리는 `write-tests` 에이전트를 병렬 호출 가능
+- **레이어 간 병렬 금지**: 동일 도메인 내 Service + Controller 테스트는 순서대로 작성 (Controller는 Service 계약을 전제)
 
 ### 커밋 전 체크리스트
 

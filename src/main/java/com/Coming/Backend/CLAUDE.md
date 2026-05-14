@@ -17,35 +17,20 @@ Java 파일 작업 시 항상 적용한다.
 
 **레이어 간 데이터 전달은 DTO로 한다. Entity를 Controller까지 올리지 않는다.**
 
-Repository interface는 domain 패키지에 위치한다. JpaRepository 확장 구현은 infra 패키지에 둔다.
+Repository interface와 JpaRepository 확장 구현 모두 각 도메인의 repository 패키지에 위치한다.
 
 ---
 
-## 객체지향 설계 원칙 (SOLID)
+## 객체지향 설계 원칙
 
-**SRP — 단일 책임**
-- 하나의 클래스는 하나의 변경 이유만 갖는다.
-- 메서드가 20줄을 넘으면 분리를 검토한다.
-
-**OCP — 개방-폐쇄**
-- 새 기능은 기존 코드를 수정하지 않고 추가한다.
-- 분기가 늘어나는 구조보다 인터페이스 확장을 선호한다.
-
-**LSP — 리스코프 치환**
-- 상속보다 조합(Composition)을 선호한다.
-- 상속 시 하위 타입은 상위 타입을 완전히 대체할 수 있어야 한다.
-
-**ISP — 인터페이스 분리**
-- 하나의 큰 인터페이스보다 역할별 작은 인터페이스를 만든다.
-- Repository는 호출처가 필요한 메서드만 노출한다.
-
-**DIP — 의존성 역전**
-- Service는 Repository 구체 클래스가 아닌 인터페이스에 의존한다.
-- 구체 구현에 직접 의존하는 코드를 작성하지 않는다.
+- **SRP**: 메서드가 20줄을 넘으면 분리를 검토한다.
+- **OCP**: 분기가 늘어나는 구조보다 인터페이스 확장을 선호한다.
+- **LSP**: 상속보다 조합(Composition)을 선호한다.
+- **ISP**: Repository는 호출처가 필요한 메서드만 노출한다.
+- **DIP**: Service는 Repository 구체 클래스가 아닌 인터페이스에 의존한다.
 
 **캡슐화**
-- Entity의 필드는 모두 `private`이다.
-- 상태 변경은 도메인 메서드를 통해서만 한다. `setter` 메서드를 만들지 않는다.
+- Entity의 필드는 모두 `private`. 상태 변경은 도메인 메서드를 통해서만 한다. `setter` 메서드 금지.
 - Lombok `@Setter`, `@Data`는 Entity에 사용하지 않는다.
 - Entity에 허용: `@Getter`, `@Builder`, `@AllArgsConstructor(access = AccessLevel.PRIVATE)`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)`
 
@@ -65,41 +50,20 @@ Repository interface는 domain 패키지에 위치한다. JpaRepository 확장 �
 
 ---
 
-## Java Style Guide 핵심 규칙
+## 코드 스타일
 
-- **들여쓰기**: 스페이스 4칸 (탭 사용 금지)
-- **줄 길이**: 120자 이하
-- **continuation indent**: 줄 바꿈 시 다음 줄은 원래 줄 기준 최소 +8 스페이스
-- **중괄호**: Kernighan & Ritchie 스타일 — 여는 중괄호는 줄 끝에
 - **import**: wildcard import 금지 (`import java.util.*` 불가), static import는 마지막 그룹
-- **네이밍**:
-  - 클래스·인터페이스: `UpperCamelCase`
-  - 메서드·변수: `lowerCamelCase`
-  - 상수: `UPPER_SNAKE_CASE`
-  - 패키지: 소문자 단어 연속 (`com.coming.backend`)
+- **네이밍**: 클래스·인터페이스 `UpperCamelCase` / 메서드·변수 `lowerCamelCase` / 상수 `UPPER_SNAKE_CASE`
 - **어노테이션**: 선언부 바로 위, 각각 별도 줄
 
 ---
 
 ## 클린 코드 원칙
 
-**네이밍**
-- 이름만으로 의도를 파악할 수 있어야 한다. 주석으로 보완하지 않는다.
-- 축약어를 쓰지 않는다 (`concertId` > `cId`, `findByArtistId` > `findById`).
-- Boolean 변수·메서드는 `is`, `has`, `can` 접두사를 붙인다.
-
-**함수**
-- 한 메서드는 한 가지 일만 한다.
-- 매개변수가 3개를 초과하면 DTO/record로 묶는다.
-- 부정 조건보다 긍정 조건을 먼저 쓴다.
-
-**상수**
-- 매직 넘버와 매직 문자열을 상수 또는 enum으로 추출한다.
-- `ErrorCode` enum에 없는 에러 문자열을 하드코딩하지 않는다.
-
-**주석**
-- WHY가 코드만으로 명확하지 않을 때만 작성한다.
-- WHAT을 설명하는 주석은 작성하지 않는다.
+- 축약어 금지 (`concertId` > `cId`, `findByArtistId` > `findById`)
+- Boolean 변수·메서드는 `is`, `has`, `can` 접두사
+- 매개변수 3개 초과 시 DTO/record로 묶는다
+- `ErrorCode` enum에 없는 에러 문자열을 하드코딩하지 않는다
 
 ---
 
