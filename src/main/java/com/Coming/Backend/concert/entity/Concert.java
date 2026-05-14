@@ -3,6 +3,8 @@ package com.Coming.Backend.concert.entity;
 import com.Coming.Backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -54,8 +56,9 @@ public class Concert extends BaseTimeEntity {
     @Column(name = "price", columnDefinition = "text")
     private String price;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private String status;
+    private ConcertStatus status;
 
     @Column(name = "view_count", nullable = false)
     private Long viewCount;

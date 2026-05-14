@@ -3,6 +3,8 @@ package com.Coming.Backend.inquiry.entity;
 import com.Coming.Backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -28,8 +30,9 @@ public class Inquiry extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
-    private String type;
+    private InquiryType type;
 
     @Column(name = "concert_id")
     private Long concertId;
@@ -43,8 +46,9 @@ public class Inquiry extends BaseTimeEntity {
     @Column(name = "content", nullable = false, columnDefinition = "text")
     private String content;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private String status;
+    private InquiryStatus status;
 
     @Column(name = "admin_note", columnDefinition = "text")
     private String adminNote;
