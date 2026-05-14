@@ -68,7 +68,7 @@ public class JwtProvider {
         return Math.max(0, expiration.getTime() - System.currentTimeMillis());
     }
 
-    private Claims parseClaims(String token) {
+    Claims parseClaims(String token) {
         try {
             return Jwts.parser()
                     .verifyWith(secretKey)

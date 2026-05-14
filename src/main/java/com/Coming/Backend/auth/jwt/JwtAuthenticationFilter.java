@@ -1,6 +1,7 @@
 package com.Coming.Backend.auth.jwt;
 
 import com.Coming.Backend.auth.repository.BlacklistRepository;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,8 +30,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
         String token = extractToken(request);
-        if (token != null && isValidToken(token)) {
-            setAuthentication(token);
+        if (token != null) {
+            try {
+                Claims claims = jwtProvider.parseClaims(token);
+                if (!blacklistRepository.isBlacklisted(token)) {
+                    setAuthentication(claims);
+                }
+            } catch (Exception e) {
+                // 유효하지 않은 토큰은 인증 없이 통과
+            }
         }
         filterChain.doFilter(request, response);
     }
@@ -43,18 +51,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 
-    private boolean isValidToken(String token) {
-        try {
-            jwtProvider.validateToken(token);
-            return !blacklistRepository.isBlacklisted(token);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private void setAuthentication(String token) {
-        Long userId = jwtProvider.getUserId(token);
-        String role = jwtProvider.getRole(token);
+    private void setAuthentication(Claims claims) {
+        Long userId = Long.parseLong(claims.getSubject());
+        String role = claims.get("role", String.class);
         List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
         UsernamePasswordAuthenticationToken authentication =
