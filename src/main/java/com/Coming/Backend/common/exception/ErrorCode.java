@@ -1,7 +1,9 @@
 package com.Coming.Backend.common.exception;
 
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
+@Getter
 public enum ErrorCode {
 
     // Auth
@@ -39,13 +41,5 @@ public enum ErrorCode {
     ErrorCode(HttpStatus status, String message) {
         this.status = status;
         this.message = message;
-    }
-
-    public HttpStatus getStatus() {
-        return status;
-    }
-
-    public String getMessage() {
-        return message;
     }
 }

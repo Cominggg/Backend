@@ -1,14 +1,12 @@
 package com.Coming.Backend.auth.oauth2;
 
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 public class GoogleOAuth2UserInfo implements OAuth2UserInfo {
 
     private final Map<String, Object> attributes;
-
-    public GoogleOAuth2UserInfo(Map<String, Object> attributes) {
-        this.attributes = attributes;
-    }
 
     @Override
     public String getProviderId() {
