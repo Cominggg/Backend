@@ -3,7 +3,7 @@ package com.Coming.Backend.auth.oauth2;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.jwt.JwtProvider;
 import com.Coming.Backend.auth.repository.TokenRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;

@@ -7,7 +7,7 @@ import com.Coming.Backend.auth.oauth2.OAuth2FailureHandler;
 import com.Coming.Backend.auth.oauth2.OAuth2SuccessHandler;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
