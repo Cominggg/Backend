@@ -1,5 +1,6 @@
 package com.Coming.Backend.artist.entity;
 
+import com.Coming.Backend.common.entity.BaseCreatedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -13,8 +14,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "artist_alias", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"artist_id", "name"})
@@ -23,7 +22,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ArtistAlias {
+public class ArtistAlias extends BaseCreatedEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,7 +39,4 @@ public class ArtistAlias {
 
     @Column(name = "is_learned", nullable = false)
     private boolean isLearned;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
 }

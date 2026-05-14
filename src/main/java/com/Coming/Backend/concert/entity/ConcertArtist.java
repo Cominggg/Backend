@@ -1,5 +1,6 @@
 package com.Coming.Backend.concert.entity;
 
+import com.Coming.Backend.common.entity.BaseCreatedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -13,8 +14,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "concert_artist", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"concert_id", "artist_id"})
@@ -23,7 +22,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ConcertArtist {
+public class ConcertArtist extends BaseCreatedEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,7 +39,4 @@ public class ConcertArtist {
 
     @Column(name = "matched_by", nullable = false, length = 20)
     private String matchedBy;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
 }

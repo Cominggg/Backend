@@ -1,5 +1,6 @@
 package com.Coming.Backend.calendar.entity;
 
+import com.Coming.Backend.common.entity.BaseCreatedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -12,15 +13,13 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "user_concert_calendar")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class UserConcertCalendar {
+public class UserConcertCalendar extends BaseCreatedEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,7 +30,4 @@ public class UserConcertCalendar {
 
     @Column(name = "concert_id", nullable = false)
     private Long concertId;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
 }
