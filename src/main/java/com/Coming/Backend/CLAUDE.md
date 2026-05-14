@@ -47,7 +47,21 @@ Repository interface는 domain 패키지에 위치한다. JpaRepository 확장 �
 - Entity의 필드는 모두 `private`이다.
 - 상태 변경은 도메인 메서드를 통해서만 한다. `setter` 메서드를 만들지 않는다.
 - Lombok `@Setter`, `@Data`는 Entity에 사용하지 않는다.
-- Entity에 허용: `@Getter`, `@Builder`, `@RequiredArgsConstructor`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)`
+- Entity에 허용: `@Getter`, `@Builder`, `@AllArgsConstructor(access = AccessLevel.PRIVATE)`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)`
+
+**Lombok 사용 규칙**
+
+| 어노테이션 | 적용 대상 | 사용 조건 |
+|-----------|----------|---------|
+| `@Getter` | Entity, Enum, 추상 클래스 등 수동 getter가 필요한 모든 클래스 | 단순 필드 반환 getter를 직접 작성하지 않는다 |
+| `@RequiredArgsConstructor` | Service, Component, Filter 등 Spring Bean 클래스 | 생성자 내부 로직(필드 변환, super 호출 등)이 없을 때만 적용 |
+| `@Slf4j` | 로그가 필요한 모든 클래스 | 예외 처리, 주요 이벤트(로그인, 신규 사용자 생성 등) 지점에 작성 |
+
+로그 레벨 기준:
+- `DEBUG`: 필터 내 토큰 파싱 실패 등 정상 흐름에서 발생 가능한 낮은 수준 이벤트
+- `INFO`: 신규 사용자 생성, 로그인 성공 등 비즈니스 이벤트
+- `WARN`: OAuth2 실패, 예상 가능한 비즈니스 예외(`BusinessException`)
+- `ERROR`: 예상치 못한 서버 오류 (`Exception` catch-all)
 
 ---
 
