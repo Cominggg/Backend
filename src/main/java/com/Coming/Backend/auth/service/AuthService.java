@@ -50,7 +50,6 @@ public class AuthService {
      * @param accessToken Authorization 헤더에서 추출한 Access Token
      * @param userId      인증된 사용자 ID
      */
-    @Transactional
     public void logout(String accessToken, Long userId) {
         blacklistRepository.save(accessToken, jwtProvider.getRemainingExpiry(accessToken));
         tokenRepository.delete(userId);
