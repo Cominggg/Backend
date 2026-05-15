@@ -66,6 +66,7 @@ public class AuthService {
     public void withdraw(String accessToken, Long userId) {
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         user.withdraw();
+        userRepository.flush();  // DB 반영 확인 후 Redis 쓰기 — 역순 부분 실패 방지
         logout(accessToken, userId);
         log.info("회원 탈퇴 — userId: {}", userId);
     }
