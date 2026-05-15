@@ -13,4 +13,6 @@ public interface UserConcertCalendarRepository extends JpaRepository<UserConcert
     Optional<UserConcertCalendar> findByUserIdAndConcertId(Long userId, Long concertId);
 
     boolean existsByUserIdAndConcertId(Long userId, Long concertId);
+
+    void deleteByUserId(Long userId);
 }
