@@ -18,10 +18,13 @@ import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
+import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +50,15 @@ class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserFollowArtistRepository userFollowArtistRepository;
+
+    @Mock
+    private UserConcertCalendarRepository userConcertCalendarRepository;
+
+    @Mock
+    private InquiryRepository inquiryRepository;
 
     private static final Long USER_ID = 1L;
     private static final String REFRESH_TOKEN = "valid-refresh-token";
@@ -147,6 +159,9 @@ class AuthServiceTest {
 
         // then
         assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
+        verify(userFollowArtistRepository).deleteByUserId(USER_ID);
+        verify(userConcertCalendarRepository).deleteByUserId(USER_ID);
+        verify(inquiryRepository).deleteByUserId(USER_ID);
         verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
         verify(tokenRepository).delete(USER_ID);
     }

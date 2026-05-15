@@ -11,9 +11,12 @@ import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
+import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
+import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +32,9 @@ public class AuthService {
     private final TokenRepository tokenRepository;
     private final BlacklistRepository blacklistRepository;
     private final UserRepository userRepository;
+    private final UserFollowArtistRepository userFollowArtistRepository;
+    private final UserConcertCalendarRepository userConcertCalendarRepository;
+    private final InquiryRepository inquiryRepository;
 
     /**
      * Refresh Token을 검증하고 새 Access Token을 발급한다.
@@ -64,6 +70,10 @@ public class AuthService {
      */
     @Transactional
     public void withdraw(String accessToken, Long userId) {
+        userFollowArtistRepository.deleteByUserId(userId);
+        userConcertCalendarRepository.deleteByUserId(userId);
+        inquiryRepository.deleteByUserId(userId);
+
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         user.withdraw();
         userRepository.flush();  // DB 반영 확인 후 Redis 쓰기 — 역순 부분 실패 방지
