@@ -84,3 +84,9 @@ Repository interface와 JpaRepository 확장 구현 모두 각 도메인의 repo
 **필드 매핑**
 - DB snake_case 컬럼은 응답 JSON에서 camelCase로 변환한다.
 - DB 컬럼명과 다른 응답 필드명은 명세의 매핑 테이블을 따른다 (`venue_name` → `venue`).
+
+---
+
+@docs/swagger.md
+
+@docs/javadoc.md
