@@ -13,4 +13,6 @@ public interface UserFollowArtistRepository extends JpaRepository<UserFollowArti
     Optional<UserFollowArtist> findByUserIdAndArtistId(Long userId, Long artistId);
 
     boolean existsByUserIdAndArtistId(Long userId, Long artistId);
+
+    void deleteByUserId(Long userId);
 }
