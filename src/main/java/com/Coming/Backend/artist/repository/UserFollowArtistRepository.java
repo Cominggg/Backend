@@ -15,4 +15,6 @@ public interface UserFollowArtistRepository extends JpaRepository<UserFollowArti
     boolean existsByUserIdAndArtistId(Long userId, Long artistId);
 
     void deleteByUserId(Long userId);
+
+    long countByArtistId(Long artistId);
 }
