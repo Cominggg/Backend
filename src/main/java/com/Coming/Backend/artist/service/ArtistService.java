@@ -10,6 +10,7 @@ import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.ArtistUrlRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
@@ -115,10 +116,11 @@ public class ArtistService {
     }
 
     private static List<ConcertStatus> toStatuses(String tab) {
-        return switch (tab == null ? "all" : tab) {
+        return switch (tab) {
+            case "all" -> null;
             case "upcoming" -> List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
             case "past" -> List.of(ConcertStatus.ENDED, ConcertStatus.CANCELLED);
-            default -> null;
+            default -> throw new InvalidInputException();
         };
     }
 

@@ -17,6 +17,7 @@ import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.ArtistUrlRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
@@ -271,5 +272,16 @@ class ArtistServiceTest {
         assertThatThrownBy(() -> artistService.getArtistConcerts(ARTIST_ID, "all", PAGEABLE))
                 .isInstanceOf(ArtistNotFoundException.class)
                 .hasMessage(ErrorCode.ARTIST_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_tab_is_unknown_value() {
+        // given
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> artistService.getArtistConcerts(ARTIST_ID, "invalid", PAGEABLE))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
     }
 }
