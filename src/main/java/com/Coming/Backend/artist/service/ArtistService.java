@@ -40,6 +40,9 @@ public class ArtistService {
 
     /**
      * 아티스트 목록을 조회한다. name이 있으면 이름 부분 일치 검색을 적용한다.
+     *
+     * @param name   검색 키워드 (null 또는 공백이면 전체 조회)
+     * @param userId 인증된 사용자 ID (null이면 isFollowing 항상 false)
      */
     public PageResponse<ArtistSummaryResponse> getArtists(String name, Pageable pageable, Long userId) {
         Page<Artist> page = (name == null || name.isBlank())
@@ -59,6 +62,8 @@ public class ArtistService {
 
     /**
      * 아티스트 상세 정보를 조회한다.
+     *
+     * @param userId 인증된 사용자 ID (null이면 isFollowing false)
      */
     public ArtistDetailResponse getArtist(Long id, Long userId) {
         Artist artist = artistRepository.findById(id).orElseThrow(ArtistNotFoundException::new);
@@ -82,9 +87,9 @@ public class ArtistService {
     }
 
     /**
-     * 아티스트의 내한 공연 목록을 조회한다. (2020년 이후, tab 필터 적용)
+     * 아티스트의 내한 공연 목록을 조회한다. 2020년 이후 공연만 반환한다.
      *
-     * @param tab 필터 값: all | upcoming | past
+     * @param tab 공연 상태 필터 — all | upcoming | past
      */
     public PageResponse<ArtistConcertResponse> getArtistConcerts(Long artistId, String tab, Pageable pageable) {
         if (!artistRepository.existsById(artistId)) {
