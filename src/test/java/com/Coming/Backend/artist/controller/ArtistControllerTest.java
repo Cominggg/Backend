@@ -4,7 +4,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,7 +16,10 @@ import com.Coming.Backend.artist.dto.ArtistConcertResponse;
 import com.Coming.Backend.artist.dto.ArtistDetailResponse;
 import com.Coming.Backend.artist.dto.ArtistLinkDto;
 import com.Coming.Backend.artist.dto.ArtistSummaryResponse;
+import com.Coming.Backend.artist.dto.FollowingArtistResponse;
+import com.Coming.Backend.artist.exception.AlreadyFollowingException;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.artist.exception.NotFollowingException;
 import com.Coming.Backend.artist.service.ArtistService;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
@@ -179,5 +186,97 @@ class ArtistControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // follow
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_204_when_follow_succeeds() throws Exception {
+        // given
+        doNothing().when(artistService).follow(isNull(), eq(ARTIST_ID));
+
+        // when & then
+        mockMvc.perform(post("/api/artists/{id}/follow", ARTIST_ID)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_404_when_artist_not_found_in_follow() throws Exception {
+        // given
+        doThrow(new ArtistNotFoundException()).when(artistService).follow(isNull(), eq(999L));
+
+        // when & then
+        mockMvc.perform(post("/api/artists/{id}/follow", 999L)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.ARTIST_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void should_return_409_when_already_following() throws Exception {
+        // given
+        doThrow(new AlreadyFollowingException()).when(artistService).follow(isNull(), eq(ARTIST_ID));
+
+        // when & then
+        mockMvc.perform(post("/api/artists/{id}/follow", ARTIST_ID)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(ErrorCode.ALREADY_FOLLOWING.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // unfollow
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_204_when_unfollow_succeeds() throws Exception {
+        // given
+        doNothing().when(artistService).unfollow(isNull(), eq(ARTIST_ID));
+
+        // when & then
+        mockMvc.perform(delete("/api/artists/{id}/follow", ARTIST_ID)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_400_when_not_following() throws Exception {
+        // given
+        doThrow(new NotFollowingException()).when(artistService).unfollow(isNull(), eq(ARTIST_ID));
+
+        // when & then
+        mockMvc.perform(delete("/api/artists/{id}/follow", ARTIST_ID)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.NOT_FOLLOWING.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // getFollowingArtists
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_following_artist_list() throws Exception {
+        // given
+        List<FollowingArtistResponse> following = List.of(
+                new FollowingArtistResponse(ARTIST_ID, "IU", null, true)
+        );
+        given(artistService.getFollowingArtists(isNull())).willReturn(following);
+
+        // when & then
+        mockMvc.perform(get("/api/artists/following")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(ARTIST_ID))
+                .andExpect(jsonPath("$[0].name").value("IU"))
+                .andExpect(jsonPath("$[0].hasUpcomingConcert").value(true));
     }
 }

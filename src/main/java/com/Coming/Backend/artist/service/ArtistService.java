@@ -4,9 +4,12 @@ import com.Coming.Backend.artist.dto.ArtistConcertResponse;
 import com.Coming.Backend.artist.dto.ArtistDetailResponse;
 import com.Coming.Backend.artist.dto.ArtistLinkDto;
 import com.Coming.Backend.artist.dto.ArtistSummaryResponse;
+import com.Coming.Backend.artist.dto.FollowingArtistResponse;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
+import com.Coming.Backend.artist.exception.AlreadyFollowingException;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.artist.exception.NotFollowingException;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.ArtistUrlRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
@@ -109,6 +112,51 @@ public class ArtistService {
                 concert.getVenueName(),
                 toConcertStatusLabel(concert.getStatus())
         )));
+    }
+
+    /**
+     * 아티스트를 팔로우한다. 이미 팔로우 중이면 AlreadyFollowingException을 던진다.
+     */
+    @Transactional
+    public void follow(Long userId, Long artistId) {
+        if (!artistRepository.existsById(artistId)) {
+            throw new ArtistNotFoundException();
+        }
+        if (userFollowArtistRepository.existsByUserIdAndArtistId(userId, artistId)) {
+            throw new AlreadyFollowingException();
+        }
+        userFollowArtistRepository.save(UserFollowArtist.builder()
+                .userId(userId)
+                .artistId(artistId)
+                .build());
+    }
+
+    /**
+     * 아티스트 팔로우를 취소한다. 팔로우 중이 아니면 NotFollowingException을 던진다.
+     */
+    @Transactional
+    public void unfollow(Long userId, Long artistId) {
+        UserFollowArtist follow = userFollowArtistRepository
+                .findByUserIdAndArtistId(userId, artistId)
+                .orElseThrow(NotFollowingException::new);
+        userFollowArtistRepository.delete(follow);
+    }
+
+    /**
+     * 사용자가 팔로우 중인 아티스트 목록을 반환한다.
+     */
+    public List<FollowingArtistResponse> getFollowingArtists(Long userId) {
+        List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
+                .map(UserFollowArtist::getArtistId)
+                .toList();
+        return artistRepository.findAllById(artistIds).stream()
+                .map(artist -> new FollowingArtistResponse(
+                        artist.getId(),
+                        artist.getName(),
+                        null,
+                        artist.isComing()
+                ))
+                .toList();
     }
 
     private Set<Long> resolveFollowingIds(Long userId) {
