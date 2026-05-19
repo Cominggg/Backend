@@ -5,6 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+
+import com.Coming.Backend.artist.dto.FollowingArtistResponse;
+import com.Coming.Backend.artist.exception.AlreadyFollowingException;
+import com.Coming.Backend.artist.exception.NotFollowingException;
 
 import com.Coming.Backend.artist.dto.ArtistConcertResponse;
 import com.Coming.Backend.artist.dto.ArtistDetailResponse;
@@ -283,5 +288,116 @@ class ArtistServiceTest {
         assertThatThrownBy(() -> artistService.getArtistConcerts(ARTIST_ID, "invalid", PAGEABLE))
                 .isInstanceOf(InvalidInputException.class)
                 .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // follow
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_save_follow_when_artist_exists_and_not_following() {
+        // given
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
+        given(userFollowArtistRepository.existsByUserIdAndArtistId(USER_ID, ARTIST_ID)).willReturn(false);
+
+        // when
+        artistService.follow(USER_ID, ARTIST_ID);
+
+        // then
+        verify(userFollowArtistRepository).save(any(UserFollowArtist.class));
+    }
+
+    @Test
+    void should_throw_artist_not_found_when_artist_does_not_exist_in_follow() {
+        // given
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> artistService.follow(USER_ID, ARTIST_ID))
+                .isInstanceOf(ArtistNotFoundException.class)
+                .hasMessage(ErrorCode.ARTIST_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_throw_already_following_when_already_following() {
+        // given
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
+        given(userFollowArtistRepository.existsByUserIdAndArtistId(USER_ID, ARTIST_ID)).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> artistService.follow(USER_ID, ARTIST_ID))
+                .isInstanceOf(AlreadyFollowingException.class)
+                .hasMessage(ErrorCode.ALREADY_FOLLOWING.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // unfollow
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_delete_follow_when_following() {
+        // given
+        UserFollowArtist follow = UserFollowArtist.builder()
+                .userId(USER_ID)
+                .artistId(ARTIST_ID)
+                .build();
+        given(userFollowArtistRepository.findByUserIdAndArtistId(USER_ID, ARTIST_ID))
+                .willReturn(Optional.of(follow));
+
+        // when
+        artistService.unfollow(USER_ID, ARTIST_ID);
+
+        // then
+        verify(userFollowArtistRepository).delete(follow);
+    }
+
+    @Test
+    void should_throw_not_following_when_not_following() {
+        // given
+        given(userFollowArtistRepository.findByUserIdAndArtistId(USER_ID, ARTIST_ID))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> artistService.unfollow(USER_ID, ARTIST_ID))
+                .isInstanceOf(NotFollowingException.class)
+                .hasMessage(ErrorCode.NOT_FOLLOWING.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // getFollowingArtists
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_following_artists() {
+        // given
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        UserFollowArtist follow = UserFollowArtist.builder()
+                .userId(USER_ID)
+                .artistId(ARTIST_ID)
+                .build();
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+
+        // when
+        List<FollowingArtistResponse> response = artistService.getFollowingArtists(USER_ID);
+
+        // then
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).id()).isEqualTo(ARTIST_ID);
+        assertThat(response.get(0).name()).isEqualTo("IU");
+        assertThat(response.get(0).hasUpcomingConcert()).isTrue();
+    }
+
+    @Test
+    void should_return_empty_list_when_not_following_any() {
+        // given
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of());
+        given(artistRepository.findAllById(List.of())).willReturn(List.of());
+
+        // when
+        List<FollowingArtistResponse> response = artistService.getFollowingArtists(USER_ID);
+
+        // then
+        assertThat(response).isEmpty();
     }
 }
