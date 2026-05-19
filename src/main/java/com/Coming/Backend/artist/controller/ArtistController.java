@@ -68,7 +68,7 @@ public class ArtistController {
             @PathVariable Long id,
             @AuthenticationPrincipal Long userId) {
         artistService.follow(userId, id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "아티스트 팔로우 취소")
@@ -78,7 +78,7 @@ public class ArtistController {
             @PathVariable Long id,
             @AuthenticationPrincipal Long userId) {
         artistService.unfollow(userId, id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "팔로잉 아티스트 목록 조회")

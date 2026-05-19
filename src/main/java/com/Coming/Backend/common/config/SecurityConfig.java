@@ -67,6 +67,7 @@ public class SecurityConfig {
                                 "/api/auth/callback/**",
                                 "/api/auth/refresh"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/artists/following").authenticated()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/artists/**",
                                 "/api/concerts/**",

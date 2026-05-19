@@ -200,7 +200,7 @@ class ArtistControllerTest {
         // when & then
         mockMvc.perform(post("/api/artists/{id}/follow", ARTIST_ID)
                         .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -241,7 +241,7 @@ class ArtistControllerTest {
         // when & then
         mockMvc.perform(delete("/api/artists/{id}/follow", ARTIST_ID)
                         .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk());
     }
 
     @Test
