@@ -1,0 +1,183 @@
+package com.Coming.Backend.artist.controller;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.Coming.Backend.artist.dto.ArtistConcertResponse;
+import com.Coming.Backend.artist.dto.ArtistDetailResponse;
+import com.Coming.Backend.artist.dto.ArtistLinkDto;
+import com.Coming.Backend.artist.dto.ArtistSummaryResponse;
+import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.artist.service.ArtistService;
+import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.common.exception.GlobalExceptionHandler;
+import com.Coming.Backend.common.exception.InvalidInputException;
+import com.Coming.Backend.common.response.PageResponse;
+import java.time.LocalDate;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+@ExtendWith(MockitoExtension.class)
+class ArtistControllerTest {
+
+    private MockMvc mockMvc;
+
+    @Mock
+    private ArtistService artistService;
+
+    @InjectMocks
+    private ArtistController artistController;
+
+    private static final Long ARTIST_ID = 1L;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(artistController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .build();
+    }
+
+    // -------------------------------------------------------------------------
+    // getArtists
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_artist_list_when_no_name_filter() throws Exception {
+        // given
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false);
+        PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
+        given(artistService.getArtists(isNull(), any(Pageable.class), isNull()))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/artists").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(ARTIST_ID))
+                .andExpect(jsonPath("$.content[0].name").value("YOASOBI"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(25))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void should_return_200_with_filtered_artist_list_when_name_given() throws Exception {
+        // given
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false);
+        PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
+        given(artistService.getArtists(eq("yoa"), any(Pageable.class), isNull()))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/artists").param("name", "yoa").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("YOASOBI"));
+    }
+
+    // -------------------------------------------------------------------------
+    // getArtist
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_artist_detail_when_artist_exists() throws Exception {
+        // given
+        ArtistDetailResponse detail = new ArtistDetailResponse(
+                ARTIST_ID, "YOASOBI", null, true, false, 500L,
+                LocalDate.of(2019, 9, 10),
+                List.of(new ArtistLinkDto("spotify", "Spotify", "https://spotify.com"))
+        );
+        given(artistService.getArtist(eq(ARTIST_ID), isNull())).willReturn(detail);
+
+        // when & then
+        mockMvc.perform(get("/api/artists/{id}", ARTIST_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(ARTIST_ID))
+                .andExpect(jsonPath("$.name").value("YOASOBI"))
+                .andExpect(jsonPath("$.followersCount").value(500));
+    }
+
+    @Test
+    void should_return_404_when_artist_not_found() throws Exception {
+        // given
+        given(artistService.getArtist(eq(999L), isNull())).willThrow(new ArtistNotFoundException());
+
+        // when & then
+        mockMvc.perform(get("/api/artists/{id}", 999L).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.ARTIST_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // getArtistConcerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_concert_list_when_tab_is_all() throws Exception {
+        // given
+        ArtistConcertResponse concert = new ArtistConcertResponse(
+                1L, "YOASOBI CONCERT",
+                LocalDate.of(2024, 6, 1), LocalDate.of(2024, 6, 3),
+                "올림픽공원", "공연완료"
+        );
+        PageResponse<ArtistConcertResponse> pageResponse = new PageResponse<>(List.of(concert), 0, 10, 1, 1);
+        given(artistService.getArtistConcerts(eq(ARTIST_ID), eq("all"), any(Pageable.class)))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/artists/{id}/concerts", ARTIST_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("YOASOBI CONCERT"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void should_return_404_when_artist_not_found_in_concerts() throws Exception {
+        // given
+        given(artistService.getArtistConcerts(eq(999L), eq("all"), any(Pageable.class)))
+                .willThrow(new ArtistNotFoundException());
+
+        // when & then
+        mockMvc.perform(get("/api/artists/{id}/concerts", 999L).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.ARTIST_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void should_return_400_when_tab_is_invalid() throws Exception {
+        // given
+        given(artistService.getArtistConcerts(eq(ARTIST_ID), eq("invalid"), any(Pageable.class)))
+                .willThrow(new InvalidInputException());
+
+        // when & then
+        mockMvc.perform(get("/api/artists/{id}/concerts", ARTIST_ID)
+                        .param("tab", "invalid")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+}
