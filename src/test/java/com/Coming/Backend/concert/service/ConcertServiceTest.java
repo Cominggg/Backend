@@ -13,7 +13,6 @@ import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
-import com.Coming.Backend.concert.dto.ConcertFilterRequest;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
@@ -103,21 +102,20 @@ class ConcertServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_return_concerts_with_artist_name_when_no_filter_applied() {
+    void should_return_concerts_with_artist_name_when_no_status_filter_applied() {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
         ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
-        ConcertFilterRequest filter = new ConcertFilterRequest(null, null, null, null);
 
-        given(concertRepository.findConcerts(null, null, null, null, PAGEABLE)).willReturn(page);
+        given(concertRepository.findConcerts(null, PAGEABLE)).willReturn(page);
         given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(filter, PAGEABLE);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -131,14 +129,13 @@ class ConcertServiceTest {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
-        ConcertFilterRequest filter = new ConcertFilterRequest(null, null, null, null);
 
-        given(concertRepository.findConcerts(null, null, null, null, PAGEABLE)).willReturn(page);
+        given(concertRepository.findConcerts(null, PAGEABLE)).willReturn(page);
         given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
                 .willReturn(List.of());
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(filter, PAGEABLE);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -146,34 +143,27 @@ class ConcertServiceTest {
     }
 
     @Test
-    void should_pass_filter_params_to_repository_when_filter_is_applied() {
+    void should_pass_status_filter_to_repository_when_status_is_given() {
         // given
-        LocalDate dateFrom = LocalDate.of(2025, 1, 1);
-        LocalDate dateTo = LocalDate.of(2025, 12, 31);
-        ConcertFilterRequest filter = new ConcertFilterRequest(dateFrom, dateTo, ARTIST_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(), PAGEABLE, 0);
-
-        given(concertRepository.findConcerts(dateFrom, dateTo, ARTIST_ID, ConcertStatus.UPCOMING, PAGEABLE))
-                .willReturn(page);
+        given(concertRepository.findConcerts(ConcertStatus.UPCOMING, PAGEABLE)).willReturn(page);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(filter, PAGEABLE);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(ConcertStatus.UPCOMING, PAGEABLE);
 
         // then
-        verify(concertRepository).findConcerts(dateFrom, dateTo, ARTIST_ID, ConcertStatus.UPCOMING, PAGEABLE);
+        verify(concertRepository).findConcerts(ConcertStatus.UPCOMING, PAGEABLE);
         assertThat(response.content()).isEmpty();
     }
 
     @Test
     void should_return_empty_page_when_no_concerts_match_filter() {
         // given
-        ConcertFilterRequest filter = new ConcertFilterRequest(null, null, null, null);
         Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
-
-        given(concertRepository.findConcerts(null, null, null, null, PAGEABLE)).willReturn(emptyPage);
+        given(concertRepository.findConcerts(null, PAGEABLE)).willReturn(emptyPage);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(filter, PAGEABLE);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE);
 
         // then
         assertThat(response.content()).isEmpty();

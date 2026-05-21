@@ -5,8 +5,8 @@ import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
-import com.Coming.Backend.concert.dto.ConcertFilterRequest;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.dto.TicketLinkDto;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
@@ -37,11 +37,12 @@ public class ConcertService {
     private final UserConcertCalendarRepository userConcertCalendarRepository;
 
     /**
-     * 공연 목록을 필터 조건으로 조회한다. 기본 정렬은 startDate asc.
+     * 공연 목록을 status 조건으로 조회한다. 기본 정렬은 startDate desc.
+     *
+     * @param status null이면 전체 조회
      */
-    public PageResponse<ConcertSummaryResponse> getConcerts(ConcertFilterRequest filter, Pageable pageable) {
-        Page<Concert> page = concertRepository.findConcerts(
-                filter.dateFrom(), filter.dateTo(), filter.artistId(), filter.status(), pageable);
+    public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Pageable pageable) {
+        Page<Concert> page = concertRepository.findConcerts(status, pageable);
 
         List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
         Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);

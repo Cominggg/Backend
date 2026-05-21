@@ -25,17 +25,8 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query("SELECT c FROM Concert c WHERE c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId = :artistId) AND c.status IN :statuses AND c.startDate >= :since")
     Page<Concert> findAllByArtistIdAndStatusIn(@Param("artistId") Long artistId, @Param("statuses") List<ConcertStatus> statuses, @Param("since") LocalDate since, Pageable pageable);
 
-    @Query("SELECT c FROM Concert c " +
-           "WHERE (:dateFrom IS NULL OR c.startDate >= :dateFrom) " +
-           "AND (:dateTo IS NULL OR c.endDate <= :dateTo) " +
-           "AND (:artistId IS NULL OR c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId = :artistId)) " +
-           "AND (:status IS NULL OR c.status = :status)")
-    Page<Concert> findConcerts(
-            @Param("dateFrom") LocalDate dateFrom,
-            @Param("dateTo") LocalDate dateTo,
-            @Param("artistId") Long artistId,
-            @Param("status") ConcertStatus status,
-            Pageable pageable);
+    @Query("SELECT c FROM Concert c WHERE (:status IS NULL OR c.status = :status)")
+    Page<Concert> findConcerts(@Param("status") ConcertStatus status, Pageable pageable);
 
     @Modifying
     @Query("UPDATE Concert c SET c.viewCount = c.viewCount + 1 WHERE c.id = :id")

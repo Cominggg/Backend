@@ -2,7 +2,6 @@ package com.Coming.Backend.concert.controller;
 
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
-import com.Coming.Backend.concert.dto.ConcertFilterRequest;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.service.ConcertService;
@@ -21,8 +20,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
-
 @Tag(name = "Concert")
 @RestController
 @RequestMapping("/api/concerts")
@@ -34,13 +31,9 @@ public class ConcertController {
     @Operation(summary = "공연 목록 조회")
     @GetMapping
     public ResponseEntity<PageResponse<ConcertSummaryResponse>> getConcerts(
-            @RequestParam(required = false) LocalDate dateFrom,
-            @RequestParam(required = false) LocalDate dateTo,
-            @RequestParam(required = false) Long artistId,
             @RequestParam(required = false) ConcertStatus status,
-            @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.ASC) Pageable pageable) {
-        ConcertFilterRequest filter = new ConcertFilterRequest(dateFrom, dateTo, artistId, status);
-        return ResponseEntity.ok(concertService.getConcerts(filter, pageable));
+            @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(concertService.getConcerts(status, pageable));
     }
 
     @Operation(summary = "공연 상세 조회")
