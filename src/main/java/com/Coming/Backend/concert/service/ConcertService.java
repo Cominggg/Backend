@@ -1,7 +1,9 @@
 package com.Coming.Backend.concert.service;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
@@ -38,6 +40,7 @@ public class ConcertService {
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
     private final ArtistRepository artistRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
+    private final UserFollowArtistRepository userFollowArtistRepository;
 
     /**
      * 공연 목록을 status 조건으로 조회한다. 기본 정렬은 startDate desc.
@@ -48,25 +51,27 @@ public class ConcertService {
         Page<Concert> page = (status == null)
                 ? concertRepository.findAll(pageable)
                 : concertRepository.findByStatus(status, pageable);
+        List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent());
+        return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
 
-        List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
-        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
-
-        return PageResponse.from(page.map(concert -> {
-            Long artistId = concertToArtistId.get(concert.getId());
-            String artistName = artistId != null ? artistNameMap.get(artistId) : null;
-            return new ConcertSummaryResponse(
-                    concert.getId(),
-                    concert.getPosterUrl(),
-                    artistName,
-                    concert.getTitle(),
-                    concert.getStartDate(),
-                    concert.getEndDate(),
-                    concert.getVenueName(),
-                    concert.getStatus()
-            );
-        }));
+    /**
+     * 팔로우한 아티스트의 공연 목록을 조회한다. 기본 정렬은 startDate DESC.
+     *
+     * @param userId 인증된 사용자 ID
+     * @param status null이면 전체 조회
+     */
+    public List<ConcertSummaryResponse> getFollowingConcerts(Long userId, ConcertStatus status) {
+        List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
+                .map(UserFollowArtist::getArtistId)
+                .toList();
+        if (artistIds.isEmpty()) {
+            return List.of();
+        }
+        List<Concert> concerts = (status == null)
+                ? concertRepository.findAllByArtistIdIn(artistIds)
+                : concertRepository.findAllByArtistIdInAndStatus(artistIds, status);
+        return toConcertSummaryList(concerts);
     }
 
     /**
@@ -100,6 +105,29 @@ public class ConcertService {
                 isInCalendar,
                 buildTicketLinks(id)
         );
+    }
+
+    private List<ConcertSummaryResponse> toConcertSummaryList(List<Concert> concerts) {
+        if (concerts.isEmpty()) {
+            return List.of();
+        }
+        List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
+        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
+        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        return concerts.stream().map(concert -> {
+            Long artistId = concertToArtistId.get(concert.getId());
+            String artistName = artistId != null ? artistNameMap.get(artistId) : null;
+            return new ConcertSummaryResponse(
+                    concert.getId(),
+                    concert.getPosterUrl(),
+                    artistName,
+                    concert.getTitle(),
+                    concert.getStartDate(),
+                    concert.getEndDate(),
+                    concert.getVenueName(),
+                    concert.getStatus()
+            );
+        }).toList();
     }
 
     private String resolveArtistName(Long artistId) {
