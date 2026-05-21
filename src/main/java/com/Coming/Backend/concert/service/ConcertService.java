@@ -82,26 +82,14 @@ public class ConcertService {
         ConcertArtist highConfidenceArtist = concertArtistRepository
                 .findFirstByConcertIdAndConfidence(id, HIGH_CONFIDENCE).orElse(null);
         Long artistId = highConfidenceArtist != null ? highConfidenceArtist.getArtistId() : null;
-        String artistName = artistId != null
-                ? artistRepository.findById(artistId).map(Artist::getName).orElse(null)
-                : null;
-
-        List<TicketLinkDto> ticketLinks = concertBookingLinkRepository.findByConcertId(id).stream()
-                .map(link -> new TicketLinkDto(link.getId(), link.getName(), link.getUrl()))
-                .toList();
-
-        List<String> posterUrls = concert.getPosterUrl() != null
-                ? List.of(concert.getPosterUrl())
-                : List.of();
-
         boolean isInCalendar = userId != null &&
                 userConcertCalendarRepository.existsByUserIdAndConcertId(userId, id);
 
         return new ConcertDetailResponse(
                 concert.getId(),
                 concert.getPosterUrl(),
-                posterUrls,
-                artistName,
+                toPosterUrls(concert.getPosterUrl()),
+                resolveArtistName(artistId),
                 artistId,
                 concert.getTitle(),
                 concert.getStartDate(),
@@ -110,8 +98,25 @@ public class ConcertService {
                 concert.getStatus(),
                 concert.getPrice(),
                 isInCalendar,
-                ticketLinks
+                buildTicketLinks(id)
         );
+    }
+
+    private String resolveArtistName(Long artistId) {
+        if (artistId == null) {
+            return null;
+        }
+        return artistRepository.findById(artistId).map(Artist::getName).orElse(null);
+    }
+
+    private List<TicketLinkDto> buildTicketLinks(Long concertId) {
+        return concertBookingLinkRepository.findByConcertId(concertId).stream()
+                .map(link -> new TicketLinkDto(link.getId(), link.getName(), link.getUrl()))
+                .toList();
+    }
+
+    private List<String> toPosterUrls(String posterUrl) {
+        return posterUrl != null ? List.of(posterUrl) : List.of();
     }
 
     private Map<Long, Long> buildConcertArtistIdMap(List<Long> concertIds) {
