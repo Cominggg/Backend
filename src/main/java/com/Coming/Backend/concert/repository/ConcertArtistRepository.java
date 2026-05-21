@@ -13,4 +13,6 @@ public interface ConcertArtistRepository extends JpaRepository<ConcertArtist, Lo
     List<ConcertArtist> findByArtistId(Long artistId);
 
     Optional<ConcertArtist> findFirstByConcertIdAndConfidence(Long concertId, String confidence);
+
+    List<ConcertArtist> findByConcertIdInAndConfidence(List<Long> concertIds, String confidence);
 }
