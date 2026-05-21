@@ -42,7 +42,9 @@ public class ConcertService {
      * @param status null이면 전체 조회
      */
     public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Pageable pageable) {
-        Page<Concert> page = concertRepository.findConcerts(status, pageable);
+        Page<Concert> page = (status == null)
+                ? concertRepository.findAll(pageable)
+                : concertRepository.findByStatus(status, pageable);
 
         List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
         Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);

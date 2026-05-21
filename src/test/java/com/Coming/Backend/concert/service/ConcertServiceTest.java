@@ -109,7 +109,7 @@ class ConcertServiceTest {
         ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
 
-        given(concertRepository.findConcerts(null, PAGEABLE)).willReturn(page);
+        given(concertRepository.findAll(PAGEABLE)).willReturn(page);
         given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
@@ -130,7 +130,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.findConcerts(null, PAGEABLE)).willReturn(page);
+        given(concertRepository.findAll(PAGEABLE)).willReturn(page);
         given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
                 .willReturn(List.of());
 
@@ -146,13 +146,13 @@ class ConcertServiceTest {
     void should_pass_status_filter_to_repository_when_status_is_given() {
         // given
         Page<Concert> page = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.findConcerts(ConcertStatus.UPCOMING, PAGEABLE)).willReturn(page);
+        given(concertRepository.findByStatus(ConcertStatus.UPCOMING, PAGEABLE)).willReturn(page);
 
         // when
         PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(ConcertStatus.UPCOMING, PAGEABLE);
 
         // then
-        verify(concertRepository).findConcerts(ConcertStatus.UPCOMING, PAGEABLE);
+        verify(concertRepository).findByStatus(ConcertStatus.UPCOMING, PAGEABLE);
         assertThat(response.content()).isEmpty();
     }
 
@@ -160,7 +160,7 @@ class ConcertServiceTest {
     void should_return_empty_page_when_no_concerts_match_filter() {
         // given
         Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.findConcerts(null, PAGEABLE)).willReturn(emptyPage);
+        given(concertRepository.findAll(PAGEABLE)).willReturn(emptyPage);
 
         // when
         PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE);
