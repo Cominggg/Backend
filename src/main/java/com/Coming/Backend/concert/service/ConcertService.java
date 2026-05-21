@@ -51,25 +51,8 @@ public class ConcertService {
         Page<Concert> page = (status == null)
                 ? concertRepository.findAll(pageable)
                 : concertRepository.findByStatus(status, pageable);
-
-        List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
-        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
-
-        return PageResponse.from(page.map(concert -> {
-            Long artistId = concertToArtistId.get(concert.getId());
-            String artistName = artistId != null ? artistNameMap.get(artistId) : null;
-            return new ConcertSummaryResponse(
-                    concert.getId(),
-                    concert.getPosterUrl(),
-                    artistName,
-                    concert.getTitle(),
-                    concert.getStartDate(),
-                    concert.getEndDate(),
-                    concert.getVenueName(),
-                    concert.getStatus()
-            );
-        }));
+        List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent());
+        return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     /**
@@ -85,29 +68,10 @@ public class ConcertService {
         if (artistIds.isEmpty()) {
             return List.of();
         }
-
         List<Concert> concerts = (status == null)
                 ? concertRepository.findAllByArtistIdIn(artistIds)
                 : concertRepository.findAllByArtistIdInAndStatus(artistIds, status);
-
-        List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
-        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
-
-        return concerts.stream().map(concert -> {
-            Long artistId = concertToArtistId.get(concert.getId());
-            String artistName = artistId != null ? artistNameMap.get(artistId) : null;
-            return new ConcertSummaryResponse(
-                    concert.getId(),
-                    concert.getPosterUrl(),
-                    artistName,
-                    concert.getTitle(),
-                    concert.getStartDate(),
-                    concert.getEndDate(),
-                    concert.getVenueName(),
-                    concert.getStatus()
-            );
-        }).toList();
+        return toConcertSummaryList(concerts);
     }
 
     /**
@@ -141,6 +105,29 @@ public class ConcertService {
                 isInCalendar,
                 buildTicketLinks(id)
         );
+    }
+
+    private List<ConcertSummaryResponse> toConcertSummaryList(List<Concert> concerts) {
+        if (concerts.isEmpty()) {
+            return List.of();
+        }
+        List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
+        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
+        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        return concerts.stream().map(concert -> {
+            Long artistId = concertToArtistId.get(concert.getId());
+            String artistName = artistId != null ? artistNameMap.get(artistId) : null;
+            return new ConcertSummaryResponse(
+                    concert.getId(),
+                    concert.getPosterUrl(),
+                    artistName,
+                    concert.getTitle(),
+                    concert.getStartDate(),
+                    concert.getEndDate(),
+                    concert.getVenueName(),
+                    concert.getStatus()
+            );
+        }).toList();
     }
 
     private String resolveArtistName(Long artistId) {
