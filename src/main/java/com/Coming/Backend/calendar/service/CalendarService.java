@@ -39,13 +39,16 @@ public class CalendarService {
     private final UserConcertCalendarRepository userConcertCalendarRepository;
 
     /**
-     * 특정 연·월에 해당하는 전체 공연 목록을 조회한다.
+     * 특정 연·월에 해당하는 전체 공연 목록을 조회한다. 인증된 사용자는 각 공연의 캘린더 추가 여부를 포함한다.
+     *
+     * @param userId 인증된 사용자 ID (null이면 isInCalendar false)
      */
-    public List<CalendarEntryResponse> getCalendar(int year, int month) {
+    public List<CalendarEntryResponse> getCalendar(int year, int month, Long userId) {
         LocalDate firstDay = LocalDate.of(year, month, 1);
         LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
         List<Concert> concerts = concertRepository.findByDateRange(firstDay, lastDay);
-        return toCalendarEntryList(concerts);
+        Set<Long> userCalendarIds = resolveUserCalendarIds(userId, concerts);
+        return toCalendarEntryList(concerts, userCalendarIds);
     }
 
     /**
@@ -53,7 +56,8 @@ public class CalendarService {
      */
     public PageResponse<CalendarEntryResponse> getMyCalendar(Long userId, Pageable pageable) {
         Page<Concert> page = concertRepository.findByUserCalendar(userId, pageable);
-        List<CalendarEntryResponse> content = toCalendarEntryList(page.getContent());
+        Set<Long> allIds = page.getContent().stream().map(Concert::getId).collect(Collectors.toSet());
+        List<CalendarEntryResponse> content = toCalendarEntryList(page.getContent(), allIds);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
@@ -92,7 +96,17 @@ public class CalendarService {
         userConcertCalendarRepository.delete(entry);
     }
 
-    private List<CalendarEntryResponse> toCalendarEntryList(List<Concert> concerts) {
+    private Set<Long> resolveUserCalendarIds(Long userId, List<Concert> concerts) {
+        if (userId == null || concerts.isEmpty()) {
+            return Set.of();
+        }
+        List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
+        return userConcertCalendarRepository.findByUserIdAndConcertIdIn(userId, concertIds).stream()
+                .map(UserConcertCalendar::getConcertId)
+                .collect(Collectors.toSet());
+    }
+
+    private List<CalendarEntryResponse> toCalendarEntryList(List<Concert> concerts, Set<Long> userCalendarIds) {
         if (concerts.isEmpty()) {
             return List.of();
         }
@@ -110,7 +124,8 @@ public class CalendarService {
                     concert.getEndDate(),
                     concert.getStatus().toDisplayName(),
                     concert.getPosterUrl(),
-                    concert.getVenueName()
+                    concert.getVenueName(),
+                    userCalendarIds.contains(concert.getId())
             );
         }).toList();
     }

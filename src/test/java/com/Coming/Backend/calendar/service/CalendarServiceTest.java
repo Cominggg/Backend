@@ -111,9 +111,11 @@ class CalendarServiceTest {
         given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
+        given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
+                .willReturn(List.of());
 
         // when
-        List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8);
+        List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8, USER_ID);
 
         // then
         assertThat(result).hasSize(1);
@@ -121,6 +123,43 @@ class CalendarServiceTest {
         assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
         assertThat(result.get(0).status()).isEqualTo("공연예정");
         assertThat(result.get(0).venue()).isEqualTo("KSPO DOME, 서울");
+        assertThat(result.get(0).isInCalendar()).isFalse();
+    }
+
+    @Test
+    void should_return_is_in_calendar_true_when_user_has_concert_in_calendar() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID);
+        UserConcertCalendar entry = UserConcertCalendar.builder()
+                .userId(USER_ID).concertId(CONCERT_ID).build();
+
+        given(concertRepository.findByDateRange(any(), any())).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of());
+        given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
+                .willReturn(List.of(entry));
+
+        // when
+        List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8, USER_ID);
+
+        // then
+        assertThat(result.get(0).isInCalendar()).isTrue();
+    }
+
+    @Test
+    void should_return_is_in_calendar_false_when_user_is_not_authenticated() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID);
+
+        given(concertRepository.findByDateRange(any(), any())).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of());
+
+        // when
+        List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8, null);
+
+        // then
+        assertThat(result.get(0).isInCalendar()).isFalse();
     }
 
     @Test
@@ -129,7 +168,7 @@ class CalendarServiceTest {
         given(concertRepository.findByDateRange(any(), any())).willReturn(List.of());
 
         // when
-        List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8);
+        List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8, null);
 
         // then
         assertThat(result).isEmpty();
@@ -159,6 +198,7 @@ class CalendarServiceTest {
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0).concertId()).isEqualTo(CONCERT_ID);
         assertThat(result.content().get(0).artistName()).isEqualTo("YOASOBI");
+        assertThat(result.content().get(0).isInCalendar()).isTrue();
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.page()).isZero();
         assertThat(result.size()).isEqualTo(10);

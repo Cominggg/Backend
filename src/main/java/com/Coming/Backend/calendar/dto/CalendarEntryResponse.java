@@ -10,6 +10,7 @@ public record CalendarEntryResponse(
         LocalDate endDate,
         String status,
         String posterUrl,
-        String venue
+        String venue,
+        boolean isInCalendar
 ) {
 }

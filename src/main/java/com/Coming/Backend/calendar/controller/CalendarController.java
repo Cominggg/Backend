@@ -35,8 +35,9 @@ public class CalendarController {
     @GetMapping
     public ResponseEntity<List<CalendarEntryResponse>> getCalendar(
             @RequestParam int year,
-            @RequestParam int month) {
-        return ResponseEntity.ok(calendarService.getCalendar(year, month));
+            @RequestParam int month,
+            @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(calendarService.getCalendar(year, month, userId));
     }
 
     @Operation(summary = "내 캘린더 목록 조회")
