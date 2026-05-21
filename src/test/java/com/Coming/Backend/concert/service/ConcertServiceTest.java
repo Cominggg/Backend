@@ -8,7 +8,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
@@ -57,6 +59,9 @@ class ConcertServiceTest {
 
     @Mock
     private UserConcertCalendarRepository userConcertCalendarRepository;
+
+    @Mock
+    private UserFollowArtistRepository userFollowArtistRepository;
 
     private static final Long CONCERT_ID = 1L;
     private static final Long ARTIST_ID = 10L;
@@ -270,6 +275,81 @@ class ConcertServiceTest {
         // then
         assertThat(response.posterUrls()).isEmpty();
         assertThat(response.thumbnailUrl()).isNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // getFollowingConcerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_empty_list_when_user_follows_no_artists() {
+        // given
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, null);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_return_all_concerts_when_status_is_null() {
+        // given
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
+        Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
+
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(any())).willReturn(List.of(artist));
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, null);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
+        assertThat(result.get(0).status()).isEqualTo(ConcertStatus.UPCOMING);
+    }
+
+    @Test
+    void should_return_filtered_concerts_when_status_is_given() {
+        // given
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(concertRepository.findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING))
+                .willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, ConcertStatus.ONGOING);
+
+        // then
+        verify(concertRepository).findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING);
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_return_null_artist_name_when_no_high_confidence_match_in_following_concerts() {
+        // given
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, null);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).artistName()).isNull();
     }
 
     @Test
