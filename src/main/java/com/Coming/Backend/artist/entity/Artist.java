@@ -42,4 +42,9 @@ public class Artist extends BaseTimeEntity {
     @Column(name = "is_coming", nullable = false)
     private boolean isComing;
 
+    public void update(String name, String sortName, LocalDate debutDate) {
+        if (name != null) this.name = name;
+        if (sortName != null) this.sortName = sortName;
+        if (debutDate != null) this.debutDate = debutDate;
+    }
 }
