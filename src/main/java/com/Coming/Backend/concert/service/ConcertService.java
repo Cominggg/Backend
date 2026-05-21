@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +30,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ConcertService {
+
+    private static final String HIGH_CONFIDENCE = "HIGH";
 
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -48,7 +51,7 @@ public class ConcertService {
 
         List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
         Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new java.util.HashSet<>(concertToArtistId.values()));
+        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
 
         return PageResponse.from(page.map(concert -> {
             Long artistId = concertToArtistId.get(concert.getId());
@@ -77,7 +80,7 @@ public class ConcertService {
         concertRepository.incrementViewCount(id);
 
         ConcertArtist highConfidenceArtist = concertArtistRepository
-                .findFirstByConcertIdAndConfidence(id, "HIGH").orElse(null);
+                .findFirstByConcertIdAndConfidence(id, HIGH_CONFIDENCE).orElse(null);
         Long artistId = highConfidenceArtist != null ? highConfidenceArtist.getArtistId() : null;
         String artistName = artistId != null
                 ? artistRepository.findById(artistId).map(Artist::getName).orElse(null)
@@ -115,7 +118,7 @@ public class ConcertService {
         if (concertIds.isEmpty()) {
             return Map.of();
         }
-        return concertArtistRepository.findByConcertIdInAndConfidence(concertIds, "HIGH").stream()
+        return concertArtistRepository.findByConcertIdInAndConfidence(concertIds, HIGH_CONFIDENCE).stream()
                 .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId));
     }
 
