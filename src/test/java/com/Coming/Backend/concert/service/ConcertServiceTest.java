@@ -11,6 +11,7 @@ import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
+import com.Coming.Backend.calendar.entity.UserConcertCalendar;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
@@ -120,7 +121,7 @@ class ConcertServiceTest {
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -140,7 +141,7 @@ class ConcertServiceTest {
                 .willReturn(List.of());
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -154,7 +155,7 @@ class ConcertServiceTest {
         given(concertRepository.findByStatus(ConcertStatus.UPCOMING, PAGEABLE)).willReturn(page);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(ConcertStatus.UPCOMING, PAGEABLE);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(ConcertStatus.UPCOMING, PAGEABLE, null);
 
         // then
         verify(concertRepository).findByStatus(ConcertStatus.UPCOMING, PAGEABLE);
@@ -168,7 +169,7 @@ class ConcertServiceTest {
         given(concertRepository.findAll(PAGEABLE)).willReturn(emptyPage);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).isEmpty();
@@ -306,6 +307,8 @@ class ConcertServiceTest {
         given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
+        given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
+                .willReturn(List.of());
 
         // when
         List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, null);
@@ -343,6 +346,8 @@ class ConcertServiceTest {
         given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
                 .willReturn(List.of());
+        given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
+                .willReturn(List.of());
 
         // when
         List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, null);
@@ -350,6 +355,78 @@ class ConcertServiceTest {
         // then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).artistName()).isNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // getConcerts — isInCalendar
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_is_in_calendar_true_when_authenticated_user_has_concert_in_calendar() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+        UserConcertCalendar calendarEntry = UserConcertCalendar.builder()
+                .userId(USER_ID)
+                .concertId(CONCERT_ID)
+                .build();
+
+        given(concertRepository.findAll(PAGEABLE)).willReturn(page);
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of());
+        given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
+                .willReturn(List.of(calendarEntry));
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, USER_ID);
+
+        // then
+        assertThat(response.content().get(0).isInCalendar()).isTrue();
+    }
+
+    @Test
+    void should_return_is_in_calendar_false_when_user_id_is_null_in_concert_list() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+
+        given(concertRepository.findAll(PAGEABLE)).willReturn(page);
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of());
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, null);
+
+        // then
+        assertThat(response.content().get(0).isInCalendar()).isFalse();
+    }
+
+    // -------------------------------------------------------------------------
+    // getFollowingConcerts — isInCalendar
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_is_in_calendar_true_when_following_concert_is_in_calendar() {
+        // given
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        UserConcertCalendar calendarEntry = UserConcertCalendar.builder()
+                .userId(USER_ID)
+                .concertId(CONCERT_ID)
+                .build();
+
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of());
+        given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
+                .willReturn(List.of(calendarEntry));
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, null);
+
+        // then
+        assertThat(result.get(0).isInCalendar()).isTrue();
     }
 
     @Test
