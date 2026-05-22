@@ -51,6 +51,7 @@ class ConcertStatusConverterTest {
     void should_throw_illegal_argument_exception_when_unknown_db_value_given() {
         // when & then
         assertThatThrownBy(() -> converter.convertToEntityAttribute("UNKNOWN"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unknown ConcertStatus value: UNKNOWN");
     }
 }

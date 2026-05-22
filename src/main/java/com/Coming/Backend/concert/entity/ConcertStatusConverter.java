@@ -13,6 +13,10 @@ public class ConcertStatusConverter implements AttributeConverter<ConcertStatus,
 
     @Override
     public ConcertStatus convertToEntityAttribute(String dbValue) {
-        return ConcertStatus.valueOf(dbValue);
+        try {
+            return ConcertStatus.valueOf(dbValue);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Unknown ConcertStatus value: " + dbValue, e);
+        }
     }
 }
