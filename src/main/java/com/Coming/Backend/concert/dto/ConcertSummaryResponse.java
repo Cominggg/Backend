@@ -12,6 +12,7 @@ public record ConcertSummaryResponse(
         LocalDate startDate,
         LocalDate endDate,
         String venue,
-        ConcertStatus status
+        ConcertStatus status,
+        boolean isInCalendar
 ) {
 }

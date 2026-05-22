@@ -4,6 +4,7 @@ import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
+import com.Coming.Backend.calendar.entity.UserConcertCalendar;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
@@ -46,12 +47,13 @@ public class ConcertService {
      * 공연 목록을 status 조건으로 조회한다. 기본 정렬은 startDate desc.
      *
      * @param status null이면 전체 조회
+     * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
-    public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Pageable pageable) {
+    public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Pageable pageable, Long userId) {
         Page<Concert> page = (status == null)
                 ? concertRepository.findAll(pageable)
                 : concertRepository.findByStatus(status, pageable);
-        List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent());
+        List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
@@ -71,7 +73,7 @@ public class ConcertService {
         List<Concert> concerts = (status == null)
                 ? concertRepository.findAllByArtistIdIn(artistIds)
                 : concertRepository.findAllByArtistIdInAndStatus(artistIds, status);
-        return toConcertSummaryList(concerts);
+        return toConcertSummaryList(concerts, userId);
     }
 
     /**
@@ -107,13 +109,14 @@ public class ConcertService {
         );
     }
 
-    private List<ConcertSummaryResponse> toConcertSummaryList(List<Concert> concerts) {
+    private List<ConcertSummaryResponse> toConcertSummaryList(List<Concert> concerts, Long userId) {
         if (concerts.isEmpty()) {
             return List.of();
         }
         List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
         Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
         Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        Set<Long> calendarConcertIds = buildCalendarConcertIds(userId, concertIds);
         return concerts.stream().map(concert -> {
             Long artistId = concertToArtistId.get(concert.getId());
             String artistName = artistId != null ? artistNameMap.get(artistId) : null;
@@ -125,9 +128,19 @@ public class ConcertService {
                     concert.getStartDate(),
                     concert.getEndDate(),
                     concert.getVenueName(),
-                    concert.getStatus()
+                    concert.getStatus(),
+                    calendarConcertIds.contains(concert.getId())
             );
         }).toList();
+    }
+
+    private Set<Long> buildCalendarConcertIds(Long userId, List<Long> concertIds) {
+        if (userId == null) {
+            return Set.of();
+        }
+        return userConcertCalendarRepository.findByUserIdAndConcertIdIn(userId, concertIds).stream()
+                .map(UserConcertCalendar::getConcertId)
+                .collect(Collectors.toSet());
     }
 
     private String resolveArtistName(Long artistId) {
