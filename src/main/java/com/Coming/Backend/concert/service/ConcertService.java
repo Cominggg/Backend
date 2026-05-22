@@ -116,11 +116,7 @@ public class ConcertService {
         List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
         Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
         Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
-        Set<Long> calendarConcertIds = userId != null
-                ? userConcertCalendarRepository.findByUserIdAndConcertIdIn(userId, concertIds).stream()
-                        .map(UserConcertCalendar::getConcertId)
-                        .collect(Collectors.toSet())
-                : Set.of();
+        Set<Long> calendarConcertIds = buildCalendarConcertIds(userId, concertIds);
         return concerts.stream().map(concert -> {
             Long artistId = concertToArtistId.get(concert.getId());
             String artistName = artistId != null ? artistNameMap.get(artistId) : null;
@@ -136,6 +132,15 @@ public class ConcertService {
                     calendarConcertIds.contains(concert.getId())
             );
         }).toList();
+    }
+
+    private Set<Long> buildCalendarConcertIds(Long userId, List<Long> concertIds) {
+        if (userId == null) {
+            return Set.of();
+        }
+        return userConcertCalendarRepository.findByUserIdAndConcertIdIn(userId, concertIds).stream()
+                .map(UserConcertCalendar::getConcertId)
+                .collect(Collectors.toSet());
     }
 
     private String resolveArtistName(Long artistId) {
