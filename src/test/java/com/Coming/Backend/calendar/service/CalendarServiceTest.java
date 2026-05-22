@@ -121,7 +121,7 @@ class CalendarServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).concertId()).isEqualTo(CONCERT_ID);
         assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
-        assertThat(result.get(0).status()).isEqualTo("공연예정");
+        assertThat(result.get(0).status()).isEqualTo("UPCOMING");
         assertThat(result.get(0).venue()).isEqualTo("KSPO DOME, 서울");
         assertThat(result.get(0).isInCalendar()).isFalse();
     }
