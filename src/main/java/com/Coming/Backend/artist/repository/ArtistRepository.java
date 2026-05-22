@@ -11,13 +11,23 @@ public interface ArtistRepository extends JpaRepository<Artist, Long> {
 
     boolean existsByMbid(String mbid);
 
-    @Query("""
-            SELECT DISTINCT a FROM Artist a
-            WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%'))
-               OR a.id IN (
-                   SELECT al.artistId FROM ArtistAlias al
-                   WHERE LOWER(al.name) LIKE LOWER(CONCAT('%', :name, '%'))
-               )
-            """)
+    @Query(
+            value = """
+                    SELECT DISTINCT a FROM Artist a
+                    WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%'))
+                       OR a.id IN (
+                           SELECT al.artistId FROM ArtistAlias al
+                           WHERE LOWER(al.name) LIKE LOWER(CONCAT('%', :name, '%'))
+                       )
+                    """,
+            countQuery = """
+                    SELECT COUNT(DISTINCT a) FROM Artist a
+                    WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%'))
+                       OR a.id IN (
+                           SELECT al.artistId FROM ArtistAlias al
+                           WHERE LOWER(al.name) LIKE LOWER(CONCAT('%', :name, '%'))
+                       )
+                    """
+    )
     Page<Artist> findByNameOrAliasContainingIgnoreCase(@Param("name") String name, Pageable pageable);
 }
