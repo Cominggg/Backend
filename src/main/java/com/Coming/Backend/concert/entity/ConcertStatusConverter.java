@@ -8,17 +8,11 @@ public class ConcertStatusConverter implements AttributeConverter<ConcertStatus,
 
     @Override
     public String convertToDatabaseColumn(ConcertStatus status) {
-        return status.toDisplayName();
+        return status.name();
     }
 
     @Override
     public ConcertStatus convertToEntityAttribute(String dbValue) {
-        return switch (dbValue) {
-            case "공연예정" -> ConcertStatus.UPCOMING;
-            case "공연중" -> ConcertStatus.ONGOING;
-            case "공연완료" -> ConcertStatus.ENDED;
-            case "공연취소" -> ConcertStatus.CANCELLED;
-            default -> throw new IllegalArgumentException("Unknown ConcertStatus value: " + dbValue);
-        };
+        return ConcertStatus.valueOf(dbValue);
     }
 }
