@@ -50,7 +50,7 @@ public class ArtistService {
     public PageResponse<ArtistSummaryResponse> getArtists(String name, Pageable pageable, Long userId) {
         Page<Artist> page = (name == null || name.isBlank())
                 ? artistRepository.findAll(pageable)
-                : artistRepository.findByNameContainingIgnoreCase(name, pageable);
+                : artistRepository.findByNameOrAliasContainingIgnoreCase(name, pageable);
 
         Set<Long> followingIds = resolveFollowingIds(userId);
 
