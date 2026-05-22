@@ -15,6 +15,7 @@ import com.Coming.Backend.inquiry.entity.Inquiry;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
+import com.Coming.Backend.inquiry.exception.InvalidInquiryStatusException;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -102,6 +103,9 @@ public class AdminService {
      */
     @Transactional
     public void updateInquiryStatus(Long id, AdminInquiryStatusUpdateRequest request) {
+        if (request.status() == InquiryStatus.PENDING) {
+            throw new InvalidInquiryStatusException();
+        }
         Inquiry inquiry = inquiryRepository.findById(id)
                 .orElseThrow(InquiryNotFoundException::new);
         inquiry.updateStatus(request.status(), request.adminNote());

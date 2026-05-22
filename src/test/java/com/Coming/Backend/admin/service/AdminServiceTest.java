@@ -17,6 +17,7 @@ import com.Coming.Backend.inquiry.entity.Inquiry;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
+import com.Coming.Backend.inquiry.exception.InvalidInquiryStatusException;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -337,5 +338,15 @@ class AdminServiceTest {
         // when & then
         assertThatThrownBy(() -> adminService.updateInquiryStatus(999L, request))
                 .isInstanceOf(InquiryNotFoundException.class);
+    }
+
+    @Test
+    void should_throw_invalid_inquiry_status_when_status_is_pending() {
+        // given
+        AdminInquiryStatusUpdateRequest request = new AdminInquiryStatusUpdateRequest(InquiryStatus.PENDING, null);
+
+        // when & then
+        assertThatThrownBy(() -> adminService.updateInquiryStatus(INQUIRY_ID, request))
+                .isInstanceOf(InvalidInquiryStatusException.class);
     }
 }
