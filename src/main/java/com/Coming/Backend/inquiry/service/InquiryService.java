@@ -35,8 +35,8 @@ public class InquiryService {
     public void createInquiry(Long userId, InquiryCreateRequest request) {
         validateTargetExists(request.type(), request.targetId());
 
-        if (inquiryRepository.existsByTargetIdAndTypeAndStatus(
-                request.targetId(), request.type(), InquiryStatus.PENDING)) {
+        if (inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(
+                userId, request.targetId(), request.type(), InquiryStatus.PENDING)) {
             throw new InquiryAlreadyPendingException();
         }
 

@@ -80,7 +80,7 @@ class InquiryServiceTest {
         InquiryCreateRequest request = new InquiryCreateRequest(
                 InquiryType.CONCERT, TARGET_ID, "공연 정보 오류 신고", "공연 날짜가 잘못 표기되어 있습니다.");
         given(concertRepository.existsById(TARGET_ID)).willReturn(true);
-        given(inquiryRepository.existsByTargetIdAndTypeAndStatus(TARGET_ID, InquiryType.CONCERT, InquiryStatus.PENDING))
+        given(inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(USER_ID, TARGET_ID, InquiryType.CONCERT, InquiryStatus.PENDING))
                 .willReturn(false);
 
         // when
@@ -96,7 +96,7 @@ class InquiryServiceTest {
         InquiryCreateRequest request = new InquiryCreateRequest(
                 InquiryType.ARTIST, TARGET_ID, "아티스트 정보 오류 신고", "아티스트 이름이 잘못되어 있습니다.");
         given(artistRepository.existsById(TARGET_ID)).willReturn(true);
-        given(inquiryRepository.existsByTargetIdAndTypeAndStatus(TARGET_ID, InquiryType.ARTIST, InquiryStatus.PENDING))
+        given(inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(USER_ID, TARGET_ID, InquiryType.ARTIST, InquiryStatus.PENDING))
                 .willReturn(false);
 
         // when
@@ -112,7 +112,7 @@ class InquiryServiceTest {
         InquiryCreateRequest request = new InquiryCreateRequest(
                 InquiryType.SETLIST, TARGET_ID, "셋리스트 정보 오류 신고", "셋리스트가 누락되어 있습니다.");
         given(concertRepository.existsById(TARGET_ID)).willReturn(true);
-        given(inquiryRepository.existsByTargetIdAndTypeAndStatus(TARGET_ID, InquiryType.SETLIST, InquiryStatus.PENDING))
+        given(inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(USER_ID, TARGET_ID, InquiryType.SETLIST, InquiryStatus.PENDING))
                 .willReturn(false);
 
         // when
@@ -155,7 +155,7 @@ class InquiryServiceTest {
         InquiryCreateRequest request = new InquiryCreateRequest(
                 InquiryType.CONCERT, TARGET_ID, "공연 정보 오류 신고", "공연 날짜가 잘못 표기되어 있습니다.");
         given(concertRepository.existsById(TARGET_ID)).willReturn(true);
-        given(inquiryRepository.existsByTargetIdAndTypeAndStatus(TARGET_ID, InquiryType.CONCERT, InquiryStatus.PENDING))
+        given(inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(USER_ID, TARGET_ID, InquiryType.CONCERT, InquiryStatus.PENDING))
                 .willReturn(true);
 
         // when & then

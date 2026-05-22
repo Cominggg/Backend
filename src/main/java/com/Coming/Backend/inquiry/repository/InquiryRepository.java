@@ -17,7 +17,7 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
 
     Optional<Inquiry> findByIdAndUserId(Long id, Long userId);
 
-    boolean existsByTargetIdAndTypeAndStatus(Long targetId, InquiryType type, InquiryStatus status);
+    boolean existsByUserIdAndTargetIdAndTypeAndStatus(Long userId, Long targetId, InquiryType type, InquiryStatus status);
 
     void deleteByUserId(Long userId);
 }
