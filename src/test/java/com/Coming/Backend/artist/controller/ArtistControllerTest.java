@@ -25,6 +25,9 @@ import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
+import com.Coming.Backend.release.dto.TrackDto;
+import com.Coming.Backend.release.service.ReleaseService;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +49,9 @@ class ArtistControllerTest {
 
     @Mock
     private ArtistService artistService;
+
+    @Mock
+    private ReleaseService releaseService;
 
     @InjectMocks
     private ArtistController artistController;
@@ -254,6 +260,49 @@ class ArtistControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.NOT_FOLLOWING.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // getArtistReleases
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_artist_releases_when_no_type_filter() throws Exception {
+        // given
+        TrackDto track = new TrackDto(1, "Idol", 210000);
+        ArtistReleaseItemResponse item = new ArtistReleaseItemResponse(
+                1L, "LILAC", "ALBUM", LocalDate.of(2021, 3, 25),
+                "https://cover.example.com/1", List.of(track)
+        );
+        PageResponse<ArtistReleaseItemResponse> pageResponse =
+                new PageResponse<>(List.of(item), 0, 10, 1, 1);
+        given(releaseService.getArtistReleases(eq(ARTIST_ID), eq(List.of()), any(Pageable.class)))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/artists/{id}/releases", ARTIST_ID)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("LILAC"))
+                .andExpect(jsonPath("$.content[0].tracks").isArray())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void should_return_404_when_artist_not_found_in_getArtistReleases() throws Exception {
+        // given
+        given(releaseService.getArtistReleases(eq(999L), eq(List.of()), any(Pageable.class)))
+                .willThrow(new ArtistNotFoundException());
+
+        // when & then
+        mockMvc.perform(get("/api/artists/{id}/releases", 999L)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.ARTIST_NOT_FOUND.name()))
                 .andExpect(jsonPath("$.message").exists());
     }
 
