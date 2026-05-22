@@ -20,4 +20,10 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
     boolean existsByUserIdAndTargetIdAndTypeAndStatus(Long userId, Long targetId, InquiryType type, InquiryStatus status);
 
     void deleteByUserId(Long userId);
+
+    Page<Inquiry> findAllByType(InquiryType type, Pageable pageable);
+
+    Page<Inquiry> findAllByStatus(InquiryStatus status, Pageable pageable);
+
+    Page<Inquiry> findAllByTypeAndStatus(InquiryType type, InquiryStatus status, Pageable pageable);
 }
