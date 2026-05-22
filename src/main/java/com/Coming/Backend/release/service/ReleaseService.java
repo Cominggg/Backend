@@ -9,6 +9,7 @@ import com.Coming.Backend.release.dto.ReleaseDetailResponse;
 import com.Coming.Backend.release.dto.ReleaseListItemResponse;
 import com.Coming.Backend.release.dto.TrackDto;
 import com.Coming.Backend.release.entity.ReleaseGroup;
+import com.Coming.Backend.release.entity.Track;
 import com.Coming.Backend.release.exception.ReleaseNotFoundException;
 import com.Coming.Backend.release.repository.ReleaseGroupRepository;
 import com.Coming.Backend.release.repository.TrackRepository;
@@ -46,11 +47,17 @@ public class ReleaseService {
                 ? releaseGroupRepository.findByArtistId(artistId, pageable)
                 : releaseGroupRepository.findByArtistIdAndTypeIn(artistId, types, pageable);
 
-        return PageResponse.from(page.map(release -> {
-            List<TrackDto> tracks = trackRepository.findByReleaseGroupIdOrderByPosition(release.getId())
-                    .stream().map(TrackDto::from).toList();
-            return ArtistReleaseItemResponse.of(release, tracks);
-        }));
+        Set<Long> releaseIds = page.stream().map(ReleaseGroup::getId).collect(Collectors.toSet());
+        Map<Long, List<TrackDto>> trackMap = trackRepository.findByReleaseGroupIdInOrderByPosition(releaseIds)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        Track::getReleaseGroupId,
+                        Collectors.mapping(TrackDto::from, Collectors.toList())
+                ));
+
+        return PageResponse.from(page.map(release ->
+                ArtistReleaseItemResponse.of(release, trackMap.getOrDefault(release.getId(), List.of()))
+        ));
     }
 
     /**

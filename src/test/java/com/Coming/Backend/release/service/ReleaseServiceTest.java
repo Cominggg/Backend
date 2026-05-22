@@ -98,7 +98,7 @@ class ReleaseServiceTest {
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
         given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
         given(releaseGroupRepository.findByArtistId(ARTIST_ID, PAGEABLE)).willReturn(page);
-        given(trackRepository.findByReleaseGroupIdOrderByPosition(RELEASE_ID)).willReturn(List.of());
+        given(trackRepository.findByReleaseGroupIdInOrderByPosition(Set.of(RELEASE_ID))).willReturn(List.of());
 
         // when
         PageResponse<ArtistReleaseItemResponse> response =
@@ -117,7 +117,7 @@ class ReleaseServiceTest {
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
         given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
         given(releaseGroupRepository.findByArtistIdAndTypeIn(ARTIST_ID, types, PAGEABLE)).willReturn(page);
-        given(trackRepository.findByReleaseGroupIdOrderByPosition(RELEASE_ID)).willReturn(List.of());
+        given(trackRepository.findByReleaseGroupIdInOrderByPosition(Set.of(RELEASE_ID))).willReturn(List.of());
 
         // when
         PageResponse<ArtistReleaseItemResponse> response =
@@ -137,7 +137,7 @@ class ReleaseServiceTest {
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
         given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
         given(releaseGroupRepository.findByArtistId(ARTIST_ID, PAGEABLE)).willReturn(page);
-        given(trackRepository.findByReleaseGroupIdOrderByPosition(RELEASE_ID))
+        given(trackRepository.findByReleaseGroupIdInOrderByPosition(Set.of(RELEASE_ID)))
                 .willReturn(List.of(track1, track2));
 
         // when
