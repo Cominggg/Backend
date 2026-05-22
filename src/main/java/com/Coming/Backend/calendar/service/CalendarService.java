@@ -122,7 +122,7 @@ public class CalendarService {
                     concert.getTitle(),
                     concert.getStartDate(),
                     concert.getEndDate(),
-                    concert.getStatus().toDisplayName(),
+                    concert.getStatus().name(),
                     concert.getPosterUrl(),
                     concert.getVenueName(),
                     userCalendarIds.contains(concert.getId())
