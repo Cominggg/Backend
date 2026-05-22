@@ -6,11 +6,14 @@ import com.Coming.Backend.artist.dto.ArtistSummaryResponse;
 import com.Coming.Backend.artist.dto.FollowingArtistResponse;
 import com.Coming.Backend.artist.service.ArtistService;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
+import com.Coming.Backend.release.service.ReleaseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,6 +34,7 @@ import java.util.List;
 public class ArtistController {
 
     private final ArtistService artistService;
+    private final ReleaseService releaseService;
 
     @Operation(summary = "아티스트 목록 조회")
     @GetMapping
@@ -48,6 +52,17 @@ public class ArtistController {
             @PathVariable Long id,
             @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(artistService.getArtist(id, userId));
+    }
+
+    @Operation(summary = "아티스트 디스코그래피 조회")
+    @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND")
+    @GetMapping("/{id}/releases")
+    public ResponseEntity<PageResponse<ArtistReleaseItemResponse>> getArtistReleases(
+            @PathVariable Long id,
+            @RequestParam(required = false) List<String> type,
+            @PageableDefault(size = 10, sort = "firstReleaseDate", direction = Sort.Direction.DESC) Pageable pageable) {
+        List<String> types = type != null ? type : List.of();
+        return ResponseEntity.ok(releaseService.getArtistReleases(id, types, pageable));
     }
 
     @Operation(summary = "아티스트 공연 내역 조회")
