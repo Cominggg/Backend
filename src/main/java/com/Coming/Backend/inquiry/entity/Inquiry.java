@@ -49,4 +49,9 @@ public class Inquiry extends BaseTimeEntity {
 
     @Column(name = "admin_note", columnDefinition = "text")
     private String adminNote;
+
+    public void updateStatus(InquiryStatus status, String adminNote) {
+        this.status = status;
+        this.adminNote = adminNote;
+    }
 }
