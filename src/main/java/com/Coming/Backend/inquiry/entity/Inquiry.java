@@ -34,11 +34,8 @@ public class Inquiry extends BaseTimeEntity {
     @Column(name = "type", nullable = false, length = 20)
     private InquiryType type;
 
-    @Column(name = "concert_id")
-    private Long concertId;
-
-    @Column(name = "artist_id")
-    private Long artistId;
+    @Column(name = "target_id", nullable = false)
+    private Long targetId;
 
     @Column(name = "title", nullable = false, length = 255)
     private String title;

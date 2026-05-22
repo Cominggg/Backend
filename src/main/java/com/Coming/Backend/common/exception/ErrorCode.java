@@ -35,6 +35,8 @@ public enum ErrorCode {
 
     // Inquiry
     INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 문의입니다."),
+    INQUIRY_ALREADY_PENDING(HttpStatus.CONFLICT, "이미 처리 중인 문의가 존재합니다."),
+    TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 대상입니다."),
 
     // Common
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),
