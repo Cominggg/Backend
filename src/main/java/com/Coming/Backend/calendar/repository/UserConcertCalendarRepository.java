@@ -17,4 +17,6 @@ public interface UserConcertCalendarRepository extends JpaRepository<UserConcert
     List<UserConcertCalendar> findByUserIdAndConcertIdIn(Long userId, List<Long> concertIds);
 
     void deleteByUserId(Long userId);
+
+    void deleteByConcertId(Long concertId);
 }

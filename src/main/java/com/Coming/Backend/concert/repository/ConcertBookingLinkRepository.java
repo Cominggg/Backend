@@ -8,4 +8,6 @@ import java.util.List;
 public interface ConcertBookingLinkRepository extends JpaRepository<ConcertBookingLink, Long> {
 
     List<ConcertBookingLink> findByConcertId(Long concertId);
+
+    void deleteByConcertId(Long concertId);
 }
