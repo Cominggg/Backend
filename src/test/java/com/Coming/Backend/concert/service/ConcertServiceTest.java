@@ -16,6 +16,7 @@ import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
+import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
@@ -154,6 +155,35 @@ class ConcertServiceTest {
 
         // then
         assertThat(result.get(0).isInCalendar()).isFalse();
+    }
+
+    // -------------------------------------------------------------------------
+    // getConcertStats
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_concert_count_when_concerts_exist_in_given_month() {
+        // given
+        given(concertRepository.countByYearAndMonth(2025, 8)).willReturn(12);
+
+        // when
+        ConcertStatsResponse result = concertService.getConcertStats(2025, 8);
+
+        // then
+        assertThat(result.concertCount()).isEqualTo(12);
+        verify(concertRepository).countByYearAndMonth(2025, 8);
+    }
+
+    @Test
+    void should_return_zero_when_no_concerts_exist_in_given_month() {
+        // given
+        given(concertRepository.countByYearAndMonth(2025, 1)).willReturn(0);
+
+        // when
+        ConcertStatsResponse result = concertService.getConcertStats(2025, 1);
+
+        // then
+        assertThat(result.concertCount()).isZero();
     }
 
     // -------------------------------------------------------------------------
