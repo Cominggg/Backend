@@ -104,6 +104,59 @@ class ConcertServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // getPopularConcerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_popular_concerts_with_artist_name_ordered_by_view_count() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
+        Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
+
+        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(any())).willReturn(List.of(artist));
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts();
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
+        verify(concertRepository).findTop10ByOrderByViewCountDesc();
+    }
+
+    @Test
+    void should_return_empty_list_when_no_popular_concerts_exist() {
+        // given
+        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts();
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_return_is_in_calendar_false_for_all_popular_concerts() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+
+        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts();
+
+        // then
+        assertThat(result.get(0).isInCalendar()).isFalse();
+    }
+
+    // -------------------------------------------------------------------------
     // getConcerts
     // -------------------------------------------------------------------------
 
