@@ -2,6 +2,9 @@ package com.Coming.Backend.concert.repository;
 
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,5 +19,7 @@ public interface ConcertArtistRepository extends JpaRepository<ConcertArtist, Lo
 
     List<ConcertArtist> findByConcertIdInAndConfidence(List<Long> concertIds, String confidence);
 
-    void deleteByConcertId(Long concertId);
+    @Modifying
+    @Query("DELETE FROM ConcertArtist ca WHERE ca.concertId = :concertId")
+    void deleteByConcertId(@Param("concertId") Long concertId);
 }
