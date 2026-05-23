@@ -64,4 +64,22 @@ public class Concert extends BaseTimeEntity {
 
     @Column(name = "kopis_update_date", nullable = false)
     private LocalDate kopisUpdateDate;
+
+    public void update(String title, String cast, LocalDate startDate, LocalDate endDate,
+                       String venueName, String venueAddress, String posterUrl, String price) {
+        if (title != null) this.title = title;
+        if (cast != null) this.cast = cast;
+        if (startDate != null) this.startDate = startDate;
+        if (endDate != null) this.endDate = endDate;
+        if (venueName != null) this.venueName = venueName;
+        if (venueAddress != null) this.venueAddress = venueAddress;
+        if (posterUrl != null) this.posterUrl = posterUrl;
+        if (price != null) this.price = price;
+    }
+
+    public ConcertStatus forceChangeStatus(ConcertStatus newStatus) {
+        ConcertStatus previous = this.status;
+        this.status = newStatus;
+        return previous;
+    }
 }
