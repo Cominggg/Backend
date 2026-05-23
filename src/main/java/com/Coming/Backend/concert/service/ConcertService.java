@@ -10,14 +10,19 @@ import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
 import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
+import com.Coming.Backend.concert.dto.SetlistResponse;
+import com.Coming.Backend.concert.dto.SetlistTrackDto;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.dto.TicketLinkDto;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
+import com.Coming.Backend.concert.entity.Setlist;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
+import com.Coming.Backend.concert.repository.SetlistRepository;
+import com.Coming.Backend.concert.repository.SetlistTrackRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +48,8 @@ public class ConcertService {
     private final ArtistRepository artistRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
+    private final SetlistRepository setlistRepository;
+    private final SetlistTrackRepository setlistTrackRepository;
 
     /**
      * 조회수 기준 상위 10건의 인기 공연 목록을 반환한다.
@@ -50,6 +57,26 @@ public class ConcertService {
     public List<ConcertSummaryResponse> getPopularConcerts() {
         List<Concert> concerts = concertRepository.findTop10ByOrderByViewCountDesc();
         return toConcertSummaryList(concerts, null);
+    }
+
+    /**
+     * 공연의 셋리스트를 반환한다. 데이터 미존재 시 빈 tracks를 반환한다.
+     *
+     * @throws ConcertNotFoundException 공연 ID가 존재하지 않는 경우
+     */
+    public SetlistResponse getSetlist(Long concertId) {
+        if (!concertRepository.existsById(concertId)) {
+            throw new ConcertNotFoundException();
+        }
+        List<Setlist> setlists = setlistRepository.findByConcertId(concertId);
+        if (setlists.isEmpty()) {
+            return new SetlistResponse(List.of());
+        }
+        List<SetlistTrackDto> tracks = setlistTrackRepository
+                .findBySetlistIdOrderByPosition(setlists.get(0).getId()).stream()
+                .map(t -> new SetlistTrackDto(t.getPosition(), t.getSongName()))
+                .toList();
+        return new SetlistResponse(tracks);
     }
 
     /**

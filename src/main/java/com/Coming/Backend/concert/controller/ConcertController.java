@@ -4,6 +4,7 @@ import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
 import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
+import com.Coming.Backend.concert.dto.SetlistResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.service.ConcertService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -71,5 +72,12 @@ public class ConcertController {
             @PathVariable Long id,
             @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(concertService.getConcert(id, userId));
+    }
+
+    @Operation(summary = "셋리스트 조회")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @GetMapping("/{id}/setlist")
+    public ResponseEntity<SetlistResponse> getSetlist(@PathVariable Long id) {
+        return ResponseEntity.ok(concertService.getSetlist(id));
     }
 }
