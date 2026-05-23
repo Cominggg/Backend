@@ -44,6 +44,14 @@ public class ConcertService {
     private final UserFollowArtistRepository userFollowArtistRepository;
 
     /**
+     * 조회수 기준 상위 10건의 인기 공연 목록을 반환한다.
+     */
+    public List<ConcertSummaryResponse> getPopularConcerts() {
+        List<Concert> concerts = concertRepository.findTop10ByOrderByViewCountDesc();
+        return toConcertSummaryList(concerts, null);
+    }
+
+    /**
      * 공연 목록을 status 조건으로 조회한다. 기본 정렬은 startDate desc.
      *
      * @param status null이면 전체 조회

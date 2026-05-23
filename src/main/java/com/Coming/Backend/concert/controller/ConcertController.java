@@ -40,6 +40,12 @@ public class ConcertController {
         return ResponseEntity.ok(concertService.getConcerts(status, pageable, userId));
     }
 
+    @Operation(summary = "인기 공연 목록 조회")
+    @GetMapping("/popular")
+    public ResponseEntity<List<ConcertSummaryResponse>> getPopularConcerts() {
+        return ResponseEntity.ok(concertService.getPopularConcerts());
+    }
+
     @Operation(summary = "관심 아티스트 공연 조회")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/following")
