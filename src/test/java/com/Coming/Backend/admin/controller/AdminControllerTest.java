@@ -6,11 +6,17 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
@@ -18,10 +24,13 @@ import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,6 +63,7 @@ class AdminControllerTest {
 
     @BeforeEach
     void setUp() {
+        objectMapper.registerModule(new JavaTimeModule());
         mockMvc = MockMvcBuilders.standaloneSetup(adminController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
@@ -192,6 +202,187 @@ class AdminControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(ErrorCode.INQUIRY_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/admin/concerts
+    // -------------------------------------------------------------------------
+
+    private static final Long CONCERT_ID = 1L;
+
+    @Test
+    void should_return_201_when_valid_concert_create_request_given() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "kopisId": "PF123456",
+                    "title": "아이유 콘서트",
+                    "cast": "아이유",
+                    "startDate": "2025-09-01",
+                    "endDate": "2025-09-30",
+                    "venueName": "올림픽공원 체조경기장",
+                    "venueAddress": "서울시 송파구",
+                    "posterUrl": "https://example.com/poster.jpg",
+                    "price": "VIP 150,000원",
+                    "status": "UPCOMING"
+                }
+                """;
+        willDoNothing().given(adminService).createConcert(any(AdminConcertCreateRequest.class));
+
+        // when & then
+        mockMvc.perform(post("/api/admin/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void should_return_400_when_required_field_missing() throws Exception {
+        // given — kopisId 누락
+        String requestBody = """
+                {
+                    "title": "아이유 콘서트",
+                    "startDate": "2025-09-01",
+                    "endDate": "2025-09-30",
+                    "venueName": "올림픽공원 체조경기장",
+                    "status": "UPCOMING"
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // PUT /api/admin/concerts/{id}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_valid_concert_update_request_given() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "아이유 앙코르 콘서트",
+                    "startDate": "2025-10-01",
+                    "endDate": "2025-10-31"
+                }
+                """;
+        willDoNothing().given(adminService).updateConcert(eq(CONCERT_ID), any(AdminConcertUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(put("/api/admin/concerts/{id}", CONCERT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_404_when_concert_not_found_on_update() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "아이유 앙코르 콘서트"
+                }
+                """;
+        willThrow(new ConcertNotFoundException())
+                .given(adminService).updateConcert(eq(999L), any(AdminConcertUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(put("/api/admin/concerts/{id}", 999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // DELETE /api/admin/concerts/{id}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_valid_concert_id_given() throws Exception {
+        // given
+        willDoNothing().given(adminService).deleteConcert(CONCERT_ID);
+
+        // when & then
+        mockMvc.perform(delete("/api/admin/concerts/{id}", CONCERT_ID))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_404_when_concert_not_found_on_delete() throws Exception {
+        // given
+        willThrow(new ConcertNotFoundException())
+                .given(adminService).deleteConcert(999L);
+
+        // when & then
+        mockMvc.perform(delete("/api/admin/concerts/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // PUT /api/admin/concerts/{id}/state
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_valid_state_update_request_given() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "status": "CANCELLED",
+                    "reason": "공연 취소"
+                }
+                """;
+        willDoNothing().given(adminService).forceChangeConcertState(eq(CONCERT_ID), any(AdminConcertStateUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(put("/api/admin/concerts/{id}/state", CONCERT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_400_when_status_is_null() throws Exception {
+        // given — status 필드 누락
+        String requestBody = """
+                {
+                    "reason": "공연 취소"
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(put("/api/admin/concerts/{id}/state", CONCERT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_return_404_when_concert_not_found_on_state_update() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "status": "CANCELLED",
+                    "reason": "공연 취소"
+                }
+                """;
+        willThrow(new ConcertNotFoundException())
+                .given(adminService).forceChangeConcertState(eq(999L), any(AdminConcertStateUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(put("/api/admin/concerts/{id}/state", 999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_NOT_FOUND.name()))
                 .andExpect(jsonPath("$.message").exists());
     }
 }
