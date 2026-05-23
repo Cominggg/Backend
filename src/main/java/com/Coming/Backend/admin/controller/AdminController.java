@@ -2,6 +2,9 @@ package com.Coming.Backend.admin.controller;
 
 import com.Coming.Backend.admin.dto.AdminArtistCreateRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
@@ -18,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -77,6 +81,42 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody @Valid AdminInquiryStatusUpdateRequest request) {
         adminService.updateInquiryStatus(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "공연 수동 등록")
+    @ApiResponse(responseCode = "201", description = "Created")
+    @PostMapping("/concerts")
+    public ResponseEntity<Void> createConcert(@RequestBody @Valid AdminConcertCreateRequest request) {
+        adminService.createConcert(request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @Operation(summary = "공연 정보 수정")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @PutMapping("/concerts/{id}")
+    public ResponseEntity<Void> updateConcert(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminConcertUpdateRequest request) {
+        adminService.updateConcert(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "공연 삭제")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @DeleteMapping("/concerts/{id}")
+    public ResponseEntity<Void> deleteConcert(@PathVariable Long id) {
+        adminService.deleteConcert(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "공연 상태 강제 변경")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @PutMapping("/concerts/{id}/state")
+    public ResponseEntity<Void> forceChangeConcertState(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminConcertStateUpdateRequest request) {
+        adminService.forceChangeConcertState(id, request);
         return ResponseEntity.ok().build();
     }
 }
