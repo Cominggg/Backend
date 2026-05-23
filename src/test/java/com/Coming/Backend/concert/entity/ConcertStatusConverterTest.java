@@ -19,14 +19,12 @@ class ConcertStatusConverterTest {
 
     @ParameterizedTest(name = "{0} → \"{1}\"")
     @CsvSource({
-        "UPCOMING, 공연예정",
-        "ONGOING,  공연중",
-        "ENDED,    공연완료",
-        "CANCELLED,공연취소"
+        "UPCOMING,  UPCOMING",
+        "ONGOING,   ONGOING",
+        "ENDED,     ENDED",
+        "CANCELLED, CANCELLED"
     })
-    void should_return_korean_string_when_enum_given(ConcertStatus status, String expected) {
-        // given — status, expected 는 파라미터로 주입
-
+    void should_return_english_string_when_enum_given(ConcertStatus status, String expected) {
         // when
         String dbValue = converter.convertToDatabaseColumn(status);
 
@@ -36,14 +34,12 @@ class ConcertStatusConverterTest {
 
     @ParameterizedTest(name = "\"{0}\" → {1}")
     @CsvSource({
-        "공연예정, UPCOMING",
-        "공연중,   ONGOING",
-        "공연완료, ENDED",
-        "공연취소, CANCELLED"
+        "UPCOMING,  UPCOMING",
+        "ONGOING,   ONGOING",
+        "ENDED,     ENDED",
+        "CANCELLED, CANCELLED"
     })
-    void should_return_enum_when_korean_string_given(String dbValue, ConcertStatus expected) {
-        // given — dbValue, expected 는 파라미터로 주입
-
+    void should_return_enum_when_english_string_given(String dbValue, ConcertStatus expected) {
         // when
         ConcertStatus status = converter.convertToEntityAttribute(dbValue);
 
@@ -53,12 +49,9 @@ class ConcertStatusConverterTest {
 
     @Test
     void should_throw_illegal_argument_exception_when_unknown_db_value_given() {
-        // given
-        String unknownValue = "알수없는상태";
-
         // when & then
-        assertThatThrownBy(() -> converter.convertToEntityAttribute(unknownValue))
+        assertThatThrownBy(() -> converter.convertToEntityAttribute("UNKNOWN"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unknown ConcertStatus value: " + unknownValue);
+                .hasMessageContaining("Unknown ConcertStatus value: UNKNOWN");
     }
 }

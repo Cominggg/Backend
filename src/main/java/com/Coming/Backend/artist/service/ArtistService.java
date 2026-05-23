@@ -50,7 +50,7 @@ public class ArtistService {
     public PageResponse<ArtistSummaryResponse> getArtists(String name, Pageable pageable, Long userId) {
         Page<Artist> page = (name == null || name.isBlank())
                 ? artistRepository.findAll(pageable)
-                : artistRepository.findByNameContainingIgnoreCase(name, pageable);
+                : artistRepository.findByNameOrAliasContainingIgnoreCase(name, pageable);
 
         Set<Long> followingIds = resolveFollowingIds(userId);
 
@@ -110,7 +110,7 @@ public class ArtistService {
                 concert.getStartDate(),
                 concert.getEndDate(),
                 concert.getVenueName(),
-                toConcertStatusLabel(concert.getStatus())
+                concert.getStatus().name()
         )));
     }
 
@@ -194,12 +194,4 @@ public class ArtistService {
         };
     }
 
-    private static String toConcertStatusLabel(ConcertStatus status) {
-        return switch (status) {
-            case UPCOMING -> "공연예정";
-            case ONGOING -> "공연중";
-            case ENDED -> "공연완료";
-            case CANCELLED -> "공연취소";
-        };
-    }
 }

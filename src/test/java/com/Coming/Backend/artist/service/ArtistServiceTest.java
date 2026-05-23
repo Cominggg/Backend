@@ -111,7 +111,7 @@ class ArtistServiceTest {
         // given
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
         Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
-        given(artistRepository.findByNameContainingIgnoreCase("yoa", PAGEABLE)).willReturn(page);
+        given(artistRepository.findByNameOrAliasContainingIgnoreCase("yoa", PAGEABLE)).willReturn(page);
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists("yoa", PAGEABLE, null);
@@ -119,6 +119,21 @@ class ArtistServiceTest {
         // then
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).name()).isEqualTo("YOASOBI");
+    }
+
+    @Test
+    void should_return_artist_matched_by_alias_when_name_keyword_matches_alias() {
+        // given
+        Artist artist = buildArtist(ARTIST_ID, "아이유");
+        Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
+        given(artistRepository.findByNameOrAliasContainingIgnoreCase("IU", PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).name()).isEqualTo("아이유");
     }
 
     @Test
@@ -222,7 +237,7 @@ class ArtistServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).status()).isEqualTo("공연완료");
+        assertThat(response.content().get(0).status()).isEqualTo("ENDED");
         assertThat(response.content().get(0).venue()).isEqualTo("올림픽공원");
     }
 
@@ -244,7 +259,7 @@ class ArtistServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).status()).isEqualTo("공연예정");
+        assertThat(response.content().get(0).status()).isEqualTo("UPCOMING");
     }
 
     @Test
@@ -265,7 +280,7 @@ class ArtistServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).status()).isEqualTo("공연취소");
+        assertThat(response.content().get(0).status()).isEqualTo("CANCELLED");
     }
 
     @Test
