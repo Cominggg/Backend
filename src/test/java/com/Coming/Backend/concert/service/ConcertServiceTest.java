@@ -16,7 +16,13 @@ import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
+import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
+import com.Coming.Backend.concert.dto.SetlistResponse;
+import com.Coming.Backend.concert.entity.Setlist;
+import com.Coming.Backend.concert.entity.SetlistTrack;
+import com.Coming.Backend.concert.repository.SetlistRepository;
+import com.Coming.Backend.concert.repository.SetlistTrackRepository;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
@@ -64,6 +70,12 @@ class ConcertServiceTest {
     @Mock
     private UserFollowArtistRepository userFollowArtistRepository;
 
+    @Mock
+    private SetlistRepository setlistRepository;
+
+    @Mock
+    private SetlistTrackRepository setlistTrackRepository;
+
     private static final Long CONCERT_ID = 1L;
     private static final Long ARTIST_ID = 10L;
     private static final Long USER_ID = 100L;
@@ -101,6 +113,88 @@ class ConcertServiceTest {
                 .confidence("HIGH")
                 .matchedBy("manual")
                 .build();
+    }
+
+    // -------------------------------------------------------------------------
+    // getPopularConcerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_popular_concerts_with_artist_name_ordered_by_view_count() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
+        Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
+
+        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(any())).willReturn(List.of(artist));
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts();
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
+        verify(concertRepository).findTop10ByOrderByViewCountDesc();
+    }
+
+    @Test
+    void should_return_empty_list_when_no_popular_concerts_exist() {
+        // given
+        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts();
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_return_is_in_calendar_false_for_all_popular_concerts() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+
+        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts();
+
+        // then
+        assertThat(result.get(0).isInCalendar()).isFalse();
+    }
+
+    // -------------------------------------------------------------------------
+    // getConcertStats
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_concert_count_when_concerts_exist_in_given_month() {
+        // given
+        given(concertRepository.countByYearAndMonth(2025, 8)).willReturn(12);
+
+        // when
+        ConcertStatsResponse result = concertService.getConcertStats(2025, 8);
+
+        // then
+        assertThat(result.concertCount()).isEqualTo(12);
+        verify(concertRepository).countByYearAndMonth(2025, 8);
+    }
+
+    @Test
+    void should_return_zero_when_no_concerts_exist_in_given_month() {
+        // given
+        given(concertRepository.countByYearAndMonth(2025, 1)).willReturn(0);
+
+        // when
+        ConcertStatsResponse result = concertService.getConcertStats(2025, 1);
+
+        // then
+        assertThat(result.concertCount()).isZero();
     }
 
     // -------------------------------------------------------------------------
@@ -436,6 +530,62 @@ class ConcertServiceTest {
 
         // when & then
         assertThatThrownBy(() -> concertService.getConcert(CONCERT_ID, USER_ID))
+                .isInstanceOf(ConcertNotFoundException.class)
+                .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // getSetlist
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_tracks_when_setlist_exists_for_concert() {
+        // given
+        Setlist setlist = Setlist.builder()
+                .id(1L)
+                .concertId(CONCERT_ID)
+                .setlistFmId("setlist-fm-001")
+                .collectedAt(java.time.LocalDateTime.now())
+                .build();
+        SetlistTrack track1 = SetlistTrack.builder()
+                .id(1L).setlistId(1L).position(1).songName("Pale Blue").build();
+        SetlistTrack track2 = SetlistTrack.builder()
+                .id(2L).setlistId(1L).position(2).songName("KICK BACK").build();
+
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
+        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of(track1, track2));
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result.tracks()).hasSize(2);
+        assertThat(result.tracks().get(0).order()).isEqualTo(1);
+        assertThat(result.tracks().get(0).title()).isEqualTo("Pale Blue");
+        assertThat(result.tracks().get(1).title()).isEqualTo("KICK BACK");
+    }
+
+    @Test
+    void should_return_empty_tracks_when_no_setlist_exists_for_concert() {
+        // given
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of());
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result.tracks()).isEmpty();
+    }
+
+    @Test
+    void should_throw_concert_not_found_when_concert_does_not_exist_for_setlist() {
+        // given
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> concertService.getSetlist(CONCERT_ID))
                 .isInstanceOf(ConcertNotFoundException.class)
                 .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
     }

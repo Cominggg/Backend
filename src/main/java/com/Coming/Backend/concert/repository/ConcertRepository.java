@@ -42,4 +42,9 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
 
     @Query("SELECT c FROM Concert c WHERE c.id IN (SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :userId)")
     Page<Concert> findByUserCalendar(@Param("userId") Long userId, Pageable pageable);
+
+    List<Concert> findTop10ByOrderByViewCountDesc();
+
+    @Query("SELECT COUNT(c) FROM Concert c WHERE YEAR(c.startDate) = :year AND MONTH(c.startDate) = :month")
+    int countByYearAndMonth(@Param("year") int year, @Param("month") int month);
 }
