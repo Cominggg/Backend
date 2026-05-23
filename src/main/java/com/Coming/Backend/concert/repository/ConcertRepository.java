@@ -44,4 +44,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     Page<Concert> findByUserCalendar(@Param("userId") Long userId, Pageable pageable);
 
     List<Concert> findTop10ByOrderByViewCountDesc();
+
+    @Query("SELECT COUNT(c) FROM Concert c WHERE YEAR(c.startDate) = :year AND MONTH(c.startDate) = :month")
+    int countByYearAndMonth(@Param("year") int year, @Param("month") int month);
 }

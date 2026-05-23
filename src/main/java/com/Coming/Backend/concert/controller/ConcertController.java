@@ -2,6 +2,7 @@ package com.Coming.Backend.concert.controller;
 
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
+import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.service.ConcertService;
@@ -44,6 +45,14 @@ public class ConcertController {
     @GetMapping("/popular")
     public ResponseEntity<List<ConcertSummaryResponse>> getPopularConcerts() {
         return ResponseEntity.ok(concertService.getPopularConcerts());
+    }
+
+    @Operation(summary = "월별 공연 통계 조회")
+    @GetMapping("/stats")
+    public ResponseEntity<ConcertStatsResponse> getConcertStats(
+            @RequestParam int year,
+            @RequestParam int month) {
+        return ResponseEntity.ok(concertService.getConcertStats(year, month));
     }
 
     @Operation(summary = "관심 아티스트 공연 조회")

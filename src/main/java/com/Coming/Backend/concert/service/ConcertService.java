@@ -8,6 +8,7 @@ import com.Coming.Backend.calendar.entity.UserConcertCalendar;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
+import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.dto.TicketLinkDto;
@@ -49,6 +50,14 @@ public class ConcertService {
     public List<ConcertSummaryResponse> getPopularConcerts() {
         List<Concert> concerts = concertRepository.findTop10ByOrderByViewCountDesc();
         return toConcertSummaryList(concerts, null);
+    }
+
+    /**
+     * 특정 연월의 공연 건수를 반환한다.
+     */
+    public ConcertStatsResponse getConcertStats(int year, int month) {
+        int count = concertRepository.countByYearAndMonth(year, month);
+        return new ConcertStatsResponse(count);
     }
 
     /**
