@@ -1,6 +1,7 @@
 package com.Coming.Backend.admin.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.Valid;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,6 +20,6 @@ public record AdminConcertUpdateRequest(
         String venueAddress,
         String posterUrl,
         String price,
-        List<BookingLinkRequest> bookingLinks
+        @Valid List<BookingLinkRequest> bookingLinks
 ) {
 }
