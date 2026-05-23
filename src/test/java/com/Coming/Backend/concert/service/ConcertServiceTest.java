@@ -18,6 +18,11 @@ import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
 import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
+import com.Coming.Backend.concert.dto.SetlistResponse;
+import com.Coming.Backend.concert.entity.Setlist;
+import com.Coming.Backend.concert.entity.SetlistTrack;
+import com.Coming.Backend.concert.repository.SetlistRepository;
+import com.Coming.Backend.concert.repository.SetlistTrackRepository;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
@@ -64,6 +69,12 @@ class ConcertServiceTest {
 
     @Mock
     private UserFollowArtistRepository userFollowArtistRepository;
+
+    @Mock
+    private SetlistRepository setlistRepository;
+
+    @Mock
+    private SetlistTrackRepository setlistTrackRepository;
 
     private static final Long CONCERT_ID = 1L;
     private static final Long ARTIST_ID = 10L;
@@ -519,6 +530,62 @@ class ConcertServiceTest {
 
         // when & then
         assertThatThrownBy(() -> concertService.getConcert(CONCERT_ID, USER_ID))
+                .isInstanceOf(ConcertNotFoundException.class)
+                .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // getSetlist
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_tracks_when_setlist_exists_for_concert() {
+        // given
+        Setlist setlist = Setlist.builder()
+                .id(1L)
+                .concertId(CONCERT_ID)
+                .setlistFmId("setlist-fm-001")
+                .collectedAt(java.time.LocalDateTime.now())
+                .build();
+        SetlistTrack track1 = SetlistTrack.builder()
+                .id(1L).setlistId(1L).position(1).songName("Pale Blue").build();
+        SetlistTrack track2 = SetlistTrack.builder()
+                .id(2L).setlistId(1L).position(2).songName("KICK BACK").build();
+
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        given(setlistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(setlist));
+        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of(track1, track2));
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result.tracks()).hasSize(2);
+        assertThat(result.tracks().get(0).order()).isEqualTo(1);
+        assertThat(result.tracks().get(0).title()).isEqualTo("Pale Blue");
+        assertThat(result.tracks().get(1).title()).isEqualTo("KICK BACK");
+    }
+
+    @Test
+    void should_return_empty_tracks_when_no_setlist_exists_for_concert() {
+        // given
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        given(setlistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result.tracks()).isEmpty();
+    }
+
+    @Test
+    void should_throw_concert_not_found_when_concert_does_not_exist_for_setlist() {
+        // given
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> concertService.getSetlist(CONCERT_ID))
                 .isInstanceOf(ConcertNotFoundException.class)
                 .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
     }
