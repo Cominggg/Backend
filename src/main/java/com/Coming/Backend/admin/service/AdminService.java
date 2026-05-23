@@ -26,6 +26,7 @@ import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.concert.repository.ConcertStatusLogRepository;
+import com.Coming.Backend.concert.entity.Setlist;
 import com.Coming.Backend.concert.repository.SetlistRepository;
 import com.Coming.Backend.concert.repository.SetlistTrackRepository;
 import com.Coming.Backend.inquiry.entity.Inquiry;
@@ -204,7 +205,7 @@ public class AdminService {
         concertStatusLogRepository.deleteByConcertId(id);
 
         List<Long> setlistIds = setlistRepository.findByConcertId(id).stream()
-                .map(s -> s.getId())
+                .map(Setlist::getId)
                 .toList();
         if (!setlistIds.isEmpty()) {
             setlistTrackRepository.deleteBySetlistIdIn(setlistIds);
