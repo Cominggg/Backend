@@ -68,7 +68,7 @@ public class ConcertService {
         if (!concertRepository.existsById(concertId)) {
             throw new ConcertNotFoundException();
         }
-        List<Setlist> setlists = setlistRepository.findByConcertId(concertId);
+        List<Setlist> setlists = setlistRepository.findByConcertIdOrderByCollectedAtDesc(concertId);
         if (setlists.isEmpty()) {
             return new SetlistResponse(List.of());
         }

@@ -553,7 +553,7 @@ class ConcertServiceTest {
                 .id(2L).setlistId(1L).position(2).songName("KICK BACK").build();
 
         given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(setlist));
+        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
         given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of(track1, track2));
 
         // when
@@ -570,7 +570,7 @@ class ConcertServiceTest {
     void should_return_empty_tracks_when_no_setlist_exists_for_concert() {
         // given
         given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
+        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of());
 
         // when
         SetlistResponse result = concertService.getSetlist(CONCERT_ID);
