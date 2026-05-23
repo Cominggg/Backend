@@ -28,6 +28,7 @@ import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.concert.repository.ConcertStatusLogRepository;
+import com.Coming.Backend.concert.entity.Setlist;
 import com.Coming.Backend.concert.repository.SetlistRepository;
 import com.Coming.Backend.concert.repository.SetlistTrackRepository;
 import com.Coming.Backend.inquiry.entity.Inquiry;
@@ -567,6 +568,26 @@ class AdminServiceTest {
         verify(concertArtistRepository).deleteByConcertId(CONCERT_ID);
         verify(concertBookingLinkRepository).deleteByConcertId(CONCERT_ID);
         verify(concertRepository).deleteById(CONCERT_ID);
+    }
+
+    @Test
+    void should_delete_setlist_tracks_when_setlists_exist() {
+        // given
+        Setlist setlist = Setlist.builder()
+                .setlistFmId("setlist-fm-id")
+                .concertId(CONCERT_ID)
+                .collectedAt(LocalDateTime.of(2025, 9, 1, 20, 0))
+                .build();
+        ReflectionTestUtils.setField(setlist, "id", 10L);
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        given(setlistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(setlist));
+
+        // when
+        adminService.deleteConcert(CONCERT_ID);
+
+        // then
+        verify(setlistTrackRepository).deleteBySetlistIdIn(List.of(10L));
+        verify(setlistRepository).deleteAllById(List.of(10L));
     }
 
     @Test
