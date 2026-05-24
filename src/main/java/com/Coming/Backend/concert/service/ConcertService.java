@@ -53,10 +53,12 @@ public class ConcertService {
 
     /**
      * 조회수 기준 상위 10건의 인기 공연 목록을 반환한다.
+     *
+     * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
-    public List<ConcertSummaryResponse> getPopularConcerts() {
+    public List<ConcertSummaryResponse> getPopularConcerts(Long userId) {
         List<Concert> concerts = concertRepository.findTop10ByOrderByViewCountDesc();
-        return toConcertSummaryList(concerts, null);
+        return toConcertSummaryList(concerts, userId);
     }
 
     /**
