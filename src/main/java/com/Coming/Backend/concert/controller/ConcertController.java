@@ -48,8 +48,9 @@ public class ConcertController {
 
     @Operation(summary = "인기 공연 목록 조회")
     @GetMapping("/popular")
-    public ResponseEntity<List<ConcertSummaryResponse>> getPopularConcerts() {
-        return ResponseEntity.ok(concertService.getPopularConcerts());
+    public ResponseEntity<List<ConcertSummaryResponse>> getPopularConcerts(
+            @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(concertService.getPopularConcerts(userId));
     }
 
     @Operation(summary = "월별 공연 통계 조회")
