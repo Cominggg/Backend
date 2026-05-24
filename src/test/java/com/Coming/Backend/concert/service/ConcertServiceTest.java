@@ -132,7 +132,7 @@ class ConcertServiceTest {
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 
         // when
-        List<ConcertSummaryResponse> result = concertService.getPopularConcerts();
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
 
         // then
         assertThat(result).hasSize(1);
@@ -146,14 +146,14 @@ class ConcertServiceTest {
         given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of());
 
         // when
-        List<ConcertSummaryResponse> result = concertService.getPopularConcerts();
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
 
         // then
         assertThat(result).isEmpty();
     }
 
     @Test
-    void should_return_is_in_calendar_false_for_all_popular_concerts() {
+    void should_return_is_in_calendar_false_for_popular_concerts_when_user_is_not_authenticated() {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
@@ -162,10 +162,32 @@ class ConcertServiceTest {
                 .willReturn(List.of());
 
         // when
-        List<ConcertSummaryResponse> result = concertService.getPopularConcerts();
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
 
         // then
         assertThat(result.get(0).isInCalendar()).isFalse();
+    }
+
+    @Test
+    void should_return_is_in_calendar_true_for_popular_concerts_when_authenticated_user_has_concert_in_calendar() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        UserConcertCalendar calendarEntry = UserConcertCalendar.builder()
+                .userId(USER_ID)
+                .concertId(CONCERT_ID)
+                .build();
+
+        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+                .willReturn(List.of());
+        given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
+                .willReturn(List.of(calendarEntry));
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts(USER_ID);
+
+        // then
+        assertThat(result.get(0).isInCalendar()).isTrue();
     }
 
     // -------------------------------------------------------------------------
