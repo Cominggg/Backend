@@ -115,7 +115,6 @@ class ArtistControllerTest {
         // given
         ArtistDetailResponse detail = new ArtistDetailResponse(
                 ARTIST_ID, "YOASOBI", null, true, false, 500L,
-                LocalDate.of(2019, 9, 10),
                 List.of(new ArtistLinkDto("spotify", "Spotify", "https://spotify.com"))
         );
         given(artistService.getArtist(eq(ARTIST_ID), isNull())).willReturn(detail);

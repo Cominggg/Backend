@@ -136,8 +136,7 @@ class AdminServiceTest {
         AdminArtistCreateRequest request = new AdminArtistCreateRequest(
                 "some-mbid-123",
                 "IU",
-                "IU",
-                LocalDate.of(2008, 9, 18)
+                "IU"
         );
         given(artistRepository.save(any(Artist.class))).willAnswer(inv -> inv.getArgument(0));
 
@@ -152,7 +151,6 @@ class AdminServiceTest {
         assertThat(saved.getMbid()).isEqualTo("some-mbid-123");
         assertThat(saved.getName()).isEqualTo("IU");
         assertThat(saved.getSortName()).isEqualTo("IU");
-        assertThat(saved.getDebutDate()).isEqualTo(LocalDate.of(2008, 9, 18));
         assertThat(saved.isComing()).isFalse();
     }
 
@@ -163,13 +161,11 @@ class AdminServiceTest {
                 .mbid("some-mbid-123")
                 .name("IU")
                 .sortName("IU")
-                .debutDate(LocalDate.of(2008, 9, 18))
                 .isComing(false)
                 .build();
         AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(
                 "아이유",
-                "Iu, Lee Ji Eun",
-                LocalDate.of(2008, 9, 18)
+                "Iu, Lee Ji Eun"
         );
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
 
@@ -179,7 +175,6 @@ class AdminServiceTest {
         // then
         assertThat(artist.getName()).isEqualTo("아이유");
         assertThat(artist.getSortName()).isEqualTo("Iu, Lee Ji Eun");
-        assertThat(artist.getDebutDate()).isEqualTo(LocalDate.of(2008, 9, 18));
     }
 
     @Test
@@ -189,10 +184,9 @@ class AdminServiceTest {
                 .mbid("some-mbid-123")
                 .name("IU")
                 .sortName("IU")
-                .debutDate(LocalDate.of(2008, 9, 18))
                 .isComing(false)
                 .build();
-        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest("아이유", null, null);
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest("아이유", null);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
 
         // when
@@ -201,7 +195,6 @@ class AdminServiceTest {
         // then
         assertThat(artist.getName()).isEqualTo("아이유");
         assertThat(artist.getSortName()).isEqualTo("IU");
-        assertThat(artist.getDebutDate()).isEqualTo(LocalDate.of(2008, 9, 18));
     }
 
     @Test
@@ -210,7 +203,7 @@ class AdminServiceTest {
         given(artistRepository.findById(999L)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> adminService.updateArtist(999L, new AdminArtistUpdateRequest("IU", null, null)))
+        assertThatThrownBy(() -> adminService.updateArtist(999L, new AdminArtistUpdateRequest("IU", null)))
                 .isInstanceOf(ArtistNotFoundException.class);
     }
 
