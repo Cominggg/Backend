@@ -84,7 +84,6 @@ public class ArtistService {
                 artist.isComing(),
                 isFollowing,
                 followersCount,
-                artist.getDebutDate(),
                 links
         );
     }

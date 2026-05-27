@@ -71,7 +71,6 @@ public class AdminService {
                 .mbid(request.mbid())
                 .name(request.name())
                 .sortName(request.sortName())
-                .debutDate(request.debutDate())
                 .isComing(false)
                 .build());
     }
@@ -83,7 +82,7 @@ public class AdminService {
     public void updateArtist(Long id, AdminArtistUpdateRequest request) {
         Artist artist = artistRepository.findById(id)
                 .orElseThrow(ArtistNotFoundException::new);
-        artist.update(request.name(), request.sortName(), request.debutDate());
+        artist.update(request.name(), request.sortName());
     }
 
     /**

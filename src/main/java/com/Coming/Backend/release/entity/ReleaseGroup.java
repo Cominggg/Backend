@@ -1,6 +1,6 @@
 package com.Coming.Backend.release.entity;
 
-import com.Coming.Backend.common.entity.BaseTimeEntity;
+import com.Coming.Backend.common.entity.BaseCreatedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -21,7 +21,7 @@ import java.time.LocalDate;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ReleaseGroup extends BaseTimeEntity {
+public class ReleaseGroup extends BaseCreatedEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

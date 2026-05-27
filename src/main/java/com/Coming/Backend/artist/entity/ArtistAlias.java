@@ -36,7 +36,4 @@ public class ArtistAlias extends BaseCreatedEntity {
 
     @Column(name = "locale", length = 10)
     private String locale;
-
-    @Column(name = "is_learned", nullable = false)
-    private boolean isLearned;
 }
