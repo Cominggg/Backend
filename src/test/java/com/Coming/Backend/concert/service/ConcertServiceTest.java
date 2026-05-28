@@ -30,6 +30,7 @@ import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
+import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 
 import java.time.LocalDate;
@@ -60,6 +61,9 @@ class ConcertServiceTest {
 
     @Mock
     private ConcertBookingLinkRepository concertBookingLinkRepository;
+
+    @Mock
+    private ConcertImageRepository concertImageRepository;
 
     @Mock
     private ArtistRepository artistRepository;
@@ -323,7 +327,7 @@ class ConcertServiceTest {
         assertThat(response.id()).isEqualTo(CONCERT_ID);
         assertThat(response.artistName()).isEqualTo("YOASOBI");
         assertThat(response.artistId()).isEqualTo(ARTIST_ID);
-        assertThat(response.posterUrls()).containsExactly("https://example.com/poster.jpg");
+        assertThat(response.posterUrl()).isEqualTo("https://example.com/poster.jpg");
         assertThat(response.ticketLinks()).hasSize(1);
         assertThat(response.ticketLinks().get(0).label()).isEqualTo("인터파크");
         assertThat(response.isInCalendar()).isFalse();
@@ -390,8 +394,8 @@ class ConcertServiceTest {
         ConcertDetailResponse response = concertService.getConcert(CONCERT_ID, null);
 
         // then
-        assertThat(response.posterUrls()).isEmpty();
-        assertThat(response.thumbnailUrl()).isNull();
+        assertThat(response.imageUrls()).isEmpty();
+        assertThat(response.posterUrl()).isNull();
     }
 
     // -------------------------------------------------------------------------

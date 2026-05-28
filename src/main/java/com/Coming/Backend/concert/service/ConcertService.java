@@ -20,6 +20,7 @@ import com.Coming.Backend.concert.entity.Setlist;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
+import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.concert.repository.SetlistRepository;
 import com.Coming.Backend.concert.repository.SetlistTrackRepository;
@@ -45,6 +46,7 @@ public class ConcertService {
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
+    private final ConcertImageRepository concertImageRepository;
     private final ArtistRepository artistRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
@@ -141,7 +143,7 @@ public class ConcertService {
         return new ConcertDetailResponse(
                 concert.getId(),
                 concert.getPosterUrl(),
-                toPosterUrls(concert.getPosterUrl()),
+                buildImageUrls(id),
                 resolveArtistName(artistId),
                 artistId,
                 concert.getTitle(),
@@ -202,8 +204,10 @@ public class ConcertService {
                 .toList();
     }
 
-    private List<String> toPosterUrls(String posterUrl) {
-        return posterUrl != null ? List.of(posterUrl) : List.of();
+    private List<String> buildImageUrls(Long concertId) {
+        return concertImageRepository.findByConcertIdOrderByPosition(concertId).stream()
+                .map(image -> image.getUrl())
+                .toList();
     }
 
     private Map<Long, Long> buildConcertArtistIdMap(List<Long> concertIds) {
