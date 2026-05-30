@@ -34,6 +34,9 @@ public class Artist extends BaseTimeEntity {
     @Column(name = "sort_name", length = 255)
     private String sortName;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(name = "is_coming", nullable = false)
     private boolean isComing;
 

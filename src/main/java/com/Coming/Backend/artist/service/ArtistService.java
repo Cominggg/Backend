@@ -57,7 +57,7 @@ public class ArtistService {
         return PageResponse.from(page.map(artist -> new ArtistSummaryResponse(
                 artist.getId(),
                 artist.getName(),
-                null,
+                artist.getImageUrl(),
                 artist.isComing(),
                 followingIds.contains(artist.getId())
         )));
@@ -80,7 +80,7 @@ public class ArtistService {
         return new ArtistDetailResponse(
                 artist.getId(),
                 artist.getName(),
-                null,
+                artist.getImageUrl(),
                 artist.isComing(),
                 isFollowing,
                 followersCount,
@@ -152,7 +152,7 @@ public class ArtistService {
                 .map(artist -> new FollowingArtistResponse(
                         artist.getId(),
                         artist.getName(),
-                        null,
+                        artist.getImageUrl(),
                         artist.isComing()
                 ))
                 .toList();
