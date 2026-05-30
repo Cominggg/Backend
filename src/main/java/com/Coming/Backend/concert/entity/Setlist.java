@@ -34,11 +34,4 @@ public class Setlist {
 
     @Column(name = "collected_at", nullable = false)
     private LocalDateTime collectedAt;
-
-    @Column(name = "fetch_attempted_at")
-    private LocalDateTime fetchAttemptedAt;
-
-    public void markFetchAttempted(LocalDateTime at) {
-        this.fetchAttemptedAt = at;
-    }
 }

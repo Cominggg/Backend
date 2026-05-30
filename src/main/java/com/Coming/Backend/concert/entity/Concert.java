@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "concert")
@@ -64,6 +65,13 @@ public class Concert extends BaseTimeEntity {
 
     @Column(name = "kopis_update_date", nullable = false)
     private LocalDate kopisUpdateDate;
+
+    @Column(name = "fetch_attempted_at")
+    private LocalDateTime fetchAttemptedAt;
+
+    public void markFetchAttempted(LocalDateTime at) {
+        this.fetchAttemptedAt = at;
+    }
 
     public void update(String title, String cast, LocalDate startDate, LocalDate endDate,
                        String venueName, String venueAddress, String posterUrl, String price) {
