@@ -269,7 +269,7 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_artist_releases_when_no_type_filter() throws Exception {
         // given
-        TrackDto track = new TrackDto(1, "Idol", 210000);
+        TrackDto track = new TrackDto(1, "Idol", 210000, 1, false);
         ArtistReleaseItemResponse item = new ArtistReleaseItemResponse(
                 1L, "LILAC", "ALBUM", LocalDate.of(2021, 3, 25),
                 "https://cover.example.com/1", List.of(track)
