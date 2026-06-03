@@ -1,8 +1,9 @@
 package com.Coming.Backend.concert.entity;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -30,11 +31,11 @@ public class ConcertStatusLog {
     @Column(name = "concert_id", nullable = false)
     private Long concertId;
 
-    @Convert(converter = ConcertStatusConverter.class)
+    @Enumerated(EnumType.STRING)
     @Column(name = "before_status", nullable = false, length = 20)
     private ConcertStatus beforeStatus;
 
-    @Convert(converter = ConcertStatusConverter.class)
+    @Enumerated(EnumType.STRING)
     @Column(name = "after_status", nullable = false, length = 20)
     private ConcertStatus afterStatus;
 

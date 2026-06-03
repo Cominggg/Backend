@@ -2,8 +2,9 @@ package com.Coming.Backend.concert.entity;
 
 import com.Coming.Backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -56,7 +57,7 @@ public class Concert extends BaseTimeEntity {
     @Column(name = "price", columnDefinition = "text")
     private String price;
 
-    @Convert(converter = ConcertStatusConverter.class)
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private ConcertStatus status;
 
