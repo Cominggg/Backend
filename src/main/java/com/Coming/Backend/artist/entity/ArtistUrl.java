@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "artist_url", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"artist_id", "url"})
+        @UniqueConstraint(name = "uq_artist_url_type", columnNames = {"artist_id", "type"})
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

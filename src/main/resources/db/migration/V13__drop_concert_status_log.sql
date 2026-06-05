@@ -1,1 +1,1 @@
-DROP TABLE concert_status_log;
+DROP TABLE IF EXISTS concert_status_log;

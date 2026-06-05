@@ -20,12 +20,10 @@ import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
-import com.Coming.Backend.concert.entity.ConcertStatusLog;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
-import com.Coming.Backend.concert.repository.ConcertStatusLogRepository;
 import com.Coming.Backend.concert.entity.Setlist;
 import com.Coming.Backend.concert.repository.SetlistRepository;
 import com.Coming.Backend.concert.repository.SetlistTrackRepository;
@@ -41,7 +39,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -57,7 +54,6 @@ public class AdminService {
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
-    private final ConcertStatusLogRepository concertStatusLogRepository;
     private final SetlistRepository setlistRepository;
     private final SetlistTrackRepository setlistTrackRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
@@ -201,8 +197,6 @@ public class AdminService {
             throw new ConcertNotFoundException();
         }
 
-        concertStatusLogRepository.deleteByConcertId(id);
-
         List<Long> setlistIds = setlistRepository.findByConcertId(id).stream()
                 .map(Setlist::getId)
                 .toList();
@@ -224,13 +218,6 @@ public class AdminService {
     public void forceChangeConcertState(Long id, AdminConcertStateUpdateRequest request) {
         Concert concert = concertRepository.findById(id)
                 .orElseThrow(ConcertNotFoundException::new);
-        ConcertStatus previousStatus = concert.forceChangeStatus(request.status());
-        concertStatusLogRepository.save(ConcertStatusLog.builder()
-                .concertId(id)
-                .beforeStatus(previousStatus)
-                .afterStatus(request.status())
-                .reason(request.reason())
-                .changedAt(LocalDateTime.now())
-                .build());
+        concert.forceChangeStatus(request.status());
     }
 }
