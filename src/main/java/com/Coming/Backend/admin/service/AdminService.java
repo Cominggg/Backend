@@ -157,8 +157,6 @@ public class AdminService {
                     .map(artistId -> ConcertArtist.builder()
                             .concertId(concert.getId())
                             .artistId(artistId)
-                            .confidence("HIGH")
-                            .matchedBy("ADMIN")
                             .build())
                     .toList();
             concertArtistRepository.saveAll(mappings);

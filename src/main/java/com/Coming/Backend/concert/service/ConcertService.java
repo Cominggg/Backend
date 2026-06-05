@@ -41,8 +41,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ConcertService {
 
-    private static final String HIGH_CONFIDENCE = "HIGH";
-
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
@@ -135,7 +133,7 @@ public class ConcertService {
         concertRepository.incrementViewCount(id);
 
         ConcertArtist highConfidenceArtist = concertArtistRepository
-                .findFirstByConcertIdAndConfidence(id, HIGH_CONFIDENCE).orElse(null);
+                .findFirstByConcertId(id).orElse(null);
         Long artistId = highConfidenceArtist != null ? highConfidenceArtist.getArtistId() : null;
         boolean isInCalendar = userId != null &&
                 userConcertCalendarRepository.existsByUserIdAndConcertId(userId, id);
@@ -214,7 +212,7 @@ public class ConcertService {
         if (concertIds.isEmpty()) {
             return Map.of();
         }
-        return concertArtistRepository.findByConcertIdInAndConfidence(concertIds, HIGH_CONFIDENCE).stream()
+        return concertArtistRepository.findByConcertIdIn(concertIds).stream()
                 .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId));
     }
 

@@ -31,8 +31,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CalendarService {
 
-    private static final String HIGH_CONFIDENCE = "HIGH";
-
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ArtistRepository artistRepository;
@@ -131,7 +129,7 @@ public class CalendarService {
     }
 
     private Map<Long, Long> buildConcertArtistIdMap(List<Long> concertIds) {
-        return concertArtistRepository.findByConcertIdInAndConfidence(concertIds, HIGH_CONFIDENCE).stream()
+        return concertArtistRepository.findByConcertIdIn(concertIds).stream()
                 .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId));
     }
 
