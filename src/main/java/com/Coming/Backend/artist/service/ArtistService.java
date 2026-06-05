@@ -100,7 +100,7 @@ public class ArtistService {
 
         List<ConcertStatus> statuses = toStatuses(tab);
         Page<Concert> page = (statuses == null)
-                ? concertRepository.findAllByArtistId(artistId, CONCERT_HISTORY_START, pageable)
+                ? concertRepository.findAllByArtistId(artistId, CONCERT_HISTORY_START, ConcertStatus.EXCLUDED, pageable)
                 : concertRepository.findAllByArtistIdAndStatusIn(artistId, statuses, CONCERT_HISTORY_START, pageable);
 
         return PageResponse.from(page.map(concert -> new ArtistConcertResponse(

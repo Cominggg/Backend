@@ -10,6 +10,7 @@ import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -44,7 +45,7 @@ public class CalendarService {
     public List<CalendarEntryResponse> getCalendar(int year, int month, Long userId) {
         LocalDate firstDay = LocalDate.of(year, month, 1);
         LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
-        List<Concert> concerts = concertRepository.findByDateRange(firstDay, lastDay);
+        List<Concert> concerts = concertRepository.findByDateRange(firstDay, lastDay, ConcertStatus.EXCLUDED);
         Set<Long> userCalendarIds = resolveUserCalendarIds(userId, concerts);
         return toCalendarEntryList(concerts, userCalendarIds);
     }
@@ -53,7 +54,7 @@ public class CalendarService {
      * 내 캘린더에 저장된 공연 목록을 페이지네이션으로 조회한다.
      */
     public PageResponse<CalendarEntryResponse> getMyCalendar(Long userId, Pageable pageable) {
-        Page<Concert> page = concertRepository.findByUserCalendar(userId, pageable);
+        Page<Concert> page = concertRepository.findByUserCalendar(userId, ConcertStatus.EXCLUDED, pageable);
         Set<Long> allIds = page.getContent().stream().map(Concert::getId).collect(Collectors.toSet());
         List<CalendarEntryResponse> content = toCalendarEntryList(page.getContent(), allIds);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());

@@ -57,7 +57,7 @@ public class ConcertService {
      * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
     public List<ConcertSummaryResponse> getPopularConcerts(Long userId) {
-        List<Concert> concerts = concertRepository.findTop10ByOrderByViewCountDesc();
+        List<Concert> concerts = concertRepository.findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED);
         return toConcertSummaryList(concerts, userId);
     }
 
@@ -96,8 +96,11 @@ public class ConcertService {
      * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
     public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Pageable pageable, Long userId) {
+        if (status == ConcertStatus.EXCLUDED) {
+            return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+        }
         Page<Concert> page = (status == null)
-                ? concertRepository.findAll(pageable)
+                ? concertRepository.findByStatusNot(ConcertStatus.EXCLUDED, pageable)
                 : concertRepository.findByStatus(status, pageable);
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
@@ -110,6 +113,9 @@ public class ConcertService {
      * @param status null이면 전체 조회
      */
     public List<ConcertSummaryResponse> getFollowingConcerts(Long userId, ConcertStatus status) {
+        if (status == ConcertStatus.EXCLUDED) {
+            return List.of();
+        }
         List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
                 .map(UserFollowArtist::getArtistId)
                 .toList();
@@ -117,8 +123,8 @@ public class ConcertService {
             return List.of();
         }
         List<Concert> concerts = (status == null)
-                ? concertRepository.findAllByArtistIdIn(artistIds)
-                : concertRepository.findAllByArtistIdInAndStatus(artistIds, status);
+                ? concertRepository.findAllByArtistIdIn(artistIds, ConcertStatus.EXCLUDED)
+                : concertRepository.findAllByArtistIdInAndStatus(artistIds, status, ConcertStatus.EXCLUDED);
         return toConcertSummaryList(concerts, userId);
     }
 
@@ -130,6 +136,9 @@ public class ConcertService {
     @Transactional
     public ConcertDetailResponse getConcert(Long id, Long userId) {
         Concert concert = concertRepository.findById(id).orElseThrow(ConcertNotFoundException::new);
+        if (concert.getStatus() == ConcertStatus.EXCLUDED) {
+            throw new ConcertNotFoundException();
+        }
         concertRepository.incrementViewCount(id);
 
         ConcertArtist highConfidenceArtist = concertArtistRepository

@@ -5,6 +5,7 @@ import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.my.dto.ConcertHistoryResponse;
@@ -34,7 +35,7 @@ public class MyService {
      * 내 캘린더에 저장한 공연 중 이미 종료된 공연 목록을 페이지네이션으로 조회한다.
      */
     public PageResponse<ConcertHistoryResponse> getHistory(Long userId, Pageable pageable) {
-        Page<Concert> page = concertRepository.findPastByUserCalendar(userId, LocalDate.now(), pageable);
+        Page<Concert> page = concertRepository.findPastByUserCalendar(userId, LocalDate.now(), ConcertStatus.EXCLUDED, pageable);
         List<ConcertHistoryResponse> content = toHistoryList(page.getContent());
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
