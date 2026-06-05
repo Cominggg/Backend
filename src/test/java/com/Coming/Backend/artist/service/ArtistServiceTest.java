@@ -229,7 +229,7 @@ class ArtistServiceTest {
         Concert concert = buildConcert(1L, ConcertStatus.ENDED);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
         given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
-        given(concertRepository.findAllByArtistId(eq(ARTIST_ID), any(LocalDate.class), eq(PAGEABLE)))
+        given(concertRepository.findAllByArtistId(eq(ARTIST_ID), any(LocalDate.class), eq(ConcertStatus.EXCLUDED), eq(PAGEABLE)))
                 .willReturn(page);
 
         // when

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
@@ -128,7 +129,7 @@ class ConcertServiceTest {
         ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
 
-        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
+        given(concertRepository.findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED)).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
@@ -139,13 +140,13 @@ class ConcertServiceTest {
         // then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
-        verify(concertRepository).findTop10ByOrderByViewCountDesc();
+        verify(concertRepository).findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED);
     }
 
     @Test
     void should_return_empty_list_when_no_popular_concerts_exist() {
         // given
-        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of());
+        given(concertRepository.findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED)).willReturn(List.of());
 
         // when
         List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
@@ -159,7 +160,7 @@ class ConcertServiceTest {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
-        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
+        given(concertRepository.findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED)).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
@@ -179,7 +180,7 @@ class ConcertServiceTest {
                 .concertId(CONCERT_ID)
                 .build();
 
-        given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
+        given(concertRepository.findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED)).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
@@ -233,7 +234,7 @@ class ConcertServiceTest {
         ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
 
-        given(concertRepository.findAll(PAGEABLE)).willReturn(page);
+        given(concertRepository.findByStatusNot(ConcertStatus.EXCLUDED, PAGEABLE)).willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
@@ -254,7 +255,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.findAll(PAGEABLE)).willReturn(page);
+        given(concertRepository.findByStatusNot(ConcertStatus.EXCLUDED, PAGEABLE)).willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
@@ -284,7 +285,7 @@ class ConcertServiceTest {
     void should_return_empty_page_when_no_concerts_match_filter() {
         // given
         Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.findAll(PAGEABLE)).willReturn(emptyPage);
+        given(concertRepository.findByStatusNot(ConcertStatus.EXCLUDED, PAGEABLE)).willReturn(emptyPage);
 
         // when
         PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, null);
@@ -421,7 +422,7 @@ class ConcertServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
 
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
+        given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID), ConcertStatus.EXCLUDED)).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
@@ -443,14 +444,14 @@ class ConcertServiceTest {
         UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
 
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(concertRepository.findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING))
+        given(concertRepository.findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING, ConcertStatus.EXCLUDED))
                 .willReturn(List.of());
 
         // when
         List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, ConcertStatus.ONGOING);
 
         // then
-        verify(concertRepository).findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING);
+        verify(concertRepository).findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING, ConcertStatus.EXCLUDED);
         assertThat(result).isEmpty();
     }
 
@@ -461,7 +462,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
+        given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID), ConcertStatus.EXCLUDED)).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
@@ -489,7 +490,7 @@ class ConcertServiceTest {
                 .concertId(CONCERT_ID)
                 .build();
 
-        given(concertRepository.findAll(PAGEABLE)).willReturn(page);
+        given(concertRepository.findByStatusNot(ConcertStatus.EXCLUDED, PAGEABLE)).willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
@@ -508,7 +509,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.findAll(PAGEABLE)).willReturn(page);
+        given(concertRepository.findByStatusNot(ConcertStatus.EXCLUDED, PAGEABLE)).willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
@@ -534,7 +535,7 @@ class ConcertServiceTest {
                 .build();
 
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
+        given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID), ConcertStatus.EXCLUDED)).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
@@ -612,5 +613,66 @@ class ConcertServiceTest {
         assertThatThrownBy(() -> concertService.getSetlist(CONCERT_ID))
                 .isInstanceOf(ConcertNotFoundException.class)
                 .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // EXCLUDED 필터링
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_empty_page_when_status_is_excluded() {
+        // given
+        // status == EXCLUDED이면 레포를 호출하지 않고 즉시 빈 페이지를 반환한다
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(ConcertStatus.EXCLUDED, PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+        verify(concertRepository, never()).findByStatus(any(), any());
+        verify(concertRepository, never()).findByStatusNot(any(), any());
+    }
+
+    @Test
+    void should_throw_concert_not_found_when_concert_is_excluded() {
+        // given
+        Concert excludedConcert = buildConcert(CONCERT_ID, ConcertStatus.EXCLUDED);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(excludedConcert));
+
+        // when & then
+        assertThatThrownBy(() -> concertService.getConcert(CONCERT_ID, null))
+                .isInstanceOf(ConcertNotFoundException.class)
+                .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_return_empty_list_when_following_concerts_status_is_excluded() {
+        // given
+        // status == EXCLUDED이면 레포를 호출하지 않고 즉시 빈 리스트를 반환한다
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, ConcertStatus.EXCLUDED);
+
+        // then
+        assertThat(result).isEmpty();
+        verify(userFollowArtistRepository, never()).findByUserId(any());
+    }
+
+    @Test
+    void should_not_include_excluded_concerts_in_popular_list() {
+        // given
+        Concert upcomingConcert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(concertRepository.findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED))
+                .willReturn(List.of(upcomingConcert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
+
+        // then
+        verify(concertRepository).findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).status()).isEqualTo(ConcertStatus.UPCOMING);
     }
 }
