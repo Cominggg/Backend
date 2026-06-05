@@ -114,8 +114,6 @@ class ConcertServiceTest {
         return ConcertArtist.builder()
                 .concertId(concertId)
                 .artistId(artistId)
-                .confidence("HIGH")
-                .matchedBy("manual")
                 .build();
     }
 
@@ -131,7 +129,7 @@ class ConcertServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
 
         given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 
@@ -162,7 +160,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
         given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
         // when
@@ -182,7 +180,7 @@ class ConcertServiceTest {
                 .build();
 
         given(concertRepository.findTop10ByOrderByViewCountDesc()).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
                 .willReturn(List.of(calendarEntry));
@@ -236,7 +234,7 @@ class ConcertServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
 
         given(concertRepository.findAll(PAGEABLE)).willReturn(page);
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 
@@ -251,13 +249,13 @@ class ConcertServiceTest {
     }
 
     @Test
-    void should_return_concerts_with_null_artist_name_when_no_high_confidence_artist() {
+    void should_return_concerts_with_null_artist_name_when_no_artist_mapped() {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
         given(concertRepository.findAll(PAGEABLE)).willReturn(page);
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
         // when
@@ -314,7 +312,7 @@ class ConcertServiceTest {
                 .build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertIdAndConfidence(CONCERT_ID, "HIGH"))
+        given(concertArtistRepository.findFirstByConcertId(CONCERT_ID))
                 .willReturn(Optional.of(concertArtist));
         given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(bookingLink));
@@ -340,7 +338,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertIdAndConfidence(CONCERT_ID, "HIGH"))
+        given(concertArtistRepository.findFirstByConcertId(CONCERT_ID))
                 .willReturn(Optional.empty());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
         given(userConcertCalendarRepository.existsByUserIdAndConcertId(USER_ID, CONCERT_ID)).willReturn(true);
@@ -358,7 +356,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertIdAndConfidence(CONCERT_ID, "HIGH"))
+        given(concertArtistRepository.findFirstByConcertId(CONCERT_ID))
                 .willReturn(Optional.empty());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
 
@@ -386,7 +384,7 @@ class ConcertServiceTest {
                 .build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertIdAndConfidence(CONCERT_ID, "HIGH"))
+        given(concertArtistRepository.findFirstByConcertId(CONCERT_ID))
                 .willReturn(Optional.empty());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
 
@@ -424,7 +422,7 @@ class ConcertServiceTest {
 
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
         given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
@@ -457,14 +455,14 @@ class ConcertServiceTest {
     }
 
     @Test
-    void should_return_null_artist_name_when_no_high_confidence_match_in_following_concerts() {
+    void should_return_null_artist_name_when_no_artist_mapped_in_following_concerts() {
         // given
         UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
         given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
                 .willReturn(List.of());
@@ -492,7 +490,7 @@ class ConcertServiceTest {
                 .build();
 
         given(concertRepository.findAll(PAGEABLE)).willReturn(page);
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
                 .willReturn(List.of(calendarEntry));
@@ -511,7 +509,7 @@ class ConcertServiceTest {
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
         given(concertRepository.findAll(PAGEABLE)).willReturn(page);
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
         // when
@@ -537,7 +535,7 @@ class ConcertServiceTest {
 
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
         given(concertRepository.findAllByArtistIdIn(List.of(ARTIST_ID))).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
                 .willReturn(List.of(calendarEntry));

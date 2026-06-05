@@ -88,8 +88,6 @@ class CalendarServiceTest {
         return ConcertArtist.builder()
                 .concertId(concertId)
                 .artistId(artistId)
-                .confidence("HIGH")
-                .matchedBy("manual")
                 .build();
     }
 
@@ -108,7 +106,7 @@ class CalendarServiceTest {
                 LocalDate.of(2025, 8, 1),
                 LocalDate.of(2025, 8, 31)))
                 .willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
@@ -134,7 +132,7 @@ class CalendarServiceTest {
                 .userId(USER_ID).concertId(CONCERT_ID).build();
 
         given(concertRepository.findByDateRange(any(), any())).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
                 .willReturn(List.of(entry));
@@ -152,7 +150,7 @@ class CalendarServiceTest {
         Concert concert = buildConcert(CONCERT_ID);
 
         given(concertRepository.findByDateRange(any(), any())).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
         // when
@@ -187,7 +185,7 @@ class CalendarServiceTest {
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
         given(concertRepository.findByUserCalendar(USER_ID, PAGEABLE)).willReturn(page);
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 

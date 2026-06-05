@@ -22,12 +22,10 @@ import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
-import com.Coming.Backend.concert.entity.ConcertStatusLog;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
-import com.Coming.Backend.concert.repository.ConcertStatusLogRepository;
 import com.Coming.Backend.concert.entity.Setlist;
 import com.Coming.Backend.concert.repository.SetlistRepository;
 import com.Coming.Backend.concert.repository.SetlistTrackRepository;
@@ -85,9 +83,6 @@ class AdminServiceTest {
 
     @Mock
     private ConcertBookingLinkRepository concertBookingLinkRepository;
-
-    @Mock
-    private ConcertStatusLogRepository concertStatusLogRepository;
 
     @Mock
     private SetlistRepository setlistRepository;
@@ -457,8 +452,6 @@ class AdminServiceTest {
         assertThat(mappings).hasSize(2);
         assertThat(mappings.get(0).getArtistId()).isEqualTo(1L);
         assertThat(mappings.get(1).getArtistId()).isEqualTo(2L);
-        assertThat(mappings.get(0).getConfidence()).isEqualTo("HIGH");
-        assertThat(mappings.get(0).getMatchedBy()).isEqualTo("ADMIN");
     }
 
     // -------------------------------------------------------------------------
@@ -554,7 +547,6 @@ class AdminServiceTest {
         adminService.deleteConcert(CONCERT_ID);
 
         // then
-        verify(concertStatusLogRepository).deleteByConcertId(CONCERT_ID);
         verify(setlistTrackRepository, never()).deleteBySetlistIdIn(any());
         verify(setlistRepository).deleteAllById(List.of());
         verify(userConcertCalendarRepository).deleteByConcertId(CONCERT_ID);
@@ -598,29 +590,19 @@ class AdminServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_change_status_and_save_log_when_valid_request_given() {
+    void should_change_status_when_valid_request_given() {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         AdminConcertStateUpdateRequest request = new AdminConcertStateUpdateRequest(
                 ConcertStatus.CANCELLED, "공연 취소"
         );
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertStatusLogRepository.save(any(ConcertStatusLog.class)))
-                .willAnswer(inv -> inv.getArgument(0));
 
         // when
         adminService.forceChangeConcertState(CONCERT_ID, request);
 
         // then
         assertThat(concert.getStatus()).isEqualTo(ConcertStatus.CANCELLED);
-        ArgumentCaptor<ConcertStatusLog> captor = ArgumentCaptor.forClass(ConcertStatusLog.class);
-        verify(concertStatusLogRepository).save(captor.capture());
-        ConcertStatusLog log = captor.getValue();
-        assertThat(log.getConcertId()).isEqualTo(CONCERT_ID);
-        assertThat(log.getBeforeStatus()).isEqualTo(ConcertStatus.UPCOMING);
-        assertThat(log.getAfterStatus()).isEqualTo(ConcertStatus.CANCELLED);
-        assertThat(log.getReason()).isEqualTo("공연 취소");
-        assertThat(log.getChangedAt()).isNotNull();
     }
 
     @Test

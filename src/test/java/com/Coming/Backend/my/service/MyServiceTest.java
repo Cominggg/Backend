@@ -77,8 +77,6 @@ class MyServiceTest {
         return ConcertArtist.builder()
                 .concertId(concertId)
                 .artistId(artistId)
-                .confidence("HIGH")
-                .matchedBy("manual")
                 .build();
     }
 
@@ -96,7 +94,7 @@ class MyServiceTest {
 
         given(concertRepository.findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), eq(PAGEABLE)))
                 .willReturn(page);
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 
@@ -139,7 +137,7 @@ class MyServiceTest {
 
         given(concertRepository.findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), eq(PAGEABLE)))
                 .willReturn(page);
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
         // when
