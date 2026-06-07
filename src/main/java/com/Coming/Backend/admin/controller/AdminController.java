@@ -10,6 +10,7 @@ import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
+import com.Coming.Backend.admin.client.DataPipelineClient;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
@@ -41,6 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
     private final AdminService adminService;
+    private final DataPipelineClient dataPipelineClient;
 
     @Operation(summary = "아티스트 등록")
     @ApiResponse(responseCode = "201", description = "Created")
@@ -156,5 +158,28 @@ public class AdminController {
             @RequestBody @Valid AdminConcertArtistAssignRequest request) {
         adminService.assignArtistToConcert(id, request.artistId());
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @Operation(summary = "Data 파이프라인 공연 수집 트리거")
+    @PostMapping("/data/collect/concert")
+    public ResponseEntity<Void> triggerConcertCollect() {
+        dataPipelineClient.triggerConcertCollect();
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Data 파이프라인 아티스트 릴리즈 수집 트리거")
+    @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND (Data 파이프라인 측)")
+    @PostMapping("/data/collect/artists/{id}/releases")
+    public ResponseEntity<Void> triggerArtistReleases(@PathVariable Long id) {
+        dataPipelineClient.triggerArtistReleases(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Data 파이프라인 셋리스트 수집 트리거")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND (Data 파이프라인 측)")
+    @PostMapping("/data/collect/concerts/{id}/setlist")
+    public ResponseEntity<Void> triggerConcertSetlist(@PathVariable Long id) {
+        dataPipelineClient.triggerConcertSetlist(id);
+        return ResponseEntity.ok().build();
     }
 }
