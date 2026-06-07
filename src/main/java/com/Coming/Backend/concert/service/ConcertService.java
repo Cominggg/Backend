@@ -20,6 +20,8 @@ import com.Coming.Backend.concert.entity.Setlist;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
+import com.Coming.Backend.concert.entity.ConcertImage;
+import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.concert.repository.SetlistRepository;
 import com.Coming.Backend.concert.repository.SetlistTrackRepository;
@@ -40,11 +42,10 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ConcertService {
 
-    private static final String HIGH_CONFIDENCE = "HIGH";
-
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
+    private final ConcertImageRepository concertImageRepository;
     private final ArtistRepository artistRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
@@ -57,7 +58,7 @@ public class ConcertService {
      * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
     public List<ConcertSummaryResponse> getPopularConcerts(Long userId) {
-        List<Concert> concerts = concertRepository.findTop10ByOrderByViewCountDesc();
+        List<Concert> concerts = concertRepository.findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED);
         return toConcertSummaryList(concerts, userId);
     }
 
@@ -96,8 +97,11 @@ public class ConcertService {
      * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
     public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Pageable pageable, Long userId) {
+        if (status == ConcertStatus.EXCLUDED) {
+            return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+        }
         Page<Concert> page = (status == null)
-                ? concertRepository.findAll(pageable)
+                ? concertRepository.findByStatusNot(ConcertStatus.EXCLUDED, pageable)
                 : concertRepository.findByStatus(status, pageable);
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
@@ -110,6 +114,9 @@ public class ConcertService {
      * @param status null이면 전체 조회
      */
     public List<ConcertSummaryResponse> getFollowingConcerts(Long userId, ConcertStatus status) {
+        if (status == ConcertStatus.EXCLUDED) {
+            return List.of();
+        }
         List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
                 .map(UserFollowArtist::getArtistId)
                 .toList();
@@ -117,7 +124,7 @@ public class ConcertService {
             return List.of();
         }
         List<Concert> concerts = (status == null)
-                ? concertRepository.findAllByArtistIdIn(artistIds)
+                ? concertRepository.findAllByArtistIdIn(artistIds, ConcertStatus.EXCLUDED)
                 : concertRepository.findAllByArtistIdInAndStatus(artistIds, status);
         return toConcertSummaryList(concerts, userId);
     }
@@ -130,10 +137,13 @@ public class ConcertService {
     @Transactional
     public ConcertDetailResponse getConcert(Long id, Long userId) {
         Concert concert = concertRepository.findById(id).orElseThrow(ConcertNotFoundException::new);
+        if (concert.getStatus() == ConcertStatus.EXCLUDED) {
+            throw new ConcertNotFoundException();
+        }
         concertRepository.incrementViewCount(id);
 
         ConcertArtist highConfidenceArtist = concertArtistRepository
-                .findFirstByConcertIdAndConfidence(id, HIGH_CONFIDENCE).orElse(null);
+                .findFirstByConcertIdOrderByIdAsc(id).orElse(null);
         Long artistId = highConfidenceArtist != null ? highConfidenceArtist.getArtistId() : null;
         boolean isInCalendar = userId != null &&
                 userConcertCalendarRepository.existsByUserIdAndConcertId(userId, id);
@@ -141,7 +151,7 @@ public class ConcertService {
         return new ConcertDetailResponse(
                 concert.getId(),
                 concert.getPosterUrl(),
-                toPosterUrls(concert.getPosterUrl()),
+                buildImageUrls(id),
                 resolveArtistName(artistId),
                 artistId,
                 concert.getTitle(),
@@ -202,15 +212,17 @@ public class ConcertService {
                 .toList();
     }
 
-    private List<String> toPosterUrls(String posterUrl) {
-        return posterUrl != null ? List.of(posterUrl) : List.of();
+    private List<String> buildImageUrls(Long concertId) {
+        return concertImageRepository.findByConcertIdOrderByPosition(concertId).stream()
+                .map(ConcertImage::getUrl)
+                .toList();
     }
 
     private Map<Long, Long> buildConcertArtistIdMap(List<Long> concertIds) {
         if (concertIds.isEmpty()) {
             return Map.of();
         }
-        return concertArtistRepository.findByConcertIdInAndConfidence(concertIds, HIGH_CONFIDENCE).stream()
+        return concertArtistRepository.findByConcertIdIn(concertIds).stream()
                 .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId));
     }
 

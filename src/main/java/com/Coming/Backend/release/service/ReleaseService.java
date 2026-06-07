@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ReleaseService {
 
-    private static final List<String> STANDARD_TYPES = List.of("ALBUM", "SINGLE", "EP");
+    private static final List<String> STANDARD_TYPES = List.of("Album", "Single");
 
     private final ReleaseGroupRepository releaseGroupRepository;
     private final TrackRepository trackRepository;

@@ -33,10 +33,4 @@ public class ConcertArtist extends BaseCreatedEntity {
 
     @Column(name = "artist_id", nullable = false)
     private Long artistId;
-
-    @Column(name = "confidence", nullable = false, length = 10)
-    private String confidence;
-
-    @Column(name = "matched_by", nullable = false, length = 20)
-    private String matchedBy;
 }

@@ -27,8 +27,11 @@ public class Track {
     @Column(name = "release_group_id", nullable = false)
     private Long releaseGroupId;
 
-    @Column(name = "mbid", nullable = false, unique = true, length = 36)
+    @Column(name = "mbid", unique = true, length = 36)
     private String mbid;
+
+    @Column(name = "spotify_id", unique = true, length = 22)
+    private String spotifyId;
 
     @Column(name = "title", nullable = false, length = 500)
     private String title;
@@ -38,4 +41,10 @@ public class Track {
 
     @Column(name = "length_ms")
     private Integer lengthMs;
+
+    @Column(name = "disc_number")
+    private Integer discNumber;
+
+    @Column(name = "explicit")
+    private Boolean explicit;
 }

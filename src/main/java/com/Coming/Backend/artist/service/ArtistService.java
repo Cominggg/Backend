@@ -57,7 +57,7 @@ public class ArtistService {
         return PageResponse.from(page.map(artist -> new ArtistSummaryResponse(
                 artist.getId(),
                 artist.getName(),
-                null,
+                artist.getImageUrl(),
                 artist.isComing(),
                 followingIds.contains(artist.getId())
         )));
@@ -80,11 +80,10 @@ public class ArtistService {
         return new ArtistDetailResponse(
                 artist.getId(),
                 artist.getName(),
-                null,
+                artist.getImageUrl(),
                 artist.isComing(),
                 isFollowing,
                 followersCount,
-                artist.getDebutDate(),
                 links
         );
     }
@@ -101,7 +100,7 @@ public class ArtistService {
 
         List<ConcertStatus> statuses = toStatuses(tab);
         Page<Concert> page = (statuses == null)
-                ? concertRepository.findAllByArtistId(artistId, CONCERT_HISTORY_START, pageable)
+                ? concertRepository.findAllByArtistId(artistId, CONCERT_HISTORY_START, ConcertStatus.EXCLUDED, pageable)
                 : concertRepository.findAllByArtistIdAndStatusIn(artistId, statuses, CONCERT_HISTORY_START, pageable);
 
         return PageResponse.from(page.map(concert -> new ArtistConcertResponse(
@@ -153,7 +152,7 @@ public class ArtistService {
                 .map(artist -> new FollowingArtistResponse(
                         artist.getId(),
                         artist.getName(),
-                        null,
+                        artist.getImageUrl(),
                         artist.isComing()
                 ))
                 .toList();

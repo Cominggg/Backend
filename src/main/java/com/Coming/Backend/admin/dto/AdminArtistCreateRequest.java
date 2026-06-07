@@ -1,10 +1,7 @@
 package com.Coming.Backend.admin.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-
-import java.time.LocalDate;
 
 public record AdminArtistCreateRequest(
         @NotBlank
@@ -17,9 +14,6 @@ public record AdminArtistCreateRequest(
         @NotBlank
         String name,
 
-        String sortName,
-
-        @JsonFormat(pattern = "yyyy-MM-dd")
-        LocalDate debutDate
+        String sortName
 ) {
 }

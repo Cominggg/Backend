@@ -7,8 +7,8 @@ import java.util.List;
 
 public record ConcertDetailResponse(
         Long id,
-        String thumbnailUrl,
-        List<String> posterUrls,
+        String posterUrl,
+        List<String> imageUrls,
         String artistName,
         Long artistId,
         String title,

@@ -1,6 +1,5 @@
 package com.Coming.Backend.release.entity;
 
-import com.Coming.Backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -21,14 +20,17 @@ import java.time.LocalDate;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ReleaseGroup extends BaseTimeEntity {
+public class ReleaseGroup {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "mbid", nullable = false, unique = true, length = 36)
+    @Column(name = "mbid", unique = true, length = 36)
     private String mbid;
+
+    @Column(name = "spotify_id", unique = true, length = 22)
+    private String spotifyId;
 
     @Column(name = "artist_id", nullable = false)
     private Long artistId;
@@ -47,4 +49,7 @@ public class ReleaseGroup extends BaseTimeEntity {
 
     @Column(name = "label", length = 255)
     private String label;
+
+    @Column(name = "total_tracks")
+    private Integer totalTracks;
 }

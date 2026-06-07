@@ -2,8 +2,9 @@ package com.Coming.Backend.concert.entity;
 
 import com.Coming.Backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -15,6 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "concert")
@@ -55,7 +57,7 @@ public class Concert extends BaseTimeEntity {
     @Column(name = "price", columnDefinition = "text")
     private String price;
 
-    @Convert(converter = ConcertStatusConverter.class)
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private ConcertStatus status;
 
@@ -64,6 +66,13 @@ public class Concert extends BaseTimeEntity {
 
     @Column(name = "kopis_update_date", nullable = false)
     private LocalDate kopisUpdateDate;
+
+    @Column(name = "fetch_attempted_at")
+    private LocalDateTime fetchAttemptedAt;
+
+    public void markFetchAttempted(LocalDateTime at) {
+        this.fetchAttemptedAt = at;
+    }
 
     public void update(String title, String cast, LocalDate startDate, LocalDate endDate,
                        String venueName, String venueAddress, String posterUrl, String price) {

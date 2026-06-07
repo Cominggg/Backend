@@ -13,8 +13,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
-
 @Entity
 @Table(name = "artist")
 @Getter
@@ -36,15 +34,14 @@ public class Artist extends BaseTimeEntity {
     @Column(name = "sort_name", length = 255)
     private String sortName;
 
-    @Column(name = "debut_date")
-    private LocalDate debutDate;
+    @Column(name = "image_url")
+    private String imageUrl;
 
     @Column(name = "is_coming", nullable = false)
     private boolean isComing;
 
-    public void update(String name, String sortName, LocalDate debutDate) {
+    public void update(String name, String sortName) {
         if (name != null) this.name = name;
         if (sortName != null) this.sortName = sortName;
-        if (debutDate != null) this.debutDate = debutDate;
     }
 }

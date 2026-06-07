@@ -132,11 +132,11 @@ class ReleaseControllerTest {
     @Test
     void should_return_200_with_release_detail_when_release_exists() throws Exception {
         // given
-        TrackDto track1 = new TrackDto(1, "Coin", 196000);
-        TrackDto track2 = new TrackDto(2, "Celebrity", 197000);
+        TrackDto track1 = new TrackDto(1, "Coin", 196000, 1, false);
+        TrackDto track2 = new TrackDto(2, "Celebrity", 197000, 1, false);
         ReleaseDetailResponse detail = new ReleaseDetailResponse(
-                RELEASE_ID, "LILAC", "ALBUM", LocalDate.of(2021, 3, 25),
-                "https://cover.example.com/10", "KAKAO M",
+                RELEASE_ID, "LILAC", "Album", LocalDate.of(2021, 3, 25),
+                "https://cover.example.com/10", "KAKAO M", 2,
                 ARTIST_ID, "IU", List.of(track1, track2)
         );
         given(releaseService.getReleaseDetail(eq(RELEASE_ID))).willReturn(detail);
@@ -147,7 +147,7 @@ class ReleaseControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(RELEASE_ID))
                 .andExpect(jsonPath("$.title").value("LILAC"))
-                .andExpect(jsonPath("$.type").value("ALBUM"))
+                .andExpect(jsonPath("$.type").value("Album"))
                 .andExpect(jsonPath("$.label").value("KAKAO M"))
                 .andExpect(jsonPath("$.artistId").value(ARTIST_ID))
                 .andExpect(jsonPath("$.artistName").value("IU"))

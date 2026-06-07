@@ -12,6 +12,7 @@ public record ReleaseDetailResponse(
         LocalDate releaseDate,
         String coverUrl,
         String label,
+        Integer totalTracks,
         Long artistId,
         String artistName,
         List<TrackDto> tracks
@@ -24,6 +25,7 @@ public record ReleaseDetailResponse(
                 release.getFirstReleaseDate(),
                 release.getCoverUrl(),
                 release.getLabel(),
+                release.getTotalTracks(),
                 release.getArtistId(),
                 artistName,
                 tracks

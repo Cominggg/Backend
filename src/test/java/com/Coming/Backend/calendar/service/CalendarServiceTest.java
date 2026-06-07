@@ -3,6 +3,7 @@ package com.Coming.Backend.calendar.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -88,8 +89,6 @@ class CalendarServiceTest {
         return ConcertArtist.builder()
                 .concertId(concertId)
                 .artistId(artistId)
-                .confidence("HIGH")
-                .matchedBy("manual")
                 .build();
     }
 
@@ -106,9 +105,10 @@ class CalendarServiceTest {
 
         given(concertRepository.findByDateRange(
                 LocalDate.of(2025, 8, 1),
-                LocalDate.of(2025, 8, 31)))
+                LocalDate.of(2025, 8, 31),
+                ConcertStatus.EXCLUDED))
                 .willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
@@ -133,8 +133,8 @@ class CalendarServiceTest {
         UserConcertCalendar entry = UserConcertCalendar.builder()
                 .userId(USER_ID).concertId(CONCERT_ID).build();
 
-        given(concertRepository.findByDateRange(any(), any())).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertRepository.findByDateRange(any(), any(), eq(ConcertStatus.EXCLUDED))).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
                 .willReturn(List.of(entry));
@@ -151,8 +151,8 @@ class CalendarServiceTest {
         // given
         Concert concert = buildConcert(CONCERT_ID);
 
-        given(concertRepository.findByDateRange(any(), any())).willReturn(List.of(concert));
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertRepository.findByDateRange(any(), any(), eq(ConcertStatus.EXCLUDED))).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
         // when
@@ -165,7 +165,7 @@ class CalendarServiceTest {
     @Test
     void should_return_empty_list_when_no_concerts_in_month() {
         // given
-        given(concertRepository.findByDateRange(any(), any())).willReturn(List.of());
+        given(concertRepository.findByDateRange(any(), any(), eq(ConcertStatus.EXCLUDED))).willReturn(List.of());
 
         // when
         List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8, null);
@@ -186,8 +186,8 @@ class CalendarServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.findByUserCalendar(USER_ID, PAGEABLE)).willReturn(page);
-        given(concertArtistRepository.findByConcertIdInAndConfidence(List.of(CONCERT_ID), "HIGH"))
+        given(concertRepository.findByUserCalendar(USER_ID, ConcertStatus.EXCLUDED, PAGEABLE)).willReturn(page);
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 

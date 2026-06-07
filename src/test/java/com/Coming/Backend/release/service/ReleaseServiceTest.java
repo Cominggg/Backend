@@ -52,7 +52,7 @@ class ReleaseServiceTest {
     private static final Long ARTIST_ID = 1L;
     private static final Long RELEASE_ID = 10L;
     private static final Pageable PAGEABLE = PageRequest.of(0, 20);
-    private static final List<String> STANDARD_TYPES = List.of("ALBUM", "SINGLE", "EP");
+    private static final List<String> STANDARD_TYPES = List.of("Album", "Single");
 
     private ReleaseGroup buildRelease(Long id, Long artistId, String type) {
         return ReleaseGroup.builder()
