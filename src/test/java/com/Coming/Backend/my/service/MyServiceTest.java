@@ -2,6 +2,7 @@ package com.Coming.Backend.my.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
@@ -92,7 +93,7 @@ class MyServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), eq(ConcertStatus.EXCLUDED), eq(PAGEABLE)))
+        given(concertRepository.findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), anyList(), eq(PAGEABLE)))
                 .willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
@@ -118,7 +119,7 @@ class MyServiceTest {
         // given
         Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
 
-        given(concertRepository.findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), eq(ConcertStatus.EXCLUDED), eq(PAGEABLE)))
+        given(concertRepository.findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), anyList(), eq(PAGEABLE)))
                 .willReturn(emptyPage);
 
         // when
@@ -135,7 +136,7 @@ class MyServiceTest {
         Concert concert = buildPastConcert(CONCERT_ID);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), eq(ConcertStatus.EXCLUDED), eq(PAGEABLE)))
+        given(concertRepository.findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), anyList(), eq(PAGEABLE)))
                 .willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());

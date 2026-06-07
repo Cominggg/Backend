@@ -29,12 +29,16 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
+import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ArtistService {
 
     private static final LocalDate CONCERT_HISTORY_START = LocalDate.of(2020, 1, 1);
+    private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
 
     private final ArtistRepository artistRepository;
     private final ArtistUrlRepository artistUrlRepository;
@@ -100,7 +104,7 @@ public class ArtistService {
 
         List<ConcertStatus> statuses = toStatuses(tab);
         Page<Concert> page = (statuses == null)
-                ? concertRepository.findAllByArtistId(artistId, CONCERT_HISTORY_START, ConcertStatus.EXCLUDED, pageable)
+                ? concertRepository.findAllByArtistId(artistId, CONCERT_HISTORY_START, HIDDEN_STATUSES, pageable)
                 : concertRepository.findAllByArtistIdAndStatusIn(artistId, statuses, CONCERT_HISTORY_START, pageable);
 
         return PageResponse.from(page.map(concert -> new ArtistConcertResponse(

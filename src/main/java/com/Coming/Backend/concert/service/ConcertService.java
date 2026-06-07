@@ -12,8 +12,8 @@ import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.dto.SetlistResponse;
 import com.Coming.Backend.concert.dto.SetlistTrackDto;
-import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.dto.TicketLinkDto;
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.Setlist;
@@ -37,10 +37,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
+import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ConcertService {
+
+    private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
 
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -58,7 +63,7 @@ public class ConcertService {
      * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
     public List<ConcertSummaryResponse> getPopularConcerts(Long userId) {
-        List<Concert> concerts = concertRepository.findTop10ByStatusNotOrderByViewCountDesc(ConcertStatus.EXCLUDED);
+        List<Concert> concerts = concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(HIDDEN_STATUSES);
         return toConcertSummaryList(concerts, userId);
     }
 
@@ -97,11 +102,11 @@ public class ConcertService {
      * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
     public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Pageable pageable, Long userId) {
-        if (status == ConcertStatus.EXCLUDED) {
+        if (status == EXCLUDED || status == PENDING) {
             return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
         }
         Page<Concert> page = (status == null)
-                ? concertRepository.findByStatusNot(ConcertStatus.EXCLUDED, pageable)
+                ? concertRepository.findByStatusNotIn(HIDDEN_STATUSES, pageable)
                 : concertRepository.findByStatus(status, pageable);
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
@@ -114,7 +119,7 @@ public class ConcertService {
      * @param status null이면 전체 조회
      */
     public List<ConcertSummaryResponse> getFollowingConcerts(Long userId, ConcertStatus status) {
-        if (status == ConcertStatus.EXCLUDED) {
+        if (status == EXCLUDED || status == PENDING) {
             return List.of();
         }
         List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
@@ -124,7 +129,7 @@ public class ConcertService {
             return List.of();
         }
         List<Concert> concerts = (status == null)
-                ? concertRepository.findAllByArtistIdIn(artistIds, ConcertStatus.EXCLUDED)
+                ? concertRepository.findAllByArtistIdIn(artistIds, HIDDEN_STATUSES)
                 : concertRepository.findAllByArtistIdInAndStatus(artistIds, status);
         return toConcertSummaryList(concerts, userId);
     }
@@ -137,7 +142,7 @@ public class ConcertService {
     @Transactional
     public ConcertDetailResponse getConcert(Long id, Long userId) {
         Concert concert = concertRepository.findById(id).orElseThrow(ConcertNotFoundException::new);
-        if (concert.getStatus() == ConcertStatus.EXCLUDED) {
+        if (concert.getStatus() == EXCLUDED || concert.getStatus() == PENDING) {
             throw new ConcertNotFoundException();
         }
         concertRepository.incrementViewCount(id);

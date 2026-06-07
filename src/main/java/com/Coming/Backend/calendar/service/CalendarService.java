@@ -27,10 +27,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
+import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CalendarService {
+
+    private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
 
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -45,7 +50,7 @@ public class CalendarService {
     public List<CalendarEntryResponse> getCalendar(int year, int month, Long userId) {
         LocalDate firstDay = LocalDate.of(year, month, 1);
         LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
-        List<Concert> concerts = concertRepository.findByDateRange(firstDay, lastDay, ConcertStatus.EXCLUDED);
+        List<Concert> concerts = concertRepository.findByDateRange(firstDay, lastDay, HIDDEN_STATUSES);
         Set<Long> userCalendarIds = resolveUserCalendarIds(userId, concerts);
         return toCalendarEntryList(concerts, userCalendarIds);
     }
@@ -54,7 +59,7 @@ public class CalendarService {
      * 내 캘린더에 저장된 공연 목록을 페이지네이션으로 조회한다.
      */
     public PageResponse<CalendarEntryResponse> getMyCalendar(Long userId, Pageable pageable) {
-        Page<Concert> page = concertRepository.findByUserCalendar(userId, ConcertStatus.EXCLUDED, pageable);
+        Page<Concert> page = concertRepository.findByUserCalendar(userId, HIDDEN_STATUSES, pageable);
         Set<Long> allIds = page.getContent().stream().map(Concert::getId).collect(Collectors.toSet());
         List<CalendarEntryResponse> content = toCalendarEntryList(page.getContent(), allIds);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
