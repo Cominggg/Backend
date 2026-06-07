@@ -2,12 +2,14 @@ package com.Coming.Backend.admin.service;
 
 import com.Coming.Backend.admin.dto.AdminArtistCreateRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminCandidateArtistResponse;
 import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
@@ -18,9 +20,11 @@ import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
+import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
+import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -53,6 +57,7 @@ public class AdminService {
     private final UserRepository userRepository;
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
+    private final ConcertArtistCandidateRepository concertArtistCandidateRepository;
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
     private final SetlistRepository setlistRepository;
     private final SetlistTrackRepository setlistTrackRepository;
@@ -217,5 +222,40 @@ public class AdminService {
         Concert concert = concertRepository.findById(id)
                 .orElseThrow(ConcertNotFoundException::new);
         concert.forceChangeStatus(request.status());
+    }
+
+    /**
+     * PENDING 상태 공연 목록과 각 공연의 후보 아티스트를 반환한다.
+     */
+    public PageResponse<AdminPendingConcertResponse> getPendingConcerts(Pageable pageable) {
+        Page<Concert> page = concertRepository.findByStatus(ConcertStatus.PENDING, pageable);
+
+        List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
+        Map<Long, List<ConcertArtistCandidate>> candidatesByConcertId = concertArtistCandidateRepository
+                .findByConcertIdIn(concertIds).stream()
+                .collect(Collectors.groupingBy(ConcertArtistCandidate::getConcertId));
+
+        List<Long> artistIds = candidatesByConcertId.values().stream()
+                .flatMap(List::stream)
+                .map(ConcertArtistCandidate::getArtistId)
+                .distinct()
+                .toList();
+        Map<Long, String> artistNameById = artistRepository.findAllById(artistIds).stream()
+                .collect(Collectors.toMap(Artist::getId, Artist::getName));
+
+        List<AdminPendingConcertResponse> content = page.getContent().stream()
+                .map(concert -> {
+                    List<AdminCandidateArtistResponse> candidates = candidatesByConcertId
+                            .getOrDefault(concert.getId(), List.of()).stream()
+                            .map(c -> new AdminCandidateArtistResponse(
+                                    c.getArtistId(),
+                                    artistNameById.get(c.getArtistId()),
+                                    c.getMatchedBy()))
+                            .toList();
+                    return AdminPendingConcertResponse.of(concert, candidates);
+                })
+                .toList();
+
+        return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 }

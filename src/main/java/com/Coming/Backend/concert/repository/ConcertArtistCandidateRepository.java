@@ -12,6 +12,8 @@ public interface ConcertArtistCandidateRepository extends JpaRepository<ConcertA
 
     List<ConcertArtistCandidate> findByConcertId(Long concertId);
 
+    List<ConcertArtistCandidate> findByConcertIdIn(List<Long> concertIds);
+
     @Modifying
     @Query("DELETE FROM ConcertArtistCandidate c WHERE c.concertId = :concertId")
     void deleteByConcertId(@Param("concertId") Long concertId);

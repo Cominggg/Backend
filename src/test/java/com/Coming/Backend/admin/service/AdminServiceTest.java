@@ -8,6 +8,7 @@ import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
@@ -23,6 +24,8 @@ import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
+import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
+import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -82,6 +85,9 @@ class AdminServiceTest {
     private ConcertArtistRepository concertArtistRepository;
 
     @Mock
+    private ConcertArtistCandidateRepository concertArtistCandidateRepository;
+
+    @Mock
     private ConcertBookingLinkRepository concertBookingLinkRepository;
 
     @Mock
@@ -96,6 +102,7 @@ class AdminServiceTest {
     private static final Long USER_ID = 10L;
     private static final Long INQUIRY_ID = 1L;
     private static final Long TARGET_ID = 100L;
+    private static final Long ARTIST_ID = 20L;
     private static final Pageable PAGEABLE = PageRequest.of(0, 20);
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2025, 8, 20, 0, 0);
 
@@ -616,5 +623,66 @@ class AdminServiceTest {
         // when & then
         assertThatThrownBy(() -> adminService.forceChangeConcertState(999L, request))
                 .isInstanceOf(ConcertNotFoundException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // getPendingConcerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_pending_concerts_with_candidates_when_pending_concerts_exist() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+
+        given(concertRepository.findByStatus(ConcertStatus.PENDING, PAGEABLE)).willReturn(page);
+        given(concertArtistCandidateRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of(candidate));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+
+        // when
+        PageResponse<AdminPendingConcertResponse> response = adminService.getPendingConcerts(PAGEABLE);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).id()).isEqualTo(CONCERT_ID);
+        assertThat(response.content().get(0).candidates()).hasSize(1);
+        assertThat(response.content().get(0).candidates().get(0).artistId()).isEqualTo(ARTIST_ID);
+        assertThat(response.content().get(0).candidates().get(0).name()).isEqualTo("YOASOBI");
+        assertThat(response.content().get(0).candidates().get(0).matchedBy()).isEqualTo("kopis");
+    }
+
+    @Test
+    void should_return_empty_candidate_list_when_concert_has_no_candidates() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+
+        given(concertRepository.findByStatus(ConcertStatus.PENDING, PAGEABLE)).willReturn(page);
+        given(concertArtistCandidateRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+        given(artistRepository.findAllById(List.of())).willReturn(List.of());
+
+        // when
+        PageResponse<AdminPendingConcertResponse> response = adminService.getPendingConcerts(PAGEABLE);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).candidates()).isEmpty();
+    }
+
+    @Test
+    void should_return_empty_page_when_no_pending_concerts_exist() {
+        // given
+        Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
+        given(concertRepository.findByStatus(ConcertStatus.PENDING, PAGEABLE)).willReturn(emptyPage);
+
+        // when
+        PageResponse<AdminPendingConcertResponse> response = adminService.getPendingConcerts(PAGEABLE);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
     }
 }

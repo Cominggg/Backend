@@ -8,6 +8,7 @@ import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
@@ -82,6 +83,13 @@ public class AdminController {
             @RequestBody @Valid AdminInquiryStatusUpdateRequest request) {
         adminService.updateInquiryStatus(id, request);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "PENDING 공연 목록 조회")
+    @GetMapping("/concerts/pending")
+    public ResponseEntity<PageResponse<AdminPendingConcertResponse>> getPendingConcerts(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(adminService.getPendingConcerts(pageable));
     }
 
     @Operation(summary = "공연 수동 등록")
