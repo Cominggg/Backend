@@ -444,14 +444,14 @@ class ConcertServiceTest {
         UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
 
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(concertRepository.findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING, ConcertStatus.EXCLUDED))
+        given(concertRepository.findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING))
                 .willReturn(List.of());
 
         // when
         List<ConcertSummaryResponse> result = concertService.getFollowingConcerts(USER_ID, ConcertStatus.ONGOING);
 
         // then
-        verify(concertRepository).findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING, ConcertStatus.EXCLUDED);
+        verify(concertRepository).findAllByArtistIdInAndStatus(List.of(ARTIST_ID), ConcertStatus.ONGOING);
         assertThat(result).isEmpty();
     }
 

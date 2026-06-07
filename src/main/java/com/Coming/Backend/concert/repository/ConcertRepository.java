@@ -32,8 +32,8 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query("SELECT c FROM Concert c WHERE c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId IN :artistIds) AND c.status <> :excluded ORDER BY c.startDate DESC")
     List<Concert> findAllByArtistIdIn(@Param("artistIds") List<Long> artistIds, @Param("excluded") ConcertStatus excluded);
 
-    @Query("SELECT c FROM Concert c WHERE c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId IN :artistIds) AND c.status = :status AND c.status <> :excluded ORDER BY c.startDate DESC")
-    List<Concert> findAllByArtistIdInAndStatus(@Param("artistIds") List<Long> artistIds, @Param("status") ConcertStatus status, @Param("excluded") ConcertStatus excluded);
+    @Query("SELECT c FROM Concert c WHERE c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId IN :artistIds) AND c.status = :status ORDER BY c.startDate DESC")
+    List<Concert> findAllByArtistIdInAndStatus(@Param("artistIds") List<Long> artistIds, @Param("status") ConcertStatus status);
 
     @Modifying
     @Query("UPDATE Concert c SET c.viewCount = c.viewCount + 1 WHERE c.id = :id")

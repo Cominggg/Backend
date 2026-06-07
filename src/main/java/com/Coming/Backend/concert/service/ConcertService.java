@@ -124,7 +124,7 @@ public class ConcertService {
         }
         List<Concert> concerts = (status == null)
                 ? concertRepository.findAllByArtistIdIn(artistIds, ConcertStatus.EXCLUDED)
-                : concertRepository.findAllByArtistIdInAndStatus(artistIds, status, ConcertStatus.EXCLUDED);
+                : concertRepository.findAllByArtistIdInAndStatus(artistIds, status);
         return toConcertSummaryList(concerts, userId);
     }
 
