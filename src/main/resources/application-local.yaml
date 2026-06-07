@@ -9,3 +9,7 @@ spring:
           kakao:
             client-id: dummy-kakao-client-id
             client-secret: dummy-kakao-client-secret
+
+app:
+  cors:
+    allowed-origins: http://localhost:3000,http://localhost:5173
