@@ -1,0 +1,11 @@
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: dummy-google-client-id
+            client-secret: dummy-google-client-secret
+          kakao:
+            client-id: dummy-kakao-client-id
+            client-secret: dummy-kakao-client-secret
