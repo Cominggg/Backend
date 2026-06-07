@@ -24,6 +24,7 @@ import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
+import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
@@ -57,9 +58,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
-import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -684,5 +686,97 @@ class AdminServiceTest {
         // then
         assertThat(response.content()).isEmpty();
         assertThat(response.totalElements()).isZero();
+    }
+
+    // -------------------------------------------------------------------------
+    // approveConcert
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_move_candidates_to_concert_artist_and_set_status_when_approved() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        ReflectionTestUtils.setField(concert, "startDate", LocalDate.now().plusDays(10));
+        ReflectionTestUtils.setField(concert, "endDate", LocalDate.now().plusDays(12));
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistCandidateRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(candidate));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertRepository.existsActiveByArtistId(eq(ARTIST_ID), any())).willReturn(true);
+
+        // when
+        adminService.approveConcert(CONCERT_ID);
+
+        // then
+        verify(concertArtistRepository).saveAll(any());
+        verify(concertArtistCandidateRepository).deleteByConcertId(CONCERT_ID);
+        assertThat(concert.getStatus()).isEqualTo(ConcertStatus.UPCOMING);
+        assertThat(artist.isComing()).isTrue();
+    }
+
+    @Test
+    void should_set_status_ended_when_approved_concert_dates_are_in_the_past() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        ReflectionTestUtils.setField(concert, "startDate", LocalDate.now().minusDays(5));
+        ReflectionTestUtils.setField(concert, "endDate", LocalDate.now().minusDays(3));
+        ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistCandidateRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(candidate));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertRepository.existsActiveByArtistId(eq(ARTIST_ID), any())).willReturn(false);
+
+        // when
+        adminService.approveConcert(CONCERT_ID);
+
+        // then
+        assertThat(concert.getStatus()).isEqualTo(ConcertStatus.ENDED);
+        assertThat(artist.isComing()).isFalse();
+    }
+
+    @Test
+    void should_throw_concert_not_pending_when_approving_non_pending_concert() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.approveConcert(CONCERT_ID))
+                .isInstanceOf(ConcertNotPendingException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // rejectConcert
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_set_status_excluded_and_delete_candidates_when_rejected() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when
+        adminService.rejectConcert(CONCERT_ID);
+
+        // then
+        assertThat(concert.getStatus()).isEqualTo(ConcertStatus.EXCLUDED);
+        verify(concertArtistCandidateRepository).deleteByConcertId(CONCERT_ID);
+    }
+
+    @Test
+    void should_throw_concert_not_pending_when_rejecting_non_pending_concert() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.rejectConcert(CONCERT_ID))
+                .isInstanceOf(ConcertNotPendingException.class);
     }
 }

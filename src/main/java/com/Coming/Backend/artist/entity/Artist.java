@@ -44,4 +44,8 @@ public class Artist extends BaseTimeEntity {
         if (name != null) this.name = name;
         if (sortName != null) this.sortName = sortName;
     }
+
+    public void updateIsComing(boolean isComing) {
+        this.isComing = isComing;
+    }
 }

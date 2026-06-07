@@ -24,6 +24,7 @@ import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
+import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
@@ -43,6 +44,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -257,5 +259,67 @@ public class AdminService {
                 .toList();
 
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
+
+    /**
+     * PENDING 공연을 승인한다. 후보 아티스트를 concert_artist로 이동하고, 날짜 기반으로 상태를 계산하며, 연결된 아티스트의 is_coming을 갱신한다.
+     *
+     * @throws ConcertNotFoundException    존재하지 않는 공연 ID
+     * @throws ConcertNotPendingException  공연이 PENDING 상태가 아닌 경우
+     */
+    @Transactional
+    public void approveConcert(Long concertId) {
+        Concert concert = concertRepository.findById(concertId)
+                .orElseThrow(ConcertNotFoundException::new);
+        if (concert.getStatus() != ConcertStatus.PENDING) {
+            throw new ConcertNotPendingException();
+        }
+
+        List<ConcertArtistCandidate> candidates = concertArtistCandidateRepository.findByConcertId(concertId);
+
+        List<ConcertArtist> mappings = candidates.stream()
+                .map(c -> ConcertArtist.builder()
+                        .concertId(c.getConcertId())
+                        .artistId(c.getArtistId())
+                        .build())
+                .toList();
+        concertArtistRepository.saveAll(mappings);
+        concertArtistCandidateRepository.deleteByConcertId(concertId);
+
+        ConcertStatus computedStatus = computeStatusFromDates(concert.getStartDate(), concert.getEndDate());
+        concert.forceChangeStatus(computedStatus);
+
+        List<Long> artistIds = candidates.stream().map(ConcertArtistCandidate::getArtistId).distinct().toList();
+        List<ConcertStatus> activeStatuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
+        artistRepository.findAllById(artistIds).forEach(artist ->
+                artist.updateIsComing(concertRepository.existsActiveByArtistId(artist.getId(), activeStatuses)));
+    }
+
+    /**
+     * PENDING 공연을 거절한다. 상태를 EXCLUDED로 변경하고 후보 아티스트 목록을 삭제한다.
+     *
+     * @throws ConcertNotFoundException   존재하지 않는 공연 ID
+     * @throws ConcertNotPendingException 공연이 PENDING 상태가 아닌 경우
+     */
+    @Transactional
+    public void rejectConcert(Long concertId) {
+        Concert concert = concertRepository.findById(concertId)
+                .orElseThrow(ConcertNotFoundException::new);
+        if (concert.getStatus() != ConcertStatus.PENDING) {
+            throw new ConcertNotPendingException();
+        }
+        concert.forceChangeStatus(ConcertStatus.EXCLUDED);
+        concertArtistCandidateRepository.deleteByConcertId(concertId);
+    }
+
+    private ConcertStatus computeStatusFromDates(LocalDate startDate, LocalDate endDate) {
+        LocalDate today = LocalDate.now();
+        if (today.isBefore(startDate)) {
+            return ConcertStatus.UPCOMING;
+        }
+        if (!today.isAfter(endDate)) {
+            return ConcertStatus.ONGOING;
+        }
+        return ConcertStatus.ENDED;
     }
 }

@@ -127,4 +127,22 @@ public class AdminController {
         adminService.forceChangeConcertState(id, request);
         return ResponseEntity.ok().build();
     }
+
+    @Operation(summary = "PENDING 공연 승인")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @ApiResponse(responseCode = "400", description = "CONCERT_NOT_PENDING")
+    @PutMapping("/concerts/{id}/approve")
+    public ResponseEntity<Void> approveConcert(@PathVariable Long id) {
+        adminService.approveConcert(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "PENDING 공연 거절")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @ApiResponse(responseCode = "400", description = "CONCERT_NOT_PENDING")
+    @PutMapping("/concerts/{id}/reject")
+    public ResponseEntity<Void> rejectConcert(@PathVariable Long id) {
+        adminService.rejectConcert(id);
+        return ResponseEntity.ok().build();
+    }
 }
