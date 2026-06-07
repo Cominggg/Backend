@@ -8,6 +8,7 @@ import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.response.PageResponse;
@@ -144,5 +145,16 @@ public class AdminController {
     public ResponseEntity<Void> rejectConcert(@PathVariable Long id) {
         adminService.rejectConcert(id);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "공연 아티스트 직접 지정")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND / ARTIST_NOT_FOUND")
+    @ApiResponse(responseCode = "409", description = "CONCERT_ARTIST_ALREADY_EXISTS")
+    @PostMapping("/concerts/{id}/artists")
+    public ResponseEntity<Void> assignArtistToConcert(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminConcertArtistAssignRequest request) {
+        adminService.assignArtistToConcert(id, request.artistId());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }

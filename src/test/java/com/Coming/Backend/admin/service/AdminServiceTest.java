@@ -23,6 +23,7 @@ import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.exception.ConcertArtistAlreadyExistsException;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
@@ -778,5 +779,61 @@ class AdminServiceTest {
         // when & then
         assertThatThrownBy(() -> adminService.rejectConcert(CONCERT_ID))
                 .isInstanceOf(ConcertNotPendingException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // assignArtistToConcert
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_save_concert_artist_and_set_is_coming_true_when_concert_is_upcoming() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(concertArtistRepository.existsByConcertIdAndArtistId(CONCERT_ID, ARTIST_ID)).willReturn(false);
+
+        // when
+        adminService.assignArtistToConcert(CONCERT_ID, ARTIST_ID);
+
+        // then
+        verify(concertArtistRepository).save(any());
+        assertThat(artist.isComing()).isTrue();
+    }
+
+    @Test
+    void should_not_update_is_coming_when_concert_is_ended() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.ENDED);
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(concertArtistRepository.existsByConcertIdAndArtistId(CONCERT_ID, ARTIST_ID)).willReturn(false);
+
+        // when
+        adminService.assignArtistToConcert(CONCERT_ID, ARTIST_ID);
+
+        // then
+        verify(concertArtistRepository).save(any());
+        assertThat(artist.isComing()).isFalse();
+    }
+
+    @Test
+    void should_throw_concert_artist_already_exists_when_mapping_already_exists() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(true).build();
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(concertArtistRepository.existsByConcertIdAndArtistId(CONCERT_ID, ARTIST_ID)).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> adminService.assignArtistToConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ConcertArtistAlreadyExistsException.class);
+        verify(concertArtistRepository, never()).save(any());
     }
 }

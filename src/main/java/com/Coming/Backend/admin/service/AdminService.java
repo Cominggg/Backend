@@ -23,6 +23,7 @@ import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.exception.ConcertArtistAlreadyExistsException;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
@@ -310,6 +311,33 @@ public class AdminService {
         }
         concert.forceChangeStatus(ConcertStatus.EXCLUDED);
         concertArtistCandidateRepository.deleteByConcertId(concertId);
+    }
+
+    /**
+     * 공연에 아티스트를 직접 매핑한다. concert_artist_candidate를 거치지 않고 concert_artist에 바로 저장한다.
+     * 공연 상태가 UPCOMING 또는 ONGOING이면 해당 아티스트의 is_coming을 true로 갱신한다.
+     *
+     * @throws ConcertNotFoundException             존재하지 않는 공연 ID
+     * @throws ArtistNotFoundException              존재하지 않는 아티스트 ID
+     * @throws ConcertArtistAlreadyExistsException  이미 매핑된 아티스트
+     */
+    @Transactional
+    public void assignArtistToConcert(Long concertId, Long artistId) {
+        Concert concert = concertRepository.findById(concertId)
+                .orElseThrow(ConcertNotFoundException::new);
+        Artist artist = artistRepository.findById(artistId)
+                .orElseThrow(ArtistNotFoundException::new);
+        if (concertArtistRepository.existsByConcertIdAndArtistId(concertId, artistId)) {
+            throw new ConcertArtistAlreadyExistsException();
+        }
+        concertArtistRepository.save(ConcertArtist.builder()
+                .concertId(concertId)
+                .artistId(artistId)
+                .build());
+
+        if (concert.getStatus() == ConcertStatus.UPCOMING || concert.getStatus() == ConcertStatus.ONGOING) {
+            artist.updateIsComing(true);
+        }
     }
 
     private ConcertStatus computeStatusFromDates(LocalDate startDate, LocalDate endDate) {
