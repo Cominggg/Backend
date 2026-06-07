@@ -20,6 +20,7 @@ import com.Coming.Backend.concert.entity.Setlist;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
+import com.Coming.Backend.concert.entity.ConcertImage;
 import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.concert.repository.SetlistRepository;
@@ -213,7 +214,7 @@ public class ConcertService {
 
     private List<String> buildImageUrls(Long concertId) {
         return concertImageRepository.findByConcertIdOrderByPosition(concertId).stream()
-                .map(image -> image.getUrl())
+                .map(ConcertImage::getUrl)
                 .toList();
     }
 
