@@ -313,7 +313,7 @@ class ConcertServiceTest {
                 .build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertId(CONCERT_ID))
+        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID))
                 .willReturn(Optional.of(concertArtist));
         given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(bookingLink));
@@ -339,7 +339,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertId(CONCERT_ID))
+        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID))
                 .willReturn(Optional.empty());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
         given(userConcertCalendarRepository.existsByUserIdAndConcertId(USER_ID, CONCERT_ID)).willReturn(true);
@@ -357,7 +357,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertId(CONCERT_ID))
+        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID))
                 .willReturn(Optional.empty());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
 
@@ -385,7 +385,7 @@ class ConcertServiceTest {
                 .build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertId(CONCERT_ID))
+        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID))
                 .willReturn(Optional.empty());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
 

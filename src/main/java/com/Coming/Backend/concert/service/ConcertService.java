@@ -142,7 +142,7 @@ public class ConcertService {
         concertRepository.incrementViewCount(id);
 
         ConcertArtist highConfidenceArtist = concertArtistRepository
-                .findFirstByConcertId(id).orElse(null);
+                .findFirstByConcertIdOrderByIdAsc(id).orElse(null);
         Long artistId = highConfidenceArtist != null ? highConfidenceArtist.getArtistId() : null;
         boolean isInCalendar = userId != null &&
                 userConcertCalendarRepository.existsByUserIdAndConcertId(userId, id);

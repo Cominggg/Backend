@@ -15,7 +15,7 @@ public interface ConcertArtistRepository extends JpaRepository<ConcertArtist, Lo
 
     List<ConcertArtist> findByArtistId(Long artistId);
 
-    Optional<ConcertArtist> findFirstByConcertId(Long concertId);
+    Optional<ConcertArtist> findFirstByConcertIdOrderByIdAsc(Long concertId);
 
     List<ConcertArtist> findByConcertIdIn(List<Long> concertIds);
 
