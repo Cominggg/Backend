@@ -1,7 +1,9 @@
 package com.Coming.Backend.admin.controller;
 
+import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
@@ -144,6 +146,22 @@ public class AdminController {
     @GetMapping("/data/search/concerts")
     public ResponseEntity<List<DataConcertSearchResult>> searchConcerts(@RequestParam String title) {
         return ResponseEntity.ok(adminService.searchConcerts(title));
+    }
+
+    @Operation(summary = "MBID 기반 아티스트 수집 트리거")
+    @ApiResponse(responseCode = "202", description = "Accepted")
+    @PostMapping("/data/collect/artists")
+    public ResponseEntity<Void> collectArtist(@RequestBody @Valid AdminArtistCollectRequest request) {
+        adminService.collectArtist(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "KOPIS ID 기반 공연 수집 트리거")
+    @ApiResponse(responseCode = "202", description = "Accepted")
+    @PostMapping("/data/collect/concerts")
+    public ResponseEntity<Void> collectConcert(@RequestBody @Valid AdminConcertCollectRequest request) {
+        adminService.collectConcert(request);
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "Data 파이프라인 아티스트 릴리즈 수집 트리거")

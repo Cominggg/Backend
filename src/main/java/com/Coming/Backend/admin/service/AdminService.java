@@ -1,7 +1,9 @@
 package com.Coming.Backend.admin.service;
 
 import com.Coming.Backend.admin.client.DataPipelineClient;
+import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminCandidateArtistResponse;
@@ -279,6 +281,20 @@ public class AdminService {
      */
     public List<DataConcertSearchResult> searchConcerts(String title) {
         return dataPipelineClient.searchConcerts(title);
+    }
+
+    /**
+     * MBID 기반으로 Data 파이프라인에 아티스트 초기 수집을 트리거한다.
+     */
+    public void collectArtist(AdminArtistCollectRequest request) {
+        dataPipelineClient.triggerArtistCollect(request.mbid());
+    }
+
+    /**
+     * KOPIS ID 기반으로 Data 파이프라인에 공연 수집을 트리거한다.
+     */
+    public void collectConcert(AdminConcertCollectRequest request) {
+        dataPipelineClient.triggerConcertCollectByKopisId(request.kopisId());
     }
 
     /**

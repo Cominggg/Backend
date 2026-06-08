@@ -8,10 +8,13 @@ import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
@@ -385,5 +388,79 @@ class AdminControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/admin/data/collect/artists
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_artist_collect_triggered_with_mbid() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "mbid": "some-mbid-123"
+                }
+                """;
+        willDoNothing().given(adminService).collectArtist(any(AdminArtistCollectRequest.class));
+
+        // when & then
+        mockMvc.perform(post("/api/admin/data/collect/artists")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_400_when_mbid_is_blank() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "mbid": ""
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/data/collect/artists")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/admin/data/collect/concerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_concert_collect_triggered_with_kopis_id() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "kopisId": "PF123456"
+                }
+                """;
+        willDoNothing().given(adminService).collectConcert(any(AdminConcertCollectRequest.class));
+
+        // when & then
+        mockMvc.perform(post("/api/admin/data/collect/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_400_when_kopis_id_is_blank() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "kopisId": ""
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/data/collect/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
     }
 }

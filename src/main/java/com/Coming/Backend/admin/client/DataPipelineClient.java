@@ -5,10 +5,12 @@ import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -47,6 +49,36 @@ public class DataPipelineClient {
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<List<DataConcertSearchResult>>() {})
                 .doOnError(e -> log.warn("Data pipeline concert search failed: title={}, error={}", title, e.getMessage()))
+                .block();
+    }
+
+    /**
+     * MBID 기반으로 아티스트 초기 수집(정보·릴리즈·이미지)을 트리거한다.
+     */
+    public void triggerArtistCollect(String mbid) {
+        webClient.post()
+                .uri("/collect/artist")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of("mbid", mbid))
+                .retrieve()
+                .toBodilessEntity()
+                .doOnSuccess(r -> log.info("Data pipeline artist collect triggered: mbid={}", mbid))
+                .doOnError(e -> log.warn("Data pipeline artist collect failed: mbid={}, error={}", mbid, e.getMessage()))
+                .block();
+    }
+
+    /**
+     * KOPIS ID 기반으로 공연 수집을 트리거한다.
+     */
+    public void triggerConcertCollectByKopisId(String kopisId) {
+        webClient.post()
+                .uri("/collect/concert")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of("kopis_id", kopisId))
+                .retrieve()
+                .toBodilessEntity()
+                .doOnSuccess(r -> log.info("Data pipeline concert collect triggered: kopisId={}", kopisId))
+                .doOnError(e -> log.warn("Data pipeline concert collect failed: kopisId={}, error={}", kopisId, e.getMessage()))
                 .block();
     }
 

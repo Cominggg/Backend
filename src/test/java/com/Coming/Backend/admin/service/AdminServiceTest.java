@@ -1,7 +1,9 @@
 package com.Coming.Backend.admin.service;
 
 import com.Coming.Backend.admin.client.DataPipelineClient;
+import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
@@ -767,5 +769,37 @@ class AdminServiceTest {
 
         // then
         assertThat(response).isEmpty();
+    }
+
+    // -------------------------------------------------------------------------
+    // collectArtist
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_trigger_artist_collect_when_mbid_given() {
+        // given
+        AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
+
+        // when
+        adminService.collectArtist(request);
+
+        // then
+        verify(dataPipelineClient).triggerArtistCollect("some-mbid-123");
+    }
+
+    // -------------------------------------------------------------------------
+    // collectConcert
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_trigger_concert_collect_when_kopis_id_given() {
+        // given
+        AdminConcertCollectRequest request = new AdminConcertCollectRequest("PF123456");
+
+        // when
+        adminService.collectConcert(request);
+
+        // then
+        verify(dataPipelineClient).triggerConcertCollectByKopisId("PF123456");
     }
 }
