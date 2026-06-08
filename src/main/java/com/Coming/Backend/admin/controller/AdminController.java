@@ -2,6 +2,8 @@ package com.Coming.Backend.admin.controller;
 
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
+import com.Coming.Backend.admin.dto.DataArtistSearchResult;
+import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
@@ -21,6 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -129,6 +132,18 @@ public class AdminController {
             @RequestBody @Valid AdminConcertArtistAssignRequest request) {
         adminService.assignArtistToConcert(id, request.artistId());
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @Operation(summary = "Data 파이프라인 아티스트 검색")
+    @GetMapping("/data/search/artists")
+    public ResponseEntity<List<DataArtistSearchResult>> searchArtists(@RequestParam String name) {
+        return ResponseEntity.ok(adminService.searchArtists(name));
+    }
+
+    @Operation(summary = "Data 파이프라인 공연 검색")
+    @GetMapping("/data/search/concerts")
+    public ResponseEntity<List<DataConcertSearchResult>> searchConcerts(@RequestParam String title) {
+        return ResponseEntity.ok(adminService.searchConcerts(title));
     }
 
     @Operation(summary = "Data 파이프라인 아티스트 릴리즈 수집 트리거")

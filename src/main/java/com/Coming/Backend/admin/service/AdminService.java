@@ -2,6 +2,8 @@ package com.Coming.Backend.admin.service;
 
 import com.Coming.Backend.admin.client.DataPipelineClient;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
+import com.Coming.Backend.admin.dto.DataArtistSearchResult;
+import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminCandidateArtistResponse;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
@@ -263,6 +265,20 @@ public class AdminService {
         if (concert.getStatus() == ConcertStatus.UPCOMING || concert.getStatus() == ConcertStatus.ONGOING) {
             artist.updateIsComing(true);
         }
+    }
+
+    /**
+     * MusicBrainz에서 아티스트명으로 후보를 검색한다.
+     */
+    public List<DataArtistSearchResult> searchArtists(String name) {
+        return dataPipelineClient.searchArtists(name);
+    }
+
+    /**
+     * KOPIS에서 공연명으로 후보를 검색한다.
+     */
+    public List<DataConcertSearchResult> searchConcerts(String title) {
+        return dataPipelineClient.searchConcerts(title);
     }
 
     /**
