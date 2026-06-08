@@ -22,19 +22,6 @@ public class DataPipelineClient {
     }
 
     /**
-     * Data 파이프라인에 KOPIS 공연 수집을 트리거한다.
-     */
-    public void triggerConcertCollect() {
-        webClient.post()
-                .uri("/collect/concert")
-                .retrieve()
-                .toBodilessEntity()
-                .doOnSuccess(r -> log.info("Data pipeline concert collect triggered"))
-                .doOnError(e -> log.warn("Data pipeline concert collect failed: {}", e.getMessage()))
-                .block();
-    }
-
-    /**
      * Data 파이프라인에 특정 아티스트의 릴리즈 수집을 트리거한다.
      */
     public void triggerArtistReleases(Long artistId) {

@@ -1,22 +1,19 @@
 package com.Coming.Backend.admin.service;
 
-import com.Coming.Backend.admin.dto.AdminArtistCreateRequest;
+import com.Coming.Backend.admin.client.DataPipelineClient;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminCandidateArtistResponse;
-import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
-import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.repository.UserRepository;
-import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
@@ -30,9 +27,6 @@ import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
-import com.Coming.Backend.concert.entity.Setlist;
-import com.Coming.Backend.concert.repository.SetlistRepository;
-import com.Coming.Backend.concert.repository.SetlistTrackRepository;
 import com.Coming.Backend.inquiry.entity.Inquiry;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
@@ -62,22 +56,7 @@ public class AdminService {
     private final ConcertArtistRepository concertArtistRepository;
     private final ConcertArtistCandidateRepository concertArtistCandidateRepository;
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
-    private final SetlistRepository setlistRepository;
-    private final SetlistTrackRepository setlistTrackRepository;
-    private final UserConcertCalendarRepository userConcertCalendarRepository;
-
-    /**
-     * 아티스트를 수동 등록한다.
-     */
-    @Transactional
-    public void createArtist(AdminArtistCreateRequest request) {
-        artistRepository.save(Artist.builder()
-                .mbid(request.mbid())
-                .name(request.name())
-                .sortName(request.sortName())
-                .isComing(false)
-                .build());
-    }
+    private final DataPipelineClient dataPipelineClient;
 
     /**
      * 아티스트 정보를 수정한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
@@ -141,37 +120,6 @@ public class AdminService {
     }
 
     /**
-     * 공연을 수동 등록한다. artistIds가 있으면 ConcertArtist 매핑도 함께 저장한다.
-     */
-    @Transactional
-    public void createConcert(AdminConcertCreateRequest request) {
-        Concert concert = concertRepository.save(Concert.builder()
-                .kopisId(request.kopisId())
-                .title(request.title())
-                .cast(request.cast())
-                .startDate(request.startDate())
-                .endDate(request.endDate())
-                .venueName(request.venueName())
-                .venueAddress(request.venueAddress())
-                .posterUrl(request.posterUrl())
-                .price(request.price())
-                .status(request.status())
-                .viewCount(0L)
-                .kopisUpdateDate(request.startDate())
-                .build());
-
-        if (request.artistIds() != null) {
-            List<ConcertArtist> mappings = request.artistIds().stream()
-                    .map(artistId -> ConcertArtist.builder()
-                            .concertId(concert.getId())
-                            .artistId(artistId)
-                            .build())
-                    .toList();
-            concertArtistRepository.saveAll(mappings);
-        }
-    }
-
-    /**
      * 공연 정보를 수정한다. bookingLinks가 있으면 기존 링크를 삭제 후 새로 저장한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
      */
     @Transactional
@@ -195,30 +143,7 @@ public class AdminService {
     }
 
     /**
-     * 공연을 영구 삭제한다. 연관 데이터(상태 로그·셋리스트 트랙·셋리스트·유저 캘린더·아티스트 매핑·예매처 링크)를 순서대로 cascade 삭제한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
-     */
-    @Transactional
-    public void deleteConcert(Long id) {
-        if (!concertRepository.existsById(id)) {
-            throw new ConcertNotFoundException();
-        }
-
-        List<Long> setlistIds = setlistRepository.findByConcertId(id).stream()
-                .map(Setlist::getId)
-                .toList();
-        if (!setlistIds.isEmpty()) {
-            setlistTrackRepository.deleteBySetlistIdIn(setlistIds);
-        }
-        setlistRepository.deleteAllById(setlistIds);
-
-        userConcertCalendarRepository.deleteByConcertId(id);
-        concertArtistRepository.deleteByConcertId(id);
-        concertBookingLinkRepository.deleteByConcertId(id);
-        concertRepository.deleteById(id);
-    }
-
-    /**
-     * 공연 상태를 강제 변경하고 변경 이력을 concert_status_log에 기록한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
+     * 공연 상태를 강제 변경한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
      */
     @Transactional
     public void forceChangeConcertState(Long id, AdminConcertStateUpdateRequest request) {
@@ -265,8 +190,8 @@ public class AdminService {
     /**
      * PENDING 공연을 승인한다. 후보 아티스트를 concert_artist로 이동하고, 날짜 기반으로 상태를 계산하며, 연결된 아티스트의 is_coming을 갱신한다.
      *
-     * @throws ConcertNotFoundException    존재하지 않는 공연 ID
-     * @throws ConcertNotPendingException  공연이 PENDING 상태가 아닌 경우
+     * @throws ConcertNotFoundException   존재하지 않는 공연 ID
+     * @throws ConcertNotPendingException 공연이 PENDING 상태가 아닌 경우
      */
     @Transactional
     public void approveConcert(Long concertId) {
@@ -317,9 +242,9 @@ public class AdminService {
      * 공연에 아티스트를 직접 매핑한다. concert_artist_candidate를 거치지 않고 concert_artist에 바로 저장한다.
      * 공연 상태가 UPCOMING 또는 ONGOING이면 해당 아티스트의 is_coming을 true로 갱신한다.
      *
-     * @throws ConcertNotFoundException             존재하지 않는 공연 ID
-     * @throws ArtistNotFoundException              존재하지 않는 아티스트 ID
-     * @throws ConcertArtistAlreadyExistsException  이미 매핑된 아티스트
+     * @throws ConcertNotFoundException            존재하지 않는 공연 ID
+     * @throws ArtistNotFoundException             존재하지 않는 아티스트 ID
+     * @throws ConcertArtistAlreadyExistsException 이미 매핑된 아티스트
      */
     @Transactional
     public void assignArtistToConcert(Long concertId, Long artistId) {
@@ -338,6 +263,20 @@ public class AdminService {
         if (concert.getStatus() == ConcertStatus.UPCOMING || concert.getStatus() == ConcertStatus.ONGOING) {
             artist.updateIsComing(true);
         }
+    }
+
+    /**
+     * Data 파이프라인에 특정 아티스트의 릴리즈 수집을 트리거한다.
+     */
+    public void triggerArtistReleases(Long artistId) {
+        dataPipelineClient.triggerArtistReleases(artistId);
+    }
+
+    /**
+     * Data 파이프라인에 특정 공연의 셋리스트 수집을 트리거한다.
+     */
+    public void triggerConcertSetlist(Long concertId) {
+        dataPipelineClient.triggerConcertSetlist(concertId);
     }
 
     private ConcertStatus computeStatusFromDates(LocalDate startDate, LocalDate endDate) {

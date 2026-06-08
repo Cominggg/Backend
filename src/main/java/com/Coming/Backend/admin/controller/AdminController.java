@@ -1,16 +1,13 @@
 package com.Coming.Backend.admin.controller;
 
-import com.Coming.Backend.admin.dto.AdminArtistCreateRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
-import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
-import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
-import com.Coming.Backend.admin.client.DataPipelineClient;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
@@ -24,7 +21,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,15 +38,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
     private final AdminService adminService;
-    private final DataPipelineClient dataPipelineClient;
-
-    @Operation(summary = "아티스트 등록")
-    @ApiResponse(responseCode = "201", description = "Created")
-    @PostMapping("/artists")
-    public ResponseEntity<Void> createArtist(@RequestBody @Valid AdminArtistCreateRequest request) {
-        adminService.createArtist(request);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
-    }
 
     @Operation(summary = "아티스트 정보 수정")
     @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND")
@@ -95,14 +82,6 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getPendingConcerts(pageable));
     }
 
-    @Operation(summary = "공연 수동 등록")
-    @ApiResponse(responseCode = "201", description = "Created")
-    @PostMapping("/concerts")
-    public ResponseEntity<Void> createConcert(@RequestBody @Valid AdminConcertCreateRequest request) {
-        adminService.createConcert(request);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
-    }
-
     @Operation(summary = "공연 정보 수정")
     @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
     @PutMapping("/concerts/{id}")
@@ -110,14 +89,6 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody @Valid AdminConcertUpdateRequest request) {
         adminService.updateConcert(id, request);
-        return ResponseEntity.ok().build();
-    }
-
-    @Operation(summary = "공연 삭제")
-    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
-    @DeleteMapping("/concerts/{id}")
-    public ResponseEntity<Void> deleteConcert(@PathVariable Long id) {
-        adminService.deleteConcert(id);
         return ResponseEntity.ok().build();
     }
 
@@ -160,18 +131,11 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    @Operation(summary = "Data 파이프라인 공연 수집 트리거")
-    @PostMapping("/data/collect/concert")
-    public ResponseEntity<Void> triggerConcertCollect() {
-        dataPipelineClient.triggerConcertCollect();
-        return ResponseEntity.ok().build();
-    }
-
     @Operation(summary = "Data 파이프라인 아티스트 릴리즈 수집 트리거")
     @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND (Data 파이프라인 측)")
     @PostMapping("/data/collect/artists/{id}/releases")
     public ResponseEntity<Void> triggerArtistReleases(@PathVariable Long id) {
-        dataPipelineClient.triggerArtistReleases(id);
+        adminService.triggerArtistReleases(id);
         return ResponseEntity.ok().build();
     }
 
@@ -179,7 +143,7 @@ public class AdminController {
     @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND (Data 파이프라인 측)")
     @PostMapping("/data/collect/concerts/{id}/setlist")
     public ResponseEntity<Void> triggerConcertSetlist(@PathVariable Long id) {
-        dataPipelineClient.triggerConcertSetlist(id);
+        adminService.triggerConcertSetlist(id);
         return ResponseEntity.ok().build();
     }
 }
