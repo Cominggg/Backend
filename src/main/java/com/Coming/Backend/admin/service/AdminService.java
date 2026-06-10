@@ -226,7 +226,7 @@ public class AdminService {
     }
 
     /**
-     * PENDING 공연을 거절한다. 상태를 EXCLUDED로 변경하고 후보 아티스트 목록을 삭제한다.
+     * PENDING 공연을 거절한다. 상태를 EXCLUDED로 변경하고 후보 아티스트와 확정 매핑 목록을 삭제한다.
      *
      * @throws ConcertNotFoundException   존재하지 않는 공연 ID
      * @throws ConcertNotPendingException 공연이 PENDING 상태가 아닌 경우
@@ -240,6 +240,7 @@ public class AdminService {
         }
         concert.forceChangeStatus(ConcertStatus.EXCLUDED);
         concertArtistCandidateRepository.deleteByConcertId(concertId);
+        concertArtistRepository.deleteByConcertId(concertId);
     }
 
     /**

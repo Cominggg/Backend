@@ -629,6 +629,7 @@ class AdminServiceTest {
         // then
         assertThat(concert.getStatus()).isEqualTo(ConcertStatus.EXCLUDED);
         verify(concertArtistCandidateRepository).deleteByConcertId(CONCERT_ID);
+        verify(concertArtistRepository).deleteByConcertId(CONCERT_ID);
     }
 
     @Test
