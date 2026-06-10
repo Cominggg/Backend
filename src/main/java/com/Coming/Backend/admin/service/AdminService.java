@@ -131,7 +131,7 @@ public class AdminService {
         Concert concert = concertRepository.findById(id)
                 .orElseThrow(ConcertNotFoundException::new);
         concert.update(request.title(), request.cast(), request.startDate(), request.endDate(),
-                request.venueName(), request.venueAddress(), request.posterUrl(), request.price());
+                request.venueName(), request.posterUrl(), request.price());
 
         if (request.bookingLinks() != null) {
             concertBookingLinkRepository.deleteByConcertId(id);
