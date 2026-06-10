@@ -1,6 +1,5 @@
 package com.Coming.Backend.concert.entity;
 
-import com.Coming.Backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -24,7 +23,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class Concert extends BaseTimeEntity {
+public class Concert {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
