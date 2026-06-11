@@ -1,6 +1,5 @@
 package com.Coming.Backend.concert.entity;
 
-import com.Coming.Backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -24,7 +23,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class Concert extends BaseTimeEntity {
+public class Concert {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,9 +46,6 @@ public class Concert extends BaseTimeEntity {
 
     @Column(name = "venue_name", nullable = false, length = 255)
     private String venueName;
-
-    @Column(name = "venue_address", length = 500)
-    private String venueAddress;
 
     @Column(name = "poster_url", columnDefinition = "text")
     private String posterUrl;
@@ -75,13 +71,12 @@ public class Concert extends BaseTimeEntity {
     }
 
     public void update(String title, String cast, LocalDate startDate, LocalDate endDate,
-                       String venueName, String venueAddress, String posterUrl, String price) {
+                       String venueName, String posterUrl, String price) {
         if (title != null) this.title = title;
         if (cast != null) this.cast = cast;
         if (startDate != null) this.startDate = startDate;
         if (endDate != null) this.endDate = endDate;
         if (venueName != null) this.venueName = venueName;
-        if (venueAddress != null) this.venueAddress = venueAddress;
         if (posterUrl != null) this.posterUrl = posterUrl;
         if (price != null) this.price = price;
     }

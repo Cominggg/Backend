@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -14,12 +13,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.DataArtistSearchResult;
+import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
@@ -30,7 +32,10 @@ import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,13 +65,16 @@ class AdminControllerTest {
     private static final Long INQUIRY_ID = 1L;
     private static final Long USER_ID = 10L;
     private static final Long TARGET_ID = 99L;
+    private static final Long CONCERT_ID = 1L;
 
     @BeforeEach
     void setUp() {
         objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         mockMvc = MockMvcBuilders.standaloneSetup(adminController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();
     }
 
@@ -206,58 +214,6 @@ class AdminControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // POST /api/admin/concerts
-    // -------------------------------------------------------------------------
-
-    private static final Long CONCERT_ID = 1L;
-
-    @Test
-    void should_return_201_when_valid_concert_create_request_given() throws Exception {
-        // given
-        String requestBody = """
-                {
-                    "kopisId": "PF123456",
-                    "title": "아이유 콘서트",
-                    "cast": "아이유",
-                    "startDate": "2025-09-01",
-                    "endDate": "2025-09-30",
-                    "venueName": "올림픽공원 체조경기장",
-                    "venueAddress": "서울시 송파구",
-                    "posterUrl": "https://example.com/poster.jpg",
-                    "price": "VIP 150,000원",
-                    "status": "UPCOMING"
-                }
-                """;
-        willDoNothing().given(adminService).createConcert(any(AdminConcertCreateRequest.class));
-
-        // when & then
-        mockMvc.perform(post("/api/admin/concerts")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isCreated());
-    }
-
-    @Test
-    void should_return_400_when_required_field_missing() throws Exception {
-        // given — kopisId 누락
-        String requestBody = """
-                {
-                    "title": "아이유 콘서트",
-                    "startDate": "2025-09-01",
-                    "endDate": "2025-09-30",
-                    "venueName": "올림픽공원 체조경기장",
-                    "status": "UPCOMING"
-                }
-                """;
-
-        // when & then
-        mockMvc.perform(post("/api/admin/concerts")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest());
-    }
-
-    // -------------------------------------------------------------------------
     // PUT /api/admin/concerts/{id}
     // -------------------------------------------------------------------------
 
@@ -295,33 +251,6 @@ class AdminControllerTest {
         mockMvc.perform(put("/api/admin/concerts/{id}", 999L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_NOT_FOUND.name()))
-                .andExpect(jsonPath("$.message").exists());
-    }
-
-    // -------------------------------------------------------------------------
-    // DELETE /api/admin/concerts/{id}
-    // -------------------------------------------------------------------------
-
-    @Test
-    void should_return_200_when_valid_concert_id_given() throws Exception {
-        // given
-        willDoNothing().given(adminService).deleteConcert(CONCERT_ID);
-
-        // when & then
-        mockMvc.perform(delete("/api/admin/concerts/{id}", CONCERT_ID))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void should_return_404_when_concert_not_found_on_delete() throws Exception {
-        // given
-        willThrow(new ConcertNotFoundException())
-                .given(adminService).deleteConcert(999L);
-
-        // when & then
-        mockMvc.perform(delete("/api/admin/concerts/{id}", 999L))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_NOT_FOUND.name()))
                 .andExpect(jsonPath("$.message").exists());
@@ -384,5 +313,154 @@ class AdminControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_NOT_FOUND.name()))
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/admin/data/search/artists
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_artist_candidates_when_name_given() throws Exception {
+        // given
+        List<DataArtistSearchResult> results = List.of(
+                new DataArtistSearchResult("mbid-1", "IU", "KR", "Person", "https://musicbrainz.org/artist/mbid-1"),
+                new DataArtistSearchResult("mbid-2", "IU (instrumental)", "JP", null, null)
+        );
+        given(adminService.searchArtists("IU")).willReturn(results);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/data/search/artists")
+                        .param("name", "IU")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].mbid").value("mbid-1"))
+                .andExpect(jsonPath("$[0].name").value("IU"))
+                .andExpect(jsonPath("$[0].country").value("KR"))
+                .andExpect(jsonPath("$[0].type").value("Person"));
+    }
+
+    @Test
+    void should_return_200_with_empty_list_when_no_artists_match() throws Exception {
+        // given
+        given(adminService.searchArtists("존재하지않는아티스트")).willReturn(List.of());
+
+        // when & then
+        mockMvc.perform(get("/api/admin/data/search/artists")
+                        .param("name", "존재하지않는아티스트")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/admin/data/search/concerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_concert_candidates_when_title_given() throws Exception {
+        // given
+        List<DataConcertSearchResult> results = List.of(
+                new DataConcertSearchResult("PF001", "아이유 콘서트", LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 2), "올림픽공원 체조경기장", "https://kopis.or.kr/PF001")
+        );
+        given(adminService.searchConcerts("아이유")).willReturn(results);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/data/search/concerts")
+                        .param("title", "아이유")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].kopisId").value("PF001"))
+                .andExpect(jsonPath("$[0].title").value("아이유 콘서트"))
+                .andExpect(jsonPath("$[0].startDate").value("2026-03-01"))
+                .andExpect(jsonPath("$[0].venue").value("올림픽공원 체조경기장"));
+    }
+
+    @Test
+    void should_return_200_with_empty_list_when_no_concerts_match() throws Exception {
+        // given
+        given(adminService.searchConcerts("존재하지않는공연")).willReturn(List.of());
+
+        // when & then
+        mockMvc.perform(get("/api/admin/data/search/concerts")
+                        .param("title", "존재하지않는공연")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/admin/data/collect/artists
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_artist_collect_triggered_with_mbid() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "mbid": "some-mbid-123"
+                }
+                """;
+        willDoNothing().given(adminService).collectArtist(any(AdminArtistCollectRequest.class));
+
+        // when & then
+        mockMvc.perform(post("/api/admin/data/collect/artists")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_400_when_mbid_is_blank() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "mbid": ""
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/data/collect/artists")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/admin/data/collect/concerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_concert_collect_triggered_with_kopis_id() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "kopisId": "PF123456"
+                }
+                """;
+        willDoNothing().given(adminService).collectConcert(any(AdminConcertCollectRequest.class));
+
+        // when & then
+        mockMvc.perform(post("/api/admin/data/collect/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_400_when_kopis_id_is_blank() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "kopisId": ""
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/data/collect/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
     }
 }

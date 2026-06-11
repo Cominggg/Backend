@@ -65,7 +65,8 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/api/auth/login/**",
                                 "/api/auth/callback/**",
-                                "/api/auth/refresh"
+                                "/api/auth/refresh",
+                                "/api/dev/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/artists/following").authenticated()
                         .requestMatchers(HttpMethod.GET,

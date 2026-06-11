@@ -17,7 +17,6 @@ public record AdminConcertUpdateRequest(
         LocalDate endDate,
 
         String venueName,
-        String venueAddress,
         String posterUrl,
         String price,
         @Valid List<BookingLinkRequest> bookingLinks

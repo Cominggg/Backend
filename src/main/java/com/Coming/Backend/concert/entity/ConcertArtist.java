@@ -1,6 +1,5 @@
 package com.Coming.Backend.concert.entity;
 
-import com.Coming.Backend.common.entity.BaseCreatedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -22,7 +21,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ConcertArtist extends BaseCreatedEntity {
+public class ConcertArtist {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

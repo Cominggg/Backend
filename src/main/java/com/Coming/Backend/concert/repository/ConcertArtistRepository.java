@@ -19,6 +19,8 @@ public interface ConcertArtistRepository extends JpaRepository<ConcertArtist, Lo
 
     List<ConcertArtist> findByConcertIdIn(List<Long> concertIds);
 
+    boolean existsByConcertIdAndArtistId(Long concertId, Long artistId);
+
     @Modifying
     @Query("DELETE FROM ConcertArtist ca WHERE ca.concertId = :concertId")
     void deleteByConcertId(@Param("concertId") Long concertId);

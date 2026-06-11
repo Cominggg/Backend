@@ -1,13 +1,17 @@
 package com.Coming.Backend.admin.controller;
 
-import com.Coming.Backend.admin.dto.AdminArtistCreateRequest;
+import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
-import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
+import com.Coming.Backend.admin.dto.DataArtistSearchResult;
+import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
@@ -21,7 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,14 +43,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
     private final AdminService adminService;
-
-    @Operation(summary = "아티스트 등록")
-    @ApiResponse(responseCode = "201", description = "Created")
-    @PostMapping("/artists")
-    public ResponseEntity<Void> createArtist(@RequestBody @Valid AdminArtistCreateRequest request) {
-        adminService.createArtist(request);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
-    }
 
     @Operation(summary = "아티스트 정보 수정")
     @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND")
@@ -84,12 +80,11 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "공연 수동 등록")
-    @ApiResponse(responseCode = "201", description = "Created")
-    @PostMapping("/concerts")
-    public ResponseEntity<Void> createConcert(@RequestBody @Valid AdminConcertCreateRequest request) {
-        adminService.createConcert(request);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+    @Operation(summary = "PENDING 공연 목록 조회")
+    @GetMapping("/concerts/pending")
+    public ResponseEntity<PageResponse<AdminPendingConcertResponse>> getPendingConcerts(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(adminService.getPendingConcerts(pageable));
     }
 
     @Operation(summary = "공연 정보 수정")
@@ -102,14 +97,6 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "공연 삭제")
-    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
-    @DeleteMapping("/concerts/{id}")
-    public ResponseEntity<Void> deleteConcert(@PathVariable Long id) {
-        adminService.deleteConcert(id);
-        return ResponseEntity.ok().build();
-    }
-
     @Operation(summary = "공연 상태 강제 변경")
     @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
     @PutMapping("/concerts/{id}/state")
@@ -117,6 +104,79 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody @Valid AdminConcertStateUpdateRequest request) {
         adminService.forceChangeConcertState(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "PENDING 공연 승인")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @ApiResponse(responseCode = "400", description = "CONCERT_NOT_PENDING")
+    @PutMapping("/concerts/{id}/approve")
+    public ResponseEntity<Void> approveConcert(@PathVariable Long id) {
+        adminService.approveConcert(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "PENDING 공연 거절")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @ApiResponse(responseCode = "400", description = "CONCERT_NOT_PENDING")
+    @PutMapping("/concerts/{id}/reject")
+    public ResponseEntity<Void> rejectConcert(@PathVariable Long id) {
+        adminService.rejectConcert(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "공연 아티스트 직접 지정")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND / ARTIST_NOT_FOUND")
+    @ApiResponse(responseCode = "409", description = "CONCERT_ARTIST_ALREADY_EXISTS")
+    @PostMapping("/concerts/{id}/artists")
+    public ResponseEntity<Void> assignArtistToConcert(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminConcertArtistAssignRequest request) {
+        adminService.assignArtistToConcert(id, request.artistId());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @Operation(summary = "Data 파이프라인 아티스트 검색")
+    @GetMapping("/data/search/artists")
+    public ResponseEntity<List<DataArtistSearchResult>> searchArtists(@RequestParam String name) {
+        return ResponseEntity.ok(adminService.searchArtists(name));
+    }
+
+    @Operation(summary = "Data 파이프라인 공연 검색")
+    @GetMapping("/data/search/concerts")
+    public ResponseEntity<List<DataConcertSearchResult>> searchConcerts(@RequestParam String title) {
+        return ResponseEntity.ok(adminService.searchConcerts(title));
+    }
+
+    @Operation(summary = "MBID 기반 아티스트 수집 트리거")
+    @ApiResponse(responseCode = "202", description = "Accepted")
+    @PostMapping("/data/collect/artists")
+    public ResponseEntity<Void> collectArtist(@RequestBody @Valid AdminArtistCollectRequest request) {
+        adminService.collectArtist(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "KOPIS ID 기반 공연 수집 트리거")
+    @ApiResponse(responseCode = "202", description = "Accepted")
+    @PostMapping("/data/collect/concerts")
+    public ResponseEntity<Void> collectConcert(@RequestBody @Valid AdminConcertCollectRequest request) {
+        adminService.collectConcert(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Data 파이프라인 아티스트 릴리즈 수집 트리거")
+    @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND (Data 파이프라인 측)")
+    @PostMapping("/data/collect/artists/{id}/releases")
+    public ResponseEntity<Void> triggerArtistReleases(@PathVariable Long id) {
+        adminService.triggerArtistReleases(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Data 파이프라인 셋리스트 수집 트리거")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND (Data 파이프라인 측)")
+    @PostMapping("/data/collect/concerts/{id}/setlist")
+    public ResponseEntity<Void> triggerConcertSetlist(@PathVariable Long id) {
+        adminService.triggerConcertSetlist(id);
         return ResponseEntity.ok().build();
     }
 }

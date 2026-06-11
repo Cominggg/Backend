@@ -1,6 +1,5 @@
 package com.Coming.Backend.artist.entity;
 
-import com.Coming.Backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -19,7 +18,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class Artist extends BaseTimeEntity {
+public class Artist {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,5 +42,9 @@ public class Artist extends BaseTimeEntity {
     public void update(String name, String sortName) {
         if (name != null) this.name = name;
         if (sortName != null) this.sortName = sortName;
+    }
+
+    public void updateIsComing(boolean isComing) {
+        this.isComing = isComing;
     }
 }

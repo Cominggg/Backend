@@ -1,4 +1,4 @@
-package com.Coming.Backend.artist.entity;
+package com.Coming.Backend.concert.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,25 +14,25 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "artist_alias", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"artist_id", "name"})
+@Table(name = "concert_artist_candidate", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"concert_id", "artist_id"})
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ArtistAlias {
+public class ConcertArtistCandidate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "concert_id", nullable = false)
+    private Long concertId;
+
     @Column(name = "artist_id", nullable = false)
     private Long artistId;
 
-    @Column(name = "name", nullable = false, length = 255)
-    private String name;
-
-    @Column(name = "locale", length = 10)
-    private String locale;
+    @Column(name = "matched_by", nullable = false)
+    private String matchedBy;
 }

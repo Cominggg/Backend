@@ -3,6 +3,7 @@ package com.Coming.Backend.artist.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -229,7 +230,7 @@ class ArtistServiceTest {
         Concert concert = buildConcert(1L, ConcertStatus.ENDED);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
         given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
-        given(concertRepository.findAllByArtistId(eq(ARTIST_ID), any(LocalDate.class), eq(ConcertStatus.EXCLUDED), eq(PAGEABLE)))
+        given(concertRepository.findAllByArtistId(eq(ARTIST_ID), any(LocalDate.class), anyList(), eq(PAGEABLE)))
                 .willReturn(page);
 
         // when
