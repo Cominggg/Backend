@@ -706,8 +706,8 @@ class AdminServiceTest {
     void should_return_artist_candidates_when_name_given() {
         // given
         List<DataArtistSearchResult> results = List.of(
-                new DataArtistSearchResult("mbid-1", "IU", "KR", "Person"),
-                new DataArtistSearchResult("mbid-2", "IU (instrumental)", "JP", null)
+                new DataArtistSearchResult("mbid-1", "IU", "KR", "Person", "https://musicbrainz.org/artist/mbid-1"),
+                new DataArtistSearchResult("mbid-2", "IU (instrumental)", "JP", null, null)
         );
         given(dataPipelineClient.searchArtists("IU")).willReturn(results);
 
@@ -743,8 +743,8 @@ class AdminServiceTest {
     void should_return_concert_candidates_when_title_given() {
         // given
         List<DataConcertSearchResult> results = List.of(
-                new DataConcertSearchResult("PF001", "아이유 콘서트", LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 2), "올림픽공원 체조경기장"),
-                new DataConcertSearchResult("PF002", "아이유 콘서트 앙코르", LocalDate.of(2026, 4, 5), LocalDate.of(2026, 4, 6), "KSPO DOME")
+                new DataConcertSearchResult("PF001", "아이유 콘서트", LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 2), "올림픽공원 체조경기장", "https://kopis.or.kr/PF001"),
+                new DataConcertSearchResult("PF002", "아이유 콘서트 앙코르", LocalDate.of(2026, 4, 5), LocalDate.of(2026, 4, 6), "KSPO DOME", "https://kopis.or.kr/PF002")
         );
         given(dataPipelineClient.searchConcerts("아이유")).willReturn(results);
 

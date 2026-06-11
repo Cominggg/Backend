@@ -323,8 +323,8 @@ class AdminControllerTest {
     void should_return_200_with_artist_candidates_when_name_given() throws Exception {
         // given
         List<DataArtistSearchResult> results = List.of(
-                new DataArtistSearchResult("mbid-1", "IU", "KR", "Person"),
-                new DataArtistSearchResult("mbid-2", "IU (instrumental)", "JP", null)
+                new DataArtistSearchResult("mbid-1", "IU", "KR", "Person", "https://musicbrainz.org/artist/mbid-1"),
+                new DataArtistSearchResult("mbid-2", "IU (instrumental)", "JP", null, null)
         );
         given(adminService.searchArtists("IU")).willReturn(results);
 
@@ -361,7 +361,7 @@ class AdminControllerTest {
     void should_return_200_with_concert_candidates_when_title_given() throws Exception {
         // given
         List<DataConcertSearchResult> results = List.of(
-                new DataConcertSearchResult("PF001", "아이유 콘서트", LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 2), "올림픽공원 체조경기장")
+                new DataConcertSearchResult("PF001", "아이유 콘서트", LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 2), "올림픽공원 체조경기장", "https://kopis.or.kr/PF001")
         );
         given(adminService.searchConcerts("아이유")).willReturn(results);
 

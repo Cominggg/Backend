@@ -9,6 +9,7 @@ public record DataConcertSearchResult(
         String title,
         @JsonAlias("start_date") LocalDate startDate,
         @JsonAlias("end_date") LocalDate endDate,
-        String venue
+        String venue,
+        String url
 ) {
 }

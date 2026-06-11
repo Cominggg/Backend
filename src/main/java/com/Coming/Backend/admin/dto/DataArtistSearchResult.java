@@ -4,6 +4,7 @@ public record DataArtistSearchResult(
         String mbid,
         String name,
         String country,
-        String type
+        String type,
+        String url
 ) {
 }
