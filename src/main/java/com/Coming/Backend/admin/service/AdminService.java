@@ -159,6 +159,7 @@ public class AdminService {
     /**
      * PENDING 상태 공연 목록과 각 공연의 후보 아티스트를 반환한다.
      */
+    @Transactional(readOnly = true)
     public PageResponse<AdminPendingConcertResponse> getPendingConcerts(Pageable pageable) {
         Page<Concert> page = concertRepository.findByStatus(ConcertStatus.PENDING, pageable);
 
