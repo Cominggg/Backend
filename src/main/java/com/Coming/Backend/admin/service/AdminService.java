@@ -7,6 +7,7 @@ import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminCandidateArtistResponse;
+import com.Coming.Backend.admin.dto.AdminConcertDetailResponse;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminExcludedArtistResponse;
@@ -125,6 +126,17 @@ public class AdminService {
         Inquiry inquiry = inquiryRepository.findById(id)
                 .orElseThrow(InquiryNotFoundException::new);
         inquiry.updateStatus(request.status(), request.adminNote());
+    }
+
+    /**
+     * status 제한 없이 공연 단건을 조회한다. EXCLUDED 포함 모든 상태 조회 가능.
+     *
+     * @throws ConcertNotFoundException 존재하지 않는 공연 ID
+     */
+    public AdminConcertDetailResponse getAdminConcert(Long id) {
+        Concert concert = concertRepository.findById(id)
+                .orElseThrow(ConcertNotFoundException::new);
+        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id));
     }
 
     /**

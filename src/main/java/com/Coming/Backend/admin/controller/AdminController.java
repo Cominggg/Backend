@@ -4,6 +4,7 @@ import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
 import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
+import com.Coming.Backend.admin.dto.AdminConcertDetailResponse;
 import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
@@ -103,6 +104,13 @@ public class AdminController {
     public ResponseEntity<PageResponse<AdminPendingConcertResponse>> getPendingConcerts(
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(adminService.getPendingConcerts(pageable));
+    }
+
+    @Operation(summary = "어드민 공연 단건 조회")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @GetMapping("/concerts/{id}")
+    public ResponseEntity<AdminConcertDetailResponse> getAdminConcert(@PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getAdminConcert(id));
     }
 
     @Operation(summary = "공연 정보 수정")
