@@ -14,9 +14,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
+import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminExcludedArtistResponse;
+import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
@@ -462,5 +465,61 @@ class AdminControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/admin/concerts/excluded
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_excluded_concert_list_when_excluded_concerts_exist() throws Exception {
+        // given
+        AdminExcludedArtistResponse artist = new AdminExcludedArtistResponse(1L, "IU");
+        AdminExcludedConcertResponse concert = new AdminExcludedConcertResponse(
+                1L, "아이유 콘서트", LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 2),
+                "올림픽공원 체조경기장", "https://example.com/poster.jpg", List.of(artist)
+        );
+        PageResponse<AdminExcludedConcertResponse> pageResponse = new PageResponse<>(List.of(concert), 0, 20, 1L, 1);
+        given(adminService.getExcludedConcerts(any(Pageable.class))).willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/concerts/excluded").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content[0].id").value(1L))
+                .andExpect(jsonPath("$.content[0].title").value("아이유 콘서트"))
+                .andExpect(jsonPath("$.content[0].startDate").value("2026-03-01"))
+                .andExpect(jsonPath("$.content[0].endDate").value("2026-03-02"))
+                .andExpect(jsonPath("$.content[0].venueName").value("올림픽공원 체조경기장"))
+                .andExpect(jsonPath("$.content[0].posterUrl").value("https://example.com/poster.jpg"))
+                .andExpect(jsonPath("$.content[0].artists[0].artistId").value(1L))
+                .andExpect(jsonPath("$.content[0].artists[0].name").value("IU"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/admin/artists?name={name}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_artist_list_when_name_given() throws Exception {
+        // given
+        AdminArtistSearchResult result = new AdminArtistSearchResult(1L, "IU");
+        PageResponse<AdminArtistSearchResult> pageResponse = new PageResponse<>(List.of(result), 0, 20, 1L, 1);
+        given(adminService.searchLocalArtists(eq("IU"), any(Pageable.class))).willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/artists")
+                        .param("name", "IU")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content[0].id").value(1L))
+                .andExpect(jsonPath("$.content[0].name").value("IU"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 }
