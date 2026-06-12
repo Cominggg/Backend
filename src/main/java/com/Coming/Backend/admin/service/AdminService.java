@@ -28,6 +28,7 @@ import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertArtistAlreadyExistsException;
+import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
@@ -318,6 +319,29 @@ public class AdminService {
 
         if (concert.getStatus() == ConcertStatus.UPCOMING || concert.getStatus() == ConcertStatus.ONGOING) {
             artist.updateIsComing(true);
+        }
+    }
+
+    /**
+     * 공연에서 아티스트 매핑을 제거한다. 공연이 UPCOMING 또는 ONGOING이면 해당 아티스트의 다른 활성 공연 존재 여부로 is_coming을 재계산한다.
+     *
+     * @throws ConcertNotFoundException        존재하지 않는 공연 ID
+     * @throws ArtistNotFoundException         존재하지 않는 아티스트 ID
+     * @throws ConcertArtistNotFoundException  해당 공연에 매핑되지 않은 아티스트
+     */
+    @Transactional
+    public void removeArtistFromConcert(Long concertId, Long artistId) {
+        Concert concert = concertRepository.findById(concertId)
+                .orElseThrow(ConcertNotFoundException::new);
+        Artist artist = artistRepository.findById(artistId)
+                .orElseThrow(ArtistNotFoundException::new);
+        ConcertArtist concertArtist = concertArtistRepository.findByConcertIdAndArtistId(concertId, artistId)
+                .orElseThrow(ConcertArtistNotFoundException::new);
+        concertArtistRepository.delete(concertArtist);
+
+        List<ConcertStatus> activeStatuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
+        if (activeStatuses.contains(concert.getStatus())) {
+            artist.updateIsComing(concertRepository.existsActiveByArtistId(artistId, activeStatuses));
         }
     }
 

@@ -28,6 +28,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -151,6 +152,16 @@ public class AdminController {
             @RequestBody @Valid AdminConcertArtistAssignRequest request) {
         adminService.assignArtistToConcert(id, request.artistId());
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @Operation(summary = "공연 아티스트 매핑 제거")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND / ARTIST_NOT_FOUND / CONCERT_ARTIST_NOT_FOUND")
+    @DeleteMapping("/concerts/{id}/artists/{artistId}")
+    public ResponseEntity<Void> removeArtistFromConcert(
+            @PathVariable Long id,
+            @PathVariable Long artistId) {
+        adminService.removeArtistFromConcert(id, artistId);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Data 파이프라인 아티스트 검색")
