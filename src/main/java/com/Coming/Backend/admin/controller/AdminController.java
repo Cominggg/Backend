@@ -3,6 +3,7 @@ package com.Coming.Backend.admin.controller;
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
+import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
@@ -44,6 +45,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
     private final AdminService adminService;
+
+    @Operation(summary = "DB 아티스트 검색")
+    @GetMapping("/artists")
+    public ResponseEntity<PageResponse<AdminArtistSearchResult>> searchLocalArtists(
+            @RequestParam String name,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(adminService.searchLocalArtists(name, pageable));
+    }
 
     @Operation(summary = "아티스트 정보 수정")
     @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND")

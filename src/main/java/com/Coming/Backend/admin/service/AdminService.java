@@ -8,6 +8,7 @@ import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminCandidateArtistResponse;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminExcludedArtistResponse;
 import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
@@ -318,6 +319,16 @@ public class AdminService {
         if (concert.getStatus() == ConcertStatus.UPCOMING || concert.getStatus() == ConcertStatus.ONGOING) {
             artist.updateIsComing(true);
         }
+    }
+
+    /**
+     * DB 등록 아티스트를 이름(별칭 포함)으로 검색해 id·name만 반환한다.
+     */
+    public PageResponse<AdminArtistSearchResult> searchLocalArtists(String name, Pageable pageable) {
+        return PageResponse.from(
+                artistRepository.findByNameOrAliasContainingIgnoreCase(name, pageable)
+                        .map(artist -> new AdminArtistSearchResult(artist.getId(), artist.getName()))
+        );
     }
 
     /**
