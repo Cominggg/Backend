@@ -147,13 +147,25 @@ public class AdminService {
     }
 
     /**
-     * 공연 상태를 강제 변경한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
+     * 공연 상태를 강제 변경한다. 새 상태가 UPCOMING 또는 ONGOING이면 연결된 아티스트의 is_coming을 갱신한다.
+     *
+     * @throws ConcertNotFoundException 존재하지 않는 공연 ID
      */
     @Transactional
     public void forceChangeConcertState(Long id, AdminConcertStateUpdateRequest request) {
         Concert concert = concertRepository.findById(id)
                 .orElseThrow(ConcertNotFoundException::new);
         concert.forceChangeStatus(request.status());
+
+        List<ConcertStatus> activeStatuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
+        if (activeStatuses.contains(request.status())) {
+            List<Long> artistIds = concertArtistRepository.findByConcertId(id).stream()
+                    .map(ConcertArtist::getArtistId)
+                    .distinct()
+                    .toList();
+            artistRepository.findAllById(artistIds).forEach(artist ->
+                    artist.updateIsComing(concertRepository.existsActiveByArtistId(artist.getId(), activeStatuses)));
+        }
     }
 
     /**
