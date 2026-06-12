@@ -8,6 +8,8 @@ import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminCandidateArtistResponse;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminExcludedArtistResponse;
+import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
@@ -166,6 +168,41 @@ public class AdminService {
             artistRepository.findAllById(artistIds).forEach(artist ->
                     artist.updateIsComing(concertRepository.existsActiveByArtistId(artist.getId(), activeStatuses)));
         }
+    }
+
+    /**
+     * EXCLUDED 상태 공연 목록과 각 공연에 연결된 아티스트를 반환한다.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<AdminExcludedConcertResponse> getExcludedConcerts(Pageable pageable) {
+        Page<Concert> page = concertRepository.findByStatus(ConcertStatus.EXCLUDED, pageable);
+
+        List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
+        Map<Long, List<ConcertArtist>> artistsByConcertId = concertArtistRepository
+                .findByConcertIdIn(concertIds).stream()
+                .collect(Collectors.groupingBy(ConcertArtist::getConcertId));
+
+        List<Long> artistIds = artistsByConcertId.values().stream()
+                .flatMap(List::stream)
+                .map(ConcertArtist::getArtistId)
+                .distinct()
+                .toList();
+        Map<Long, String> artistNameById = artistRepository.findAllById(artistIds).stream()
+                .collect(Collectors.toMap(Artist::getId, Artist::getName));
+
+        List<AdminExcludedConcertResponse> content = page.getContent().stream()
+                .map(concert -> {
+                    List<AdminExcludedArtistResponse> artists = artistsByConcertId
+                            .getOrDefault(concert.getId(), List.of()).stream()
+                            .map(ca -> new AdminExcludedArtistResponse(
+                                    ca.getArtistId(),
+                                    artistNameById.get(ca.getArtistId())))
+                            .toList();
+                    return AdminExcludedConcertResponse.of(concert, artists);
+                })
+                .toList();
+
+        return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     /**

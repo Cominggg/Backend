@@ -3,6 +3,7 @@ package com.Coming.Backend.admin.controller;
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
+import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
@@ -78,6 +79,13 @@ public class AdminController {
             @RequestBody @Valid AdminInquiryStatusUpdateRequest request) {
         adminService.updateInquiryStatus(id, request);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "EXCLUDED 공연 목록 조회")
+    @GetMapping("/concerts/excluded")
+    public ResponseEntity<PageResponse<AdminExcludedConcertResponse>> getExcludedConcerts(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(adminService.getExcludedConcerts(pageable));
     }
 
     @Operation(summary = "PENDING 공연 목록 조회")
