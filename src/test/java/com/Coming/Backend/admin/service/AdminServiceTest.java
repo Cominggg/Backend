@@ -2,10 +2,12 @@ package com.Coming.Backend.admin.service;
 
 import com.Coming.Backend.admin.client.DataPipelineClient;
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
+import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
@@ -801,5 +803,164 @@ class AdminServiceTest {
 
         // then
         verify(dataPipelineClient).triggerConcertCollectByKopisId("PF123456");
+    }
+
+    // -------------------------------------------------------------------------
+    // forceChangeConcertState — is_coming 갱신 케이스 추가
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_update_artist_is_coming_when_status_changed_to_upcoming() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.EXCLUDED);
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("IU").isComing(false).build();
+        ConcertArtist concertArtist = ConcertArtist.builder().concertId(CONCERT_ID).artistId(ARTIST_ID).build();
+        AdminConcertStateUpdateRequest request = new AdminConcertStateUpdateRequest(ConcertStatus.UPCOMING, null);
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertRepository.existsActiveByArtistId(eq(ARTIST_ID), any())).willReturn(true);
+
+        // when
+        adminService.forceChangeConcertState(CONCERT_ID, request);
+
+        // then
+        assertThat(concert.getStatus()).isEqualTo(ConcertStatus.UPCOMING);
+        assertThat(artist.isComing()).isTrue();
+        verify(concertArtistRepository).findByConcertId(CONCERT_ID);
+    }
+
+    @Test
+    void should_update_artist_is_coming_when_status_changed_to_ongoing() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.EXCLUDED);
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("IU").isComing(false).build();
+        ConcertArtist concertArtist = ConcertArtist.builder().concertId(CONCERT_ID).artistId(ARTIST_ID).build();
+        AdminConcertStateUpdateRequest request = new AdminConcertStateUpdateRequest(ConcertStatus.ONGOING, null);
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertRepository.existsActiveByArtistId(eq(ARTIST_ID), any())).willReturn(true);
+
+        // when
+        adminService.forceChangeConcertState(CONCERT_ID, request);
+
+        // then
+        assertThat(concert.getStatus()).isEqualTo(ConcertStatus.ONGOING);
+        assertThat(artist.isComing()).isTrue();
+        verify(concertArtistRepository).findByConcertId(CONCERT_ID);
+    }
+
+    @Test
+    void should_not_query_concert_artist_when_status_changed_to_inactive_state() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        AdminConcertStateUpdateRequest request = new AdminConcertStateUpdateRequest(ConcertStatus.CANCELLED, null);
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when
+        adminService.forceChangeConcertState(CONCERT_ID, request);
+
+        // then
+        assertThat(concert.getStatus()).isEqualTo(ConcertStatus.CANCELLED);
+        verify(concertArtistRepository, never()).findByConcertId(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // getExcludedConcerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_excluded_concerts_with_artist_info_when_concert_artist_exists() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.EXCLUDED);
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("IU").isComing(false).build();
+        ConcertArtist concertArtist = ConcertArtist.builder().concertId(CONCERT_ID).artistId(ARTIST_ID).build();
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+
+        given(concertRepository.findByStatus(ConcertStatus.EXCLUDED, PAGEABLE)).willReturn(page);
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+
+        // when
+        PageResponse<AdminExcludedConcertResponse> response = adminService.getExcludedConcerts(PAGEABLE);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).id()).isEqualTo(CONCERT_ID);
+        assertThat(response.content().get(0).artists()).hasSize(1);
+        assertThat(response.content().get(0).artists().get(0).artistId()).isEqualTo(ARTIST_ID);
+        assertThat(response.content().get(0).artists().get(0).name()).isEqualTo("IU");
+    }
+
+    @Test
+    void should_return_empty_artist_list_when_excluded_concert_has_no_concert_artist() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.EXCLUDED);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+
+        given(concertRepository.findByStatus(ConcertStatus.EXCLUDED, PAGEABLE)).willReturn(page);
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+        given(artistRepository.findAllById(List.of())).willReturn(List.of());
+
+        // when
+        PageResponse<AdminExcludedConcertResponse> response = adminService.getExcludedConcerts(PAGEABLE);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).id()).isEqualTo(CONCERT_ID);
+        assertThat(response.content().get(0).artists()).isEmpty();
+    }
+
+    @Test
+    void should_return_empty_page_when_no_excluded_concerts_exist() {
+        // given
+        Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
+        given(concertRepository.findByStatus(ConcertStatus.EXCLUDED, PAGEABLE)).willReturn(emptyPage);
+
+        // when
+        PageResponse<AdminExcludedConcertResponse> response = adminService.getExcludedConcerts(PAGEABLE);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+    }
+
+    // -------------------------------------------------------------------------
+    // searchLocalArtists
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_artist_id_and_name_when_matching_artists_found() {
+        // given
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("IU").isComing(true).build();
+        Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
+        given(artistRepository.findByNameOrAliasContainingIgnoreCase("IU", PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<AdminArtistSearchResult> response = adminService.searchLocalArtists("IU", PAGEABLE);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).id()).isEqualTo(ARTIST_ID);
+        assertThat(response.content().get(0).name()).isEqualTo("IU");
+        assertThat(response.totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void should_return_empty_page_when_no_local_artists_match() {
+        // given
+        Page<Artist> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
+        given(artistRepository.findByNameOrAliasContainingIgnoreCase("존재하지않는아티스트", PAGEABLE)).willReturn(emptyPage);
+
+        // when
+        PageResponse<AdminArtistSearchResult> response = adminService.searchLocalArtists("존재하지않는아티스트", PAGEABLE);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
     }
 }

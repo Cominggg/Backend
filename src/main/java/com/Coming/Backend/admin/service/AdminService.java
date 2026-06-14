@@ -7,7 +7,11 @@ import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminCandidateArtistResponse;
+import com.Coming.Backend.admin.dto.AdminConcertDetailResponse;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
+import com.Coming.Backend.admin.dto.AdminExcludedArtistResponse;
+import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
@@ -25,6 +29,7 @@ import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertArtistAlreadyExistsException;
+import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
@@ -124,6 +129,17 @@ public class AdminService {
     }
 
     /**
+     * status 제한 없이 공연 단건을 조회한다. EXCLUDED 포함 모든 상태 조회 가능.
+     *
+     * @throws ConcertNotFoundException 존재하지 않는 공연 ID
+     */
+    public AdminConcertDetailResponse getAdminConcert(Long id) {
+        Concert concert = concertRepository.findById(id)
+                .orElseThrow(ConcertNotFoundException::new);
+        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id));
+    }
+
+    /**
      * 공연 정보를 수정한다. bookingLinks가 있으면 기존 링크를 삭제 후 새로 저장한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
      */
     @Transactional
@@ -147,13 +163,60 @@ public class AdminService {
     }
 
     /**
-     * 공연 상태를 강제 변경한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
+     * 공연 상태를 강제 변경한다. 새 상태가 UPCOMING 또는 ONGOING이면 연결된 아티스트의 is_coming을 갱신한다.
+     *
+     * @throws ConcertNotFoundException 존재하지 않는 공연 ID
      */
     @Transactional
     public void forceChangeConcertState(Long id, AdminConcertStateUpdateRequest request) {
         Concert concert = concertRepository.findById(id)
                 .orElseThrow(ConcertNotFoundException::new);
         concert.forceChangeStatus(request.status());
+
+        List<ConcertStatus> activeStatuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
+        if (activeStatuses.contains(request.status())) {
+            List<Long> artistIds = concertArtistRepository.findByConcertId(id).stream()
+                    .map(ConcertArtist::getArtistId)
+                    .distinct()
+                    .toList();
+            artistRepository.findAllById(artistIds).forEach(artist ->
+                    artist.updateIsComing(concertRepository.existsActiveByArtistId(artist.getId(), activeStatuses)));
+        }
+    }
+
+    /**
+     * EXCLUDED 상태 공연 목록과 각 공연에 연결된 아티스트를 반환한다.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<AdminExcludedConcertResponse> getExcludedConcerts(Pageable pageable) {
+        Page<Concert> page = concertRepository.findByStatus(ConcertStatus.EXCLUDED, pageable);
+
+        List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
+        Map<Long, List<ConcertArtist>> artistsByConcertId = concertArtistRepository
+                .findByConcertIdIn(concertIds).stream()
+                .collect(Collectors.groupingBy(ConcertArtist::getConcertId));
+
+        List<Long> artistIds = artistsByConcertId.values().stream()
+                .flatMap(List::stream)
+                .map(ConcertArtist::getArtistId)
+                .distinct()
+                .toList();
+        Map<Long, String> artistNameById = artistRepository.findAllById(artistIds).stream()
+                .collect(Collectors.toMap(Artist::getId, Artist::getName));
+
+        List<AdminExcludedConcertResponse> content = page.getContent().stream()
+                .map(concert -> {
+                    List<AdminExcludedArtistResponse> artists = artistsByConcertId
+                            .getOrDefault(concert.getId(), List.of()).stream()
+                            .map(ca -> new AdminExcludedArtistResponse(
+                                    ca.getArtistId(),
+                                    artistNameById.get(ca.getArtistId())))
+                            .toList();
+                    return AdminExcludedConcertResponse.of(concert, artists);
+                })
+                .toList();
+
+        return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     /**
@@ -269,6 +332,39 @@ public class AdminService {
         if (concert.getStatus() == ConcertStatus.UPCOMING || concert.getStatus() == ConcertStatus.ONGOING) {
             artist.updateIsComing(true);
         }
+    }
+
+    /**
+     * 공연에서 아티스트 매핑을 제거한다. 공연이 UPCOMING 또는 ONGOING이면 해당 아티스트의 다른 활성 공연 존재 여부로 is_coming을 재계산한다.
+     *
+     * @throws ConcertNotFoundException        존재하지 않는 공연 ID
+     * @throws ArtistNotFoundException         존재하지 않는 아티스트 ID
+     * @throws ConcertArtistNotFoundException  해당 공연에 매핑되지 않은 아티스트
+     */
+    @Transactional
+    public void removeArtistFromConcert(Long concertId, Long artistId) {
+        Concert concert = concertRepository.findById(concertId)
+                .orElseThrow(ConcertNotFoundException::new);
+        Artist artist = artistRepository.findById(artistId)
+                .orElseThrow(ArtistNotFoundException::new);
+        ConcertArtist concertArtist = concertArtistRepository.findByConcertIdAndArtistId(concertId, artistId)
+                .orElseThrow(ConcertArtistNotFoundException::new);
+        concertArtistRepository.delete(concertArtist);
+
+        List<ConcertStatus> activeStatuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
+        if (activeStatuses.contains(concert.getStatus())) {
+            artist.updateIsComing(concertRepository.existsActiveByArtistId(artistId, activeStatuses));
+        }
+    }
+
+    /**
+     * DB 등록 아티스트를 이름(별칭 포함)으로 검색해 id·name만 반환한다.
+     */
+    public PageResponse<AdminArtistSearchResult> searchLocalArtists(String name, Pageable pageable) {
+        return PageResponse.from(
+                artistRepository.findByNameOrAliasContainingIgnoreCase(name, pageable)
+                        .map(artist -> new AdminArtistSearchResult(artist.getId(), artist.getName()))
+        );
     }
 
     /**

@@ -29,6 +29,7 @@ public enum ErrorCode {
     CONCERT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 공연입니다."),
     CONCERT_NOT_PENDING(HttpStatus.BAD_REQUEST, "PENDING 상태의 공연이 아닙니다."),
     CONCERT_ARTIST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 매핑된 아티스트입니다."),
+    CONCERT_ARTIST_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 공연에 매핑되지 않은 아티스트입니다."),
     ALREADY_IN_CALENDAR(HttpStatus.CONFLICT, "이미 캘린더에 추가된 공연입니다."),
     NOT_IN_CALENDAR(HttpStatus.BAD_REQUEST, "캘린더에 없는 공연입니다."),
 
