@@ -125,6 +125,29 @@ class ReleaseControllerTest {
                 .andExpect(jsonPath("$.content[0].type").value("LIVE"));
     }
 
+    @Test
+    void should_return_200_with_following_releases_when_following_is_true() throws Exception {
+        // given
+        ReleaseListItemResponse item = new ReleaseListItemResponse(
+                RELEASE_ID, "https://cover.example.com/10", "IU",
+                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25)
+        );
+        PageResponse<ReleaseListItemResponse> pageResponse =
+                new PageResponse<>(List.of(item), 0, 20, 1, 1);
+        given(releaseService.getReleases(isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/releases")
+                        .param("following", "true")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].artistName").value("IU"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
     // -------------------------------------------------------------------------
     // GET /api/releases/{id}
     // -------------------------------------------------------------------------

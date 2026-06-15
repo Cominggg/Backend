@@ -282,6 +282,61 @@ class ReleaseServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // getReleases — following=true
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_following_releases_when_following_is_true_and_user_is_authenticated() {
+        // given
+        Long artistId2 = 2L;
+        ReleaseGroup release1 = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
+        ReleaseGroup release2 = buildRelease(20L, artistId2, "SINGLE");
+        Artist artist1 = buildArtist(ARTIST_ID, "IU");
+        Artist artist2 = buildArtist(artistId2, "BTS");
+        UserFollowArtist follow1 = UserFollowArtist.builder().id(1L).userId(USER_ID).artistId(ARTIST_ID).build();
+        UserFollowArtist follow2 = UserFollowArtist.builder().id(2L).userId(USER_ID).artistId(artistId2).build();
+        Page<ReleaseGroup> page = new PageImpl<>(List.of(release1, release2), PAGEABLE, 2);
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow1, follow2));
+        given(releaseGroupRepository.findByArtistIdIn(eq(List.of(ARTIST_ID, artistId2)), any(Pageable.class))).willReturn(page);
+        given(artistRepository.findAllById(Set.of(ARTIST_ID, artistId2))).willReturn(List.of(artist1, artist2));
+
+        // when
+        PageResponse<ReleaseListItemResponse> response =
+                releaseService.getReleases(null, null, USER_ID, true, PAGEABLE);
+
+        // then
+        assertThat(response.content()).hasSize(2);
+        verify(userFollowArtistRepository).findByUserId(USER_ID);
+        verify(releaseGroupRepository).findByArtistIdIn(eq(List.of(ARTIST_ID, artistId2)), any(Pageable.class));
+    }
+
+    @Test
+    void should_return_empty_page_when_following_is_true_and_user_is_not_authenticated() {
+        // when
+        PageResponse<ReleaseListItemResponse> response =
+                releaseService.getReleases(null, null, null, true, PAGEABLE);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+    }
+
+    @Test
+    void should_return_empty_page_when_following_is_true_and_user_has_no_followed_artists() {
+        // given
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of());
+
+        // when
+        PageResponse<ReleaseListItemResponse> response =
+                releaseService.getReleases(null, null, USER_ID, true, PAGEABLE);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+        verify(userFollowArtistRepository).findByUserId(USER_ID);
+    }
+
+    // -------------------------------------------------------------------------
     // getReleaseDetail
     // -------------------------------------------------------------------------
 
