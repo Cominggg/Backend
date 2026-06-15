@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -63,9 +64,10 @@ public class ConcertController {
     }
 
     @Operation(summary = "공연 검색")
+    @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR (q가 빈 문자열)")
     @GetMapping("/search")
     public ResponseEntity<PageResponse<ConcertSummaryResponse>> searchConcerts(
-            @RequestParam String q,
+            @RequestParam @NotBlank String q,
             @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(concertService.searchConcerts(q, pageable, userId));
