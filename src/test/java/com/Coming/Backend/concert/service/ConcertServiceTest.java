@@ -241,7 +241,7 @@ class ConcertServiceTest {
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -261,7 +261,7 @@ class ConcertServiceTest {
                 .willReturn(List.of());
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -275,7 +275,7 @@ class ConcertServiceTest {
         given(concertRepository.findByStatus(ConcertStatus.UPCOMING, PAGEABLE)).willReturn(page);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(ConcertStatus.UPCOMING, PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(ConcertStatus.UPCOMING, null, PAGEABLE, null);
 
         // then
         verify(concertRepository).findByStatus(ConcertStatus.UPCOMING, PAGEABLE);
@@ -289,7 +289,7 @@ class ConcertServiceTest {
         given(concertRepository.findByStatusNotIn(anyList(), eq(PAGEABLE))).willReturn(emptyPage);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).isEmpty();
@@ -498,7 +498,7 @@ class ConcertServiceTest {
                 .willReturn(List.of(calendarEntry));
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, USER_ID);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, null, PAGEABLE, USER_ID);
 
         // then
         assertThat(response.content().get(0).isInCalendar()).isTrue();
@@ -515,7 +515,7 @@ class ConcertServiceTest {
                 .willReturn(List.of());
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, null, PAGEABLE, null);
 
         // then
         assertThat(response.content().get(0).isInCalendar()).isFalse();
@@ -626,7 +626,7 @@ class ConcertServiceTest {
         // status == EXCLUDED이면 레포를 호출하지 않고 즉시 빈 페이지를 반환한다
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(ConcertStatus.EXCLUDED, PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(ConcertStatus.EXCLUDED, null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).isEmpty();

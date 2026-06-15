@@ -96,14 +96,23 @@ public class ConcertService {
     }
 
     /**
-     * 공연 목록을 status 조건으로 조회한다. 기본 정렬은 startDate desc.
+     * 공연 목록을 status·inCalendar 조건으로 조회한다. 기본 정렬은 startDate DESC.
      *
-     * @param status null이면 전체 조회
-     * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
+     * @param status     null이면 전체 조회
+     * @param inCalendar true이면 내 캘린더에 추가한 공연만 반환 (미인증 시 빈 페이지)
+     * @param userId     인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
-    public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Pageable pageable, Long userId) {
+    public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Boolean inCalendar, Pageable pageable, Long userId) {
         if (status == EXCLUDED || status == PENDING) {
             return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+        }
+        if (Boolean.TRUE.equals(inCalendar)) {
+            if (userId == null) {
+                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+            }
+            Page<Concert> page = concertRepository.findByUserCalendar(userId, HIDDEN_STATUSES, pageable);
+            List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
+            return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
         }
         Page<Concert> page = (status == null)
                 ? concertRepository.findByStatusNotIn(HIDDEN_STATUSES, pageable)

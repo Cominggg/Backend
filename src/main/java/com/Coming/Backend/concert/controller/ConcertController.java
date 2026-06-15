@@ -41,9 +41,10 @@ public class ConcertController {
     @GetMapping
     public ResponseEntity<PageResponse<ConcertSummaryResponse>> getConcerts(
             @RequestParam(required = false) ConcertStatus status,
+            @RequestParam(required = false) Boolean inCalendar,
             @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(concertService.getConcerts(status, pageable, userId));
+        return ResponseEntity.ok(concertService.getConcerts(status, inCalendar, pageable, userId));
     }
 
     @Operation(summary = "인기 공연 목록 조회")
