@@ -92,6 +92,26 @@ public class ReleaseService {
     }
 
     /**
+     * 릴리즈명·트랙명·아티스트명(alias 포함)으로 릴리즈를 검색한다. firstReleaseDate DESC NULLS LAST로 정렬한다.
+     */
+    public PageResponse<ReleaseListItemResponse> searchReleases(String q, Pageable pageable) {
+        Pageable sorted = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Order.desc("firstReleaseDate").nullsLast())
+        );
+        Page<ReleaseGroup> page = releaseGroupRepository.searchReleases(q, sorted);
+
+        Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
+        Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()
+                .collect(Collectors.toMap(Artist::getId, Artist::getName));
+
+        return PageResponse.from(page.map(release ->
+                ReleaseListItemResponse.of(release, artistNameMap.getOrDefault(release.getArtistId(), ""))
+        ));
+    }
+
+    /**
      * 릴리즈 상세 정보를 트랙리스트와 함께 조회한다.
      */
     public ReleaseDetailResponse getReleaseDetail(Long id) {

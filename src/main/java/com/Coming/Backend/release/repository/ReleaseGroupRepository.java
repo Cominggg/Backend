@@ -36,4 +36,36 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
 
     @Query("SELECT r FROM ReleaseGroup r WHERE r.artistId IN :artistIds AND r.type NOT IN :standardTypes")
     Page<ReleaseGroup> findByArtistIdInAndTypeNotIn(@Param("artistIds") List<Long> artistIds, @Param("standardTypes") List<String> standardTypes, Pageable pageable);
+
+    @Query(value = """
+            SELECT DISTINCT r FROM ReleaseGroup r
+            WHERE (
+                LOWER(r.title) LIKE LOWER(CONCAT('%', :q, '%'))
+                OR r.id IN (
+                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%'))
+                )
+                OR r.artistId IN (
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :q, '%'))
+                )
+                OR r.artistId IN (
+                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE LOWER(CONCAT('%', :q, '%'))
+                )
+            )
+            """,
+            countQuery = """
+            SELECT COUNT(DISTINCT r) FROM ReleaseGroup r
+            WHERE (
+                LOWER(r.title) LIKE LOWER(CONCAT('%', :q, '%'))
+                OR r.id IN (
+                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%'))
+                )
+                OR r.artistId IN (
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :q, '%'))
+                )
+                OR r.artistId IN (
+                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE LOWER(CONCAT('%', :q, '%'))
+                )
+            )
+            """)
+    Page<ReleaseGroup> searchReleases(@Param("q") String q, Pageable pageable);
 }

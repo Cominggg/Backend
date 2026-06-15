@@ -53,6 +53,63 @@ class ReleaseControllerTest {
     }
 
     // -------------------------------------------------------------------------
+    // GET /api/releases/search
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_search_results_when_query_matches() throws Exception {
+        // given
+        ReleaseListItemResponse item = new ReleaseListItemResponse(
+                RELEASE_ID, "https://cover.example.com/10", "IU",
+                "LILAC", "Album", LocalDate.of(2021, 3, 25)
+        );
+        PageResponse<ReleaseListItemResponse> pageResponse =
+                new PageResponse<>(List.of(item), 0, 20, 1, 1);
+        given(releaseService.searchReleases(eq("IU"), any(Pageable.class)))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/releases/search")
+                        .param("q", "IU")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(RELEASE_ID))
+                .andExpect(jsonPath("$.content[0].artistName").value("IU"))
+                .andExpect(jsonPath("$.content[0].title").value("LILAC"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void should_return_200_with_empty_results_when_query_matches_nothing() throws Exception {
+        // given
+        PageResponse<ReleaseListItemResponse> emptyPage =
+                new PageResponse<>(List.of(), 0, 20, 0, 0);
+        given(releaseService.searchReleases(eq("없는앨범"), any(Pageable.class)))
+                .willReturn(emptyPage);
+
+        // when & then
+        mockMvc.perform(get("/api/releases/search")
+                        .param("q", "없는앨범")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void should_return_400_when_q_is_missing() throws Exception {
+        // when & then
+        mockMvc.perform(get("/api/releases/search")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
+    }
+
+    // -------------------------------------------------------------------------
     // GET /api/releases
     // -------------------------------------------------------------------------
 

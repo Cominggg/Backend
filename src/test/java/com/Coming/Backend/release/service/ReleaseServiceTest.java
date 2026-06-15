@@ -377,6 +377,43 @@ class ReleaseServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // searchReleases
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_search_results_with_artist_name_when_query_matches() {
+        // given
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
+        given(releaseGroupRepository.searchReleases(eq("IU"), any(Pageable.class))).willReturn(page);
+        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
+
+        // when
+        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases("IU", PAGEABLE);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).artistName()).isEqualTo("IU");
+        assertThat(response.content().get(0).title()).isEqualTo("미니앨범 " + RELEASE_ID);
+        verify(releaseGroupRepository).searchReleases(eq("IU"), any(Pageable.class));
+    }
+
+    @Test
+    void should_return_empty_page_when_query_matches_no_releases() {
+        // given
+        Page<ReleaseGroup> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
+        given(releaseGroupRepository.searchReleases(eq("없는앨범"), any(Pageable.class))).willReturn(emptyPage);
+
+        // when
+        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases("없는앨범", PAGEABLE);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+    }
+
+    // -------------------------------------------------------------------------
     // getReleaseDetail
     // -------------------------------------------------------------------------
 
