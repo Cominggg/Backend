@@ -122,6 +122,18 @@ public class ConcertService {
     }
 
     /**
+     * 공연명·아티스트명(alias 포함)으로 공연을 검색한다. 기본 정렬은 startDate DESC.
+     *
+     * @param q      검색어 (공연명, 아티스트명, alias 대소문자 무시 부분 일치)
+     * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
+     */
+    public PageResponse<ConcertSummaryResponse> searchConcerts(String q, Pageable pageable, Long userId) {
+        Page<Concert> page = concertRepository.searchConcerts(q, HIDDEN_STATUSES, pageable);
+        List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
+        return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
+
+    /**
      * 팔로우한 아티스트의 공연 목록을 조회한다. 기본 정렬은 startDate DESC.
      *
      * @param userId 인증된 사용자 ID

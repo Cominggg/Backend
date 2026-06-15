@@ -62,6 +62,15 @@ public class ConcertController {
         return ResponseEntity.ok(concertService.getConcertStats(year, month));
     }
 
+    @Operation(summary = "공연 검색")
+    @GetMapping("/search")
+    public ResponseEntity<PageResponse<ConcertSummaryResponse>> searchConcerts(
+            @RequestParam String q,
+            @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(concertService.searchConcerts(q, pageable, userId));
+    }
+
     @Operation(summary = "관심 아티스트 공연 조회")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/following")
