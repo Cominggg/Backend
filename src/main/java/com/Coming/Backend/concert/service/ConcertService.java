@@ -98,8 +98,11 @@ public class ConcertService {
     /**
      * 공연 목록을 status·inCalendar 조건으로 조회한다. 기본 정렬은 startDate DESC.
      *
-     * @param status     null이면 전체 조회
-     * @param inCalendar true이면 내 캘린더에 추가한 공연만 반환 (미인증 시 빈 페이지)
+     * <p>우선순위: status(EXCLUDED|PENDING 가드) → inCalendar → status 필터 순으로 적용된다.
+     * inCalendar=true이면 status(UPCOMING 등)는 무시되고 캘린더 공연 전체가 반환된다.</p>
+     *
+     * @param status     null이면 전체 조회. EXCLUDED·PENDING이면 즉시 빈 페이지 반환.
+     * @param inCalendar true이면 내 캘린더에 추가한 공연만 반환 (미인증 시 빈 페이지). status보다 우선.
      * @param userId     인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
     public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Boolean inCalendar, Pageable pageable, Long userId) {
