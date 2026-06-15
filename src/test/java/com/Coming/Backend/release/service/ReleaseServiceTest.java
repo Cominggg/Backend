@@ -2,6 +2,8 @@ package com.Coming.Backend.release.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -172,7 +174,7 @@ class ReleaseServiceTest {
         ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findAll(PAGEABLE)).willReturn(page);
+        given(releaseGroupRepository.findAll(any(Pageable.class))).willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
@@ -181,7 +183,7 @@ class ReleaseServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findAll(PAGEABLE);
+        verify(releaseGroupRepository).findAll(any(Pageable.class));
     }
 
     @Test
@@ -190,7 +192,7 @@ class ReleaseServiceTest {
         ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "SINGLE");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findByArtistId(ARTIST_ID, PAGEABLE)).willReturn(page);
+        given(releaseGroupRepository.findByArtistId(eq(ARTIST_ID), any(Pageable.class))).willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
@@ -199,7 +201,7 @@ class ReleaseServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByArtistId(ARTIST_ID, PAGEABLE);
+        verify(releaseGroupRepository).findByArtistId(eq(ARTIST_ID), any(Pageable.class));
     }
 
     @Test
@@ -208,7 +210,7 @@ class ReleaseServiceTest {
         ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findByType("ALBUM", PAGEABLE)).willReturn(page);
+        given(releaseGroupRepository.findByType(eq("ALBUM"), any(Pageable.class))).willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
@@ -217,7 +219,7 @@ class ReleaseServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByType("ALBUM", PAGEABLE);
+        verify(releaseGroupRepository).findByType(eq("ALBUM"), any(Pageable.class));
     }
 
     @Test
@@ -226,7 +228,7 @@ class ReleaseServiceTest {
         ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "LIVE");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findByTypeNotIn(STANDARD_TYPES, PAGEABLE)).willReturn(page);
+        given(releaseGroupRepository.findByTypeNotIn(eq(STANDARD_TYPES), any(Pageable.class))).willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
@@ -235,7 +237,7 @@ class ReleaseServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByTypeNotIn(STANDARD_TYPES, PAGEABLE);
+        verify(releaseGroupRepository).findByTypeNotIn(eq(STANDARD_TYPES), any(Pageable.class));
     }
 
     @Test
@@ -244,7 +246,7 @@ class ReleaseServiceTest {
         ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "EP");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findByArtistIdAndType(ARTIST_ID, "EP", PAGEABLE)).willReturn(page);
+        given(releaseGroupRepository.findByArtistIdAndType(eq(ARTIST_ID), eq("EP"), any(Pageable.class))).willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
@@ -253,7 +255,7 @@ class ReleaseServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByArtistIdAndType(ARTIST_ID, "EP", PAGEABLE);
+        verify(releaseGroupRepository).findByArtistIdAndType(eq(ARTIST_ID), eq("EP"), any(Pageable.class));
     }
 
     @Test
@@ -262,7 +264,7 @@ class ReleaseServiceTest {
         ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findAll(PAGEABLE)).willReturn(page);
+        given(releaseGroupRepository.findAll(any(Pageable.class))).willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when

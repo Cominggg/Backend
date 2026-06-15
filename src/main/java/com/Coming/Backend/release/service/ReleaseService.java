@@ -15,7 +15,9 @@ import com.Coming.Backend.release.repository.ReleaseGroupRepository;
 import com.Coming.Backend.release.repository.TrackRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,12 +63,17 @@ public class ReleaseService {
     }
 
     /**
-     * 전체 릴리즈 목록을 조회한다. artistId·type으로 필터링한다.
+     * 전체 릴리즈 목록을 조회한다. artistId·type으로 필터링하며 firstReleaseDate DESC NULLS LAST로 정렬한다.
      *
      * @param type "기타"이면 ALBUM·SINGLE·EP 외 타입 전체를 반환한다
      */
     public PageResponse<ReleaseListItemResponse> getReleases(Long artistId, String type, Pageable pageable) {
-        Page<ReleaseGroup> page = queryReleases(artistId, type, pageable);
+        Pageable sorted = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Order.desc("firstReleaseDate").nullsLast())
+        );
+        Page<ReleaseGroup> page = queryReleases(artistId, type, sorted);
 
         Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
         Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()
