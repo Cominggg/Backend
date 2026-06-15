@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,8 +31,10 @@ public class ReleaseController {
     public ResponseEntity<PageResponse<ReleaseListItemResponse>> getReleases(
             @RequestParam(required = false) Long artistId,
             @RequestParam(required = false) String type,
+            @RequestParam(required = false) Boolean following,
+            @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(releaseService.getReleases(artistId, type, pageable));
+        return ResponseEntity.ok(releaseService.getReleases(artistId, type, userId, Boolean.TRUE.equals(following), pageable));
     }
 
     @Operation(summary = "릴리즈 상세 조회")

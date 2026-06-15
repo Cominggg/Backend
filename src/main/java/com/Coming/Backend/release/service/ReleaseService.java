@@ -1,8 +1,10 @@
 package com.Coming.Backend.release.service;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
@@ -36,6 +38,7 @@ public class ReleaseService {
     private final ReleaseGroupRepository releaseGroupRepository;
     private final TrackRepository trackRepository;
     private final ArtistRepository artistRepository;
+    private final UserFollowArtistRepository userFollowArtistRepository;
 
     /**
      * 아티스트의 디스코그래피를 조회한다. types가 비어 있으면 전체 타입을 반환한다.
@@ -63,17 +66,21 @@ public class ReleaseService {
     }
 
     /**
-     * 전체 릴리즈 목록을 조회한다. artistId·type으로 필터링하며 firstReleaseDate DESC NULLS LAST로 정렬한다.
+     * 전체 릴리즈 목록을 조회한다. firstReleaseDate DESC NULLS LAST로 정렬한다.
      *
-     * @param type "기타"이면 ALBUM·SINGLE·EP 외 타입 전체를 반환한다
+     * @param type      "기타"이면 ALBUM·SINGLE·EP 외 타입 전체를 반환한다
+     * @param userId    인증 사용자 ID (미인증이면 null)
+     * @param following true이면 팔로우 아티스트 릴리즈만 반환한다. artistId·type 필터와 조합하지 않는다
      */
-    public PageResponse<ReleaseListItemResponse> getReleases(Long artistId, String type, Pageable pageable) {
+    public PageResponse<ReleaseListItemResponse> getReleases(Long artistId, String type, Long userId, boolean following, Pageable pageable) {
         Pageable sorted = PageRequest.of(
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
                 Sort.by(Sort.Order.desc("firstReleaseDate").nullsLast())
         );
-        Page<ReleaseGroup> page = queryReleases(artistId, type, sorted);
+        Page<ReleaseGroup> page = following
+                ? queryFollowingReleases(userId, sorted)
+                : queryReleases(artistId, type, sorted);
 
         Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
         Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()
@@ -98,6 +105,19 @@ public class ReleaseService {
                 .stream().map(TrackDto::from).toList();
 
         return ReleaseDetailResponse.of(release, artistName, tracks);
+    }
+
+    private Page<ReleaseGroup> queryFollowingReleases(Long userId, Pageable pageable) {
+        if (userId == null) {
+            return Page.empty(pageable);
+        }
+        List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
+                .map(UserFollowArtist::getArtistId)
+                .toList();
+        if (artistIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return releaseGroupRepository.findByArtistIdIn(artistIds, pageable);
     }
 
     private Page<ReleaseGroup> queryReleases(Long artistId, String type, Pageable pageable) {

@@ -65,7 +65,7 @@ class ReleaseControllerTest {
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.getReleases(isNull(), isNull(), any(Pageable.class)))
+        given(releaseService.getReleases(isNull(), isNull(), isNull(), eq(false), any(Pageable.class)))
                 .willReturn(pageResponse);
 
         // when & then
@@ -90,7 +90,7 @@ class ReleaseControllerTest {
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.getReleases(isNull(), eq("ALBUM"), any(Pageable.class)))
+        given(releaseService.getReleases(isNull(), eq("ALBUM"), isNull(), eq(false), any(Pageable.class)))
                 .willReturn(pageResponse);
 
         // when & then
@@ -112,7 +112,7 @@ class ReleaseControllerTest {
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.getReleases(isNull(), eq("기타"), any(Pageable.class)))
+        given(releaseService.getReleases(isNull(), eq("기타"), isNull(), eq(false), any(Pageable.class)))
                 .willReturn(pageResponse);
 
         // when & then

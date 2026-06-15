@@ -8,8 +8,10 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
@@ -51,7 +53,11 @@ class ReleaseServiceTest {
     @Mock
     private ArtistRepository artistRepository;
 
+    @Mock
+    private UserFollowArtistRepository userFollowArtistRepository;
+
     private static final Long ARTIST_ID = 1L;
+    private static final Long USER_ID = 100L;
     private static final Long RELEASE_ID = 10L;
     private static final Pageable PAGEABLE = PageRequest.of(0, 20);
     private static final List<String> STANDARD_TYPES = List.of("Album", "Single");
@@ -179,7 +185,7 @@ class ReleaseServiceTest {
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, null, PAGEABLE);
+                releaseService.getReleases(null, null, null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -197,7 +203,7 @@ class ReleaseServiceTest {
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(ARTIST_ID, null, PAGEABLE);
+                releaseService.getReleases(ARTIST_ID, null, null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -215,7 +221,7 @@ class ReleaseServiceTest {
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, "ALBUM", PAGEABLE);
+                releaseService.getReleases(null, "ALBUM", null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -233,7 +239,7 @@ class ReleaseServiceTest {
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, "기타", PAGEABLE);
+                releaseService.getReleases(null, "기타", null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -251,7 +257,7 @@ class ReleaseServiceTest {
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(ARTIST_ID, "EP", PAGEABLE);
+                releaseService.getReleases(ARTIST_ID, "EP", null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -269,7 +275,7 @@ class ReleaseServiceTest {
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, null, PAGEABLE);
+                releaseService.getReleases(null, null, null, false, PAGEABLE);
 
         // then
         assertThat(response.content().get(0).artistName()).isEqualTo("IU");
