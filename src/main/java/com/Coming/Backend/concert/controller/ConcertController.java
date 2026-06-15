@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -41,9 +42,10 @@ public class ConcertController {
     @GetMapping
     public ResponseEntity<PageResponse<ConcertSummaryResponse>> getConcerts(
             @RequestParam(required = false) ConcertStatus status,
+            @RequestParam(required = false) Boolean inCalendar,
             @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(concertService.getConcerts(status, pageable, userId));
+        return ResponseEntity.ok(concertService.getConcerts(status, inCalendar, pageable, userId));
     }
 
     @Operation(summary = "인기 공연 목록 조회")
@@ -59,6 +61,16 @@ public class ConcertController {
             @RequestParam int year,
             @RequestParam @Min(1) @Max(12) int month) {
         return ResponseEntity.ok(concertService.getConcertStats(year, month));
+    }
+
+    @Operation(summary = "공연 검색")
+    @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR (q가 빈 문자열)")
+    @GetMapping("/search")
+    public ResponseEntity<PageResponse<ConcertSummaryResponse>> searchConcerts(
+            @RequestParam @NotBlank String q,
+            @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(concertService.searchConcerts(q, pageable, userId));
     }
 
     @Operation(summary = "관심 아티스트 공연 조회")

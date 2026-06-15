@@ -96,18 +96,42 @@ public class ConcertService {
     }
 
     /**
-     * 공연 목록을 status 조건으로 조회한다. 기본 정렬은 startDate desc.
+     * 공연 목록을 status·inCalendar 조건으로 조회한다. 기본 정렬은 startDate DESC.
      *
-     * @param status null이면 전체 조회
-     * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
+     * <p>우선순위: status(EXCLUDED|PENDING 가드) → inCalendar → status 필터 순으로 적용된다.
+     * inCalendar=true이면 status(UPCOMING 등)는 무시되고 캘린더 공연 전체가 반환된다.</p>
+     *
+     * @param status     null이면 전체 조회. EXCLUDED·PENDING이면 즉시 빈 페이지 반환.
+     * @param inCalendar true이면 내 캘린더에 추가한 공연만 반환 (미인증 시 빈 페이지). status보다 우선.
+     * @param userId     인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
-    public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Pageable pageable, Long userId) {
+    public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Boolean inCalendar, Pageable pageable, Long userId) {
         if (status == EXCLUDED || status == PENDING) {
             return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+        }
+        if (Boolean.TRUE.equals(inCalendar)) {
+            if (userId == null) {
+                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+            }
+            Page<Concert> page = concertRepository.findByUserCalendar(userId, HIDDEN_STATUSES, pageable);
+            List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
+            return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
         }
         Page<Concert> page = (status == null)
                 ? concertRepository.findByStatusNotIn(HIDDEN_STATUSES, pageable)
                 : concertRepository.findByStatus(status, pageable);
+        List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
+        return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
+
+    /**
+     * 공연명·아티스트명(alias 포함)으로 공연을 검색한다. 기본 정렬은 startDate DESC.
+     *
+     * @param q      검색어 (공연명, 아티스트명, alias 대소문자 무시 부분 일치)
+     * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
+     */
+    public PageResponse<ConcertSummaryResponse> searchConcerts(String q, Pageable pageable, Long userId) {
+        Page<Concert> page = concertRepository.searchConcerts(q, HIDDEN_STATUSES, pageable);
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
@@ -228,7 +252,7 @@ public class ConcertService {
             return Map.of();
         }
         return concertArtistRepository.findByConcertIdIn(concertIds).stream()
-                .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId));
+                .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId, (e, r) -> e));
     }
 
     private Map<Long, String> buildArtistNameMap(Set<Long> artistIds) {
