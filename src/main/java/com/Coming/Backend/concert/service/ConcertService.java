@@ -228,7 +228,7 @@ public class ConcertService {
             return Map.of();
         }
         return concertArtistRepository.findByConcertIdIn(concertIds).stream()
-                .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId));
+                .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId, (e, r) -> e));
     }
 
     private Map<Long, String> buildArtistNameMap(Set<Long> artistIds) {
