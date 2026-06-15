@@ -402,6 +402,7 @@ class ArtistServiceTest {
         assertThat(response.get(0).id()).isEqualTo(ARTIST_ID);
         assertThat(response.get(0).name()).isEqualTo("IU");
         assertThat(response.get(0).hasUpcomingConcert()).isTrue();
+        assertThat(response.get(0).isFollowing()).isTrue();
     }
 
     @Test

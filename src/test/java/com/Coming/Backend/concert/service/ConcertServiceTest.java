@@ -739,7 +739,7 @@ class ConcertServiceTest {
                 .willReturn(List.of());
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", PAGEABLE, USER_ID);
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", null, PAGEABLE, USER_ID);
 
         // then
         verify(concertRepository).searchConcerts(eq("IU"), anyList(), eq(PAGEABLE));
@@ -756,7 +756,7 @@ class ConcertServiceTest {
         given(concertRepository.searchConcerts(eq("없는공연"), anyList(), eq(PAGEABLE))).willReturn(emptyPage);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("없는공연", PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("없는공연", null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).isEmpty();
@@ -773,7 +773,7 @@ class ConcertServiceTest {
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("공연", PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("공연", null, PAGEABLE, null);
 
         // then
         assertThat(response.content().get(0).isInCalendar()).isFalse();

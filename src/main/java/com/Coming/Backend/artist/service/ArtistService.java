@@ -157,7 +157,8 @@ public class ArtistService {
                         artist.getId(),
                         artist.getName(),
                         artist.getImageUrl(),
-                        artist.isComing()
+                        artist.isComing(),
+                        true
                 ))
                 .toList();
     }

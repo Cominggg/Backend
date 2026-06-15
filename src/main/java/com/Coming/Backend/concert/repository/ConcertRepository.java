@@ -91,4 +91,39 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             )
             """)
     Page<Concert> searchConcerts(@Param("q") String q, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);
+
+    @Query(value = """
+            SELECT DISTINCT c FROM Concert c
+            WHERE c.status = :status
+            AND (
+                LOWER(c.title) LIKE LOWER(CONCAT('%', :q, '%'))
+                OR c.id IN (
+                    SELECT ca.concertId FROM ConcertArtist ca
+                    WHERE ca.artistId IN (
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :q, '%'))
+                    )
+                    OR ca.artistId IN (
+                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE LOWER(CONCAT('%', :q, '%'))
+                    )
+                )
+            )
+            ORDER BY c.startDate DESC
+            """,
+            countQuery = """
+            SELECT COUNT(DISTINCT c) FROM Concert c
+            WHERE c.status = :status
+            AND (
+                LOWER(c.title) LIKE LOWER(CONCAT('%', :q, '%'))
+                OR c.id IN (
+                    SELECT ca.concertId FROM ConcertArtist ca
+                    WHERE ca.artistId IN (
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :q, '%'))
+                    )
+                    OR ca.artistId IN (
+                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE LOWER(CONCAT('%', :q, '%'))
+                    )
+                )
+            )
+            """)
+    Page<Concert> searchConcertsWithStatus(@Param("q") String q, @Param("status") ConcertStatus status, Pageable pageable);
 }

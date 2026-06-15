@@ -31,4 +31,9 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
     Page<ReleaseGroup> findByArtistIdAndTypeNotIn(@Param("artistId") Long artistId, @Param("standardTypes") List<String> standardTypes, Pageable pageable);
 
     Page<ReleaseGroup> findByArtistIdIn(List<Long> artistIds, Pageable pageable);
+
+    Page<ReleaseGroup> findByArtistIdInAndType(List<Long> artistIds, String type, Pageable pageable);
+
+    @Query("SELECT r FROM ReleaseGroup r WHERE r.artistId IN :artistIds AND r.type NOT IN :standardTypes")
+    Page<ReleaseGroup> findByArtistIdInAndTypeNotIn(@Param("artistIds") List<Long> artistIds, @Param("standardTypes") List<String> standardTypes, Pageable pageable);
 }

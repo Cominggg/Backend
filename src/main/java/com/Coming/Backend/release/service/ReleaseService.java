@@ -70,7 +70,7 @@ public class ReleaseService {
      *
      * @param type      "기타"이면 ALBUM·SINGLE·EP 외 타입 전체를 반환한다
      * @param userId    인증 사용자 ID (미인증이면 null)
-     * @param following true이면 팔로우 아티스트 릴리즈만 반환한다. artistId·type 필터와 조합하지 않는다
+     * @param following true이면 팔로우 아티스트 릴리즈만 반환한다. artistId 필터와 조합하지 않으나 type 필터는 적용된다
      */
     public PageResponse<ReleaseListItemResponse> getReleases(Long artistId, String type, Long userId, boolean following, Pageable pageable) {
         Pageable sorted = PageRequest.of(
@@ -79,7 +79,7 @@ public class ReleaseService {
                 Sort.by(Sort.Order.desc("firstReleaseDate").nullsLast())
         );
         Page<ReleaseGroup> page = following
-                ? queryFollowingReleases(userId, sorted)
+                ? queryFollowingReleases(userId, type, sorted)
                 : queryReleases(artistId, type, sorted);
 
         Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
@@ -107,7 +107,7 @@ public class ReleaseService {
         return ReleaseDetailResponse.of(release, artistName, tracks);
     }
 
-    private Page<ReleaseGroup> queryFollowingReleases(Long userId, Pageable pageable) {
+    private Page<ReleaseGroup> queryFollowingReleases(Long userId, String type, Pageable pageable) {
         if (userId == null) {
             return Page.empty(pageable);
         }
@@ -116,6 +116,12 @@ public class ReleaseService {
                 .toList();
         if (artistIds.isEmpty()) {
             return Page.empty(pageable);
+        }
+        if ("기타".equals(type)) {
+            return releaseGroupRepository.findByArtistIdInAndTypeNotIn(artistIds, STANDARD_TYPES, pageable);
+        }
+        if (type != null) {
+            return releaseGroupRepository.findByArtistIdInAndType(artistIds, type, pageable);
         }
         return releaseGroupRepository.findByArtistIdIn(artistIds, pageable);
     }
