@@ -676,4 +676,106 @@ class ConcertServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).status()).isEqualTo(ConcertStatus.UPCOMING);
     }
+
+    // -------------------------------------------------------------------------
+    // getConcerts — inCalendar
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_user_calendar_concerts_when_in_calendar_is_true_and_user_authenticated() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+        ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+
+        given(concertRepository.findByUserCalendar(eq(USER_ID), anyList(), eq(PAGEABLE))).willReturn(page);
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
+                .willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(any())).willReturn(List.of(artist));
+        given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
+                .willReturn(List.of());
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, true, PAGEABLE, USER_ID);
+
+        // then
+        verify(concertRepository).findByUserCalendar(eq(USER_ID), anyList(), eq(PAGEABLE));
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).artistName()).isEqualTo("IU");
+    }
+
+    @Test
+    void should_return_empty_page_when_in_calendar_is_true_and_user_is_not_authenticated() {
+        // given
+        // userId == null이면 레포를 호출하지 않고 즉시 빈 페이지를 반환한다
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, true, PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+        verify(concertRepository, never()).findByUserCalendar(any(), any(), any());
+    }
+
+    // -------------------------------------------------------------------------
+    // searchConcerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_search_results_when_query_matches_concerts() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+        ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+
+        given(concertRepository.searchConcerts(eq("IU"), anyList(), eq(PAGEABLE))).willReturn(page);
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
+                .willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(any())).willReturn(List.of(artist));
+        given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
+                .willReturn(List.of());
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", PAGEABLE, USER_ID);
+
+        // then
+        verify(concertRepository).searchConcerts(eq("IU"), anyList(), eq(PAGEABLE));
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).artistName()).isEqualTo("IU");
+        assertThat(response.page()).isZero();
+        assertThat(response.totalElements()).isEqualTo(1L);
+    }
+
+    @Test
+    void should_return_empty_page_when_query_matches_no_concerts() {
+        // given
+        Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
+        given(concertRepository.searchConcerts(eq("없는공연"), anyList(), eq(PAGEABLE))).willReturn(emptyPage);
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("없는공연", PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+    }
+
+    @Test
+    void should_return_is_in_calendar_false_when_user_is_not_authenticated_in_search() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+
+        given(concertRepository.searchConcerts(eq("공연"), anyList(), eq(PAGEABLE))).willReturn(page);
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("공연", PAGEABLE, null);
+
+        // then
+        assertThat(response.content().get(0).isInCalendar()).isFalse();
+    }
 }
