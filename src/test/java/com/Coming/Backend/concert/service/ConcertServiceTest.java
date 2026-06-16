@@ -778,4 +778,45 @@ class ConcertServiceTest {
         // then
         assertThat(response.content().get(0).isInCalendar()).isFalse();
     }
+
+    @Test
+    void should_return_empty_page_without_repo_call_when_search_status_is_excluded() {
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", ConcertStatus.EXCLUDED, PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+        verify(concertRepository, never()).searchConcerts(any(), anyList(), any());
+        verify(concertRepository, never()).searchConcertsWithStatus(any(), any(), any());
+    }
+
+    @Test
+    void should_return_empty_page_without_repo_call_when_search_status_is_pending() {
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", ConcertStatus.PENDING, PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+        verify(concertRepository, never()).searchConcerts(any(), anyList(), any());
+        verify(concertRepository, never()).searchConcertsWithStatus(any(), any(), any());
+    }
+
+    @Test
+    void should_call_search_with_status_when_valid_status_given() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+        given(concertRepository.searchConcertsWithStatus(eq("%iu%"), eq(ConcertStatus.UPCOMING), eq(PAGEABLE))).willReturn(page);
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", ConcertStatus.UPCOMING, PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        verify(concertRepository).searchConcertsWithStatus(eq("%iu%"), eq(ConcertStatus.UPCOMING), eq(PAGEABLE));
+        verify(concertRepository, never()).searchConcerts(any(), anyList(), any());
+    }
 }
