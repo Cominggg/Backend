@@ -9,9 +9,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,13 +26,27 @@ public class ReleaseController {
 
     private final ReleaseService releaseService;
 
+    @Operation(summary = "릴리즈 검색")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT")
+    @GetMapping("/search")
+    public ResponseEntity<PageResponse<ReleaseListItemResponse>> searchReleases(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) Boolean following,
+            @AuthenticationPrincipal Long userId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(releaseService.searchReleases(q, type, userId, Boolean.TRUE.equals(following), pageable));
+    }
+
     @Operation(summary = "전체 릴리즈 목록 조회")
     @GetMapping
     public ResponseEntity<PageResponse<ReleaseListItemResponse>> getReleases(
             @RequestParam(required = false) Long artistId,
             @RequestParam(required = false) String type,
-            @PageableDefault(size = 20, sort = "firstReleaseDate", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(releaseService.getReleases(artistId, type, pageable));
+            @RequestParam(required = false) Boolean following,
+            @AuthenticationPrincipal Long userId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(releaseService.getReleases(artistId, type, userId, Boolean.TRUE.equals(following), pageable));
     }
 
     @Operation(summary = "릴리즈 상세 조회")

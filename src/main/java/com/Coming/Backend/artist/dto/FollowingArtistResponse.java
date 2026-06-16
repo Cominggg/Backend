@@ -4,6 +4,7 @@ public record FollowingArtistResponse(
         Long id,
         String name,
         String imageUrl,
-        boolean hasUpcomingConcert
+        boolean hasUpcomingConcert,
+        boolean isFollowing
 ) {
 }

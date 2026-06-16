@@ -29,4 +29,81 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
 
     @Query("SELECT r FROM ReleaseGroup r WHERE r.artistId = :artistId AND r.type NOT IN :standardTypes")
     Page<ReleaseGroup> findByArtistIdAndTypeNotIn(@Param("artistId") Long artistId, @Param("standardTypes") List<String> standardTypes, Pageable pageable);
+
+    Page<ReleaseGroup> findByArtistIdIn(List<Long> artistIds, Pageable pageable);
+
+    Page<ReleaseGroup> findByArtistIdInAndType(List<Long> artistIds, String type, Pageable pageable);
+
+    @Query("SELECT r FROM ReleaseGroup r WHERE r.artistId IN :artistIds AND r.type NOT IN :standardTypes")
+    Page<ReleaseGroup> findByArtistIdInAndTypeNotIn(@Param("artistIds") List<Long> artistIds, @Param("standardTypes") List<String> standardTypes, Pageable pageable);
+
+    @Query(value = """
+            SELECT DISTINCT r FROM ReleaseGroup r
+            WHERE (:type IS NULL OR r.type = :type)
+            AND (:q IS NULL OR
+                LOWER(r.title) LIKE :q
+                OR r.id IN (
+                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
+                )
+                OR r.artistId IN (
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                )
+                OR r.artistId IN (
+                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                )
+            )
+            """,
+            countQuery = """
+            SELECT COUNT(DISTINCT r) FROM ReleaseGroup r
+            WHERE (:type IS NULL OR r.type = :type)
+            AND (:q IS NULL OR
+                LOWER(r.title) LIKE :q
+                OR r.id IN (
+                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
+                )
+                OR r.artistId IN (
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                )
+                OR r.artistId IN (
+                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                )
+            )
+            """)
+    Page<ReleaseGroup> searchReleases(@Param("q") String q, @Param("type") String type, Pageable pageable);
+
+    @Query(value = """
+            SELECT DISTINCT r FROM ReleaseGroup r
+            WHERE r.artistId IN :artistIds
+            AND (:type IS NULL OR r.type = :type)
+            AND (:q IS NULL OR
+                LOWER(r.title) LIKE :q
+                OR r.id IN (
+                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
+                )
+                OR r.artistId IN (
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                )
+                OR r.artistId IN (
+                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                )
+            )
+            """,
+            countQuery = """
+            SELECT COUNT(DISTINCT r) FROM ReleaseGroup r
+            WHERE r.artistId IN :artistIds
+            AND (:type IS NULL OR r.type = :type)
+            AND (:q IS NULL OR
+                LOWER(r.title) LIKE :q
+                OR r.id IN (
+                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
+                )
+                OR r.artistId IN (
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                )
+                OR r.artistId IN (
+                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                )
+            )
+            """)
+    Page<ReleaseGroup> searchReleasesByArtistIdIn(@Param("q") String q, @Param("artistIds") List<Long> artistIds, @Param("type") String type, Pageable pageable);
 }

@@ -313,7 +313,7 @@ class ArtistControllerTest {
     void should_return_200_with_following_artist_list() throws Exception {
         // given
         List<FollowingArtistResponse> following = List.of(
-                new FollowingArtistResponse(ARTIST_ID, "IU", null, true)
+                new FollowingArtistResponse(ARTIST_ID, "IU", null, true, true)
         );
         given(artistService.getFollowingArtists(isNull())).willReturn(following);
 

@@ -77,7 +77,7 @@ class ConcertControllerTest {
         // given
         ConcertSummaryResponse summary = buildSummary(CONCERT_ID, "IU CONCERT", "IU");
         PageResponse<ConcertSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 20, 1, 1);
-        given(concertService.searchConcerts(eq("IU"), any(Pageable.class), isNull()))
+        given(concertService.searchConcerts(eq("IU"), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
 
         // when & then
@@ -99,7 +99,7 @@ class ConcertControllerTest {
     void should_return_200_with_empty_result_when_query_matches_no_concerts() throws Exception {
         // given
         PageResponse<ConcertSummaryResponse> emptyPage = new PageResponse<>(List.of(), 0, 20, 0, 0);
-        given(concertService.searchConcerts(eq("없는공연"), any(Pageable.class), isNull()))
+        given(concertService.searchConcerts(eq("없는공연"), isNull(), any(Pageable.class), isNull()))
                 .willReturn(emptyPage);
 
         // when & then
@@ -118,7 +118,7 @@ class ConcertControllerTest {
         ConcertSummaryResponse result1 = buildSummary(1L, "IU CONCERT 2025", "IU");
         ConcertSummaryResponse result2 = buildSummary(2L, "IU 앙코르 공연", "IU");
         PageResponse<ConcertSummaryResponse> pageResponse = new PageResponse<>(List.of(result1, result2), 0, 20, 2, 1);
-        given(concertService.searchConcerts(eq("IU"), any(Pageable.class), isNull()))
+        given(concertService.searchConcerts(eq("IU"), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
 
         // when & then

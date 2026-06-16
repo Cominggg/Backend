@@ -731,7 +731,7 @@ class ConcertServiceTest {
         ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
         Artist artist = buildArtist(ARTIST_ID, "IU");
 
-        given(concertRepository.searchConcerts(eq("IU"), anyList(), eq(PAGEABLE))).willReturn(page);
+        given(concertRepository.searchConcerts(eq("%iu%"), anyList(), eq(PAGEABLE))).willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
@@ -739,10 +739,10 @@ class ConcertServiceTest {
                 .willReturn(List.of());
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", PAGEABLE, USER_ID);
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", null, PAGEABLE, USER_ID);
 
         // then
-        verify(concertRepository).searchConcerts(eq("IU"), anyList(), eq(PAGEABLE));
+        verify(concertRepository).searchConcerts(eq("%iu%"), anyList(), eq(PAGEABLE));
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).artistName()).isEqualTo("IU");
         assertThat(response.page()).isZero();
@@ -753,10 +753,10 @@ class ConcertServiceTest {
     void should_return_empty_page_when_query_matches_no_concerts() {
         // given
         Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.searchConcerts(eq("없는공연"), anyList(), eq(PAGEABLE))).willReturn(emptyPage);
+        given(concertRepository.searchConcerts(eq("%없는공연%"), anyList(), eq(PAGEABLE))).willReturn(emptyPage);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("없는공연", PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("없는공연", null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).isEmpty();
@@ -769,13 +769,54 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.searchConcerts(eq("공연"), anyList(), eq(PAGEABLE))).willReturn(page);
+        given(concertRepository.searchConcerts(eq("%공연%"), anyList(), eq(PAGEABLE))).willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("공연", PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("공연", null, PAGEABLE, null);
 
         // then
         assertThat(response.content().get(0).isInCalendar()).isFalse();
+    }
+
+    @Test
+    void should_return_empty_page_without_repo_call_when_search_status_is_excluded() {
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", ConcertStatus.EXCLUDED, PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+        verify(concertRepository, never()).searchConcerts(any(), anyList(), any());
+        verify(concertRepository, never()).searchConcertsWithStatus(any(), any(), any());
+    }
+
+    @Test
+    void should_return_empty_page_without_repo_call_when_search_status_is_pending() {
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", ConcertStatus.PENDING, PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+        verify(concertRepository, never()).searchConcerts(any(), anyList(), any());
+        verify(concertRepository, never()).searchConcertsWithStatus(any(), any(), any());
+    }
+
+    @Test
+    void should_call_search_with_status_when_valid_status_given() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+        given(concertRepository.searchConcertsWithStatus(eq("%iu%"), eq(ConcertStatus.UPCOMING), eq(PAGEABLE))).willReturn(page);
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", ConcertStatus.UPCOMING, PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        verify(concertRepository).searchConcertsWithStatus(eq("%iu%"), eq(ConcertStatus.UPCOMING), eq(PAGEABLE));
+        verify(concertRepository, never()).searchConcerts(any(), anyList(), any());
     }
 }

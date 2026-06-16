@@ -128,10 +128,17 @@ public class ConcertService {
      * 공연명·아티스트명(alias 포함)으로 공연을 검색한다. 기본 정렬은 startDate DESC.
      *
      * @param q      검색어 (공연명, 아티스트명, alias 대소문자 무시 부분 일치)
+     * @param status null이면 전체 조회. EXCLUDED·PENDING이면 즉시 빈 페이지 반환.
      * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
-    public PageResponse<ConcertSummaryResponse> searchConcerts(String q, Pageable pageable, Long userId) {
-        Page<Concert> page = concertRepository.searchConcerts(q, HIDDEN_STATUSES, pageable);
+    public PageResponse<ConcertSummaryResponse> searchConcerts(String q, ConcertStatus status, Pageable pageable, Long userId) {
+        if (status == EXCLUDED || status == PENDING) {
+            return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+        }
+        String qLike = "%" + q.toLowerCase() + "%";
+        Page<Concert> page = (status == null)
+                ? concertRepository.searchConcerts(qLike, HIDDEN_STATUSES, pageable)
+                : concertRepository.searchConcertsWithStatus(qLike, status, pageable);
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
