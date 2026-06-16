@@ -97,7 +97,7 @@ public class ReleaseService {
      * @param following true이면 팔로우 아티스트 릴리즈만 검색. 미인증 시 빈 페이지 반환.
      */
     public PageResponse<ReleaseListItemResponse> searchReleases(String q, String type, Long userId, boolean following, Pageable pageable) {
-        if (type != null && !type.equals("Album") && !type.equals("Single")) {
+        if (type != null && !STANDARD_TYPES.contains(type)) {
             throw new InvalidInputException();
         }
         String qLike = (q == null || q.isBlank()) ? null : "%" + q.toLowerCase() + "%";
