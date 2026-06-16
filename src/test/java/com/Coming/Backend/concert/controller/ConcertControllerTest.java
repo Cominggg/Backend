@@ -200,4 +200,30 @@ class ConcertControllerTest {
                 .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_NOT_FOUND.name()))
                 .andExpect(jsonPath("$.message").exists());
     }
+
+    // -------------------------------------------------------------------------
+    // GET /api/concerts/ticketing
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_ticketing_concerts_when_no_following_param() throws Exception {
+        // given
+        ConcertSummaryResponse summary = buildSummary(CONCERT_ID, "IU CONCERT", "IU");
+        given(concertService.getTicketingConcerts(isNull(), eq(false))).willReturn(List.of(summary));
+
+        // when & then
+        mockMvc.perform(get("/api/concerts/ticketing")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(CONCERT_ID));
+    }
+
+    @Test
+    void should_return_401_when_following_true_and_user_not_authenticated() throws Exception {
+        // when & then
+        mockMvc.perform(get("/api/concerts/ticketing")
+                        .param("following", "true")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized());
+    }
 }

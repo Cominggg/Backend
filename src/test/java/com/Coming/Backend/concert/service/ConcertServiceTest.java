@@ -877,4 +877,71 @@ class ConcertServiceTest {
         // then
         assertThat(response.ticketOpenAt()).isEqualTo(ticketOpenAt);
     }
+
+    // -------------------------------------------------------------------------
+    // getTicketingConcerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_upcoming_ticketing_concerts_ordered_by_ticket_open_at() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(concertRepository.findUpcomingTicketing(any(LocalDateTime.class), anyList()))
+                .willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getTicketingConcerts(null, false);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).id()).isEqualTo(CONCERT_ID);
+    }
+
+    @Test
+    void should_return_following_ticketing_concerts_when_following_is_true() {
+        // given
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(concertRepository.findUpcomingTicketingByArtistIds(any(LocalDateTime.class), anyList(), eq(List.of(ARTIST_ID))))
+                .willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getTicketingConcerts(USER_ID, true);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).id()).isEqualTo(CONCERT_ID);
+    }
+
+    @Test
+    void should_return_empty_list_when_following_is_true_and_user_follows_no_artists() {
+        // given
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getTicketingConcerts(USER_ID, true);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_limit_to_20_concerts_when_more_than_20_exist() {
+        // given
+        List<Concert> twentyOneConcerts = java.util.stream.LongStream.rangeClosed(1, 21)
+                .mapToObj(i -> buildConcert(i, ConcertStatus.UPCOMING))
+                .toList();
+        given(concertRepository.findUpcomingTicketing(any(LocalDateTime.class), anyList()))
+                .willReturn(twentyOneConcerts);
+        given(concertArtistRepository.findByConcertIdIn(any())).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getTicketingConcerts(null, false);
+
+        // then
+        assertThat(result).hasSize(20);
+    }
 }

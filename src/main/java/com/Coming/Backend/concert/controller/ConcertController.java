@@ -92,6 +92,18 @@ public class ConcertController {
         return ResponseEntity.ok(concertService.getConcert(id, userId));
     }
 
+    @Operation(summary = "티켓 오픈 예정 공연 조회")
+    @ApiResponse(responseCode = "401", description = "UNAUTHORIZED (following=true이고 비인증)")
+    @GetMapping("/ticketing")
+    public ResponseEntity<List<ConcertSummaryResponse>> getTicketingConcerts(
+            @RequestParam(defaultValue = "false") boolean following,
+            @AuthenticationPrincipal Long userId) {
+        if (following && userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(concertService.getTicketingConcerts(userId, following));
+    }
+
     @Operation(summary = "셋리스트 조회")
     @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
     @GetMapping("/{id}/setlist")

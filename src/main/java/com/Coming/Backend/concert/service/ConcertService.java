@@ -31,6 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +66,30 @@ public class ConcertService {
     public List<ConcertSummaryResponse> getPopularConcerts(Long userId) {
         List<Concert> concerts = concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(HIDDEN_STATUSES);
         return toConcertSummaryList(concerts, userId);
+    }
+
+    /**
+     * 티켓 오픈 예정 공연 목록을 최대 20건 반환한다. ticketOpenAt ASC 정렬.
+     *
+     * @param userId    인증 사용자 ID (null이면 isInCalendar 전부 false)
+     * @param following true이면 팔로잉 아티스트 공연만 반환
+     */
+    public List<ConcertSummaryResponse> getTicketingConcerts(Long userId, boolean following) {
+        LocalDateTime now = LocalDateTime.now();
+        List<Concert> concerts;
+        if (following) {
+            List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
+                    .map(UserFollowArtist::getArtistId)
+                    .toList();
+            if (artistIds.isEmpty()) {
+                return List.of();
+            }
+            concerts = concertRepository.findUpcomingTicketingByArtistIds(now, HIDDEN_STATUSES, artistIds);
+        } else {
+            concerts = concertRepository.findUpcomingTicketing(now, HIDDEN_STATUSES);
+        }
+        List<Concert> limited = concerts.size() > 20 ? concerts.subList(0, 20) : concerts;
+        return toConcertSummaryList(limited, userId);
     }
 
     /**
