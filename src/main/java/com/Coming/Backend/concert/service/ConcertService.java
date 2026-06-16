@@ -135,9 +135,10 @@ public class ConcertService {
         if (status == EXCLUDED || status == PENDING) {
             return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
         }
+        String qLike = "%" + q.toLowerCase() + "%";
         Page<Concert> page = (status == null)
-                ? concertRepository.searchConcerts(q, HIDDEN_STATUSES, pageable)
-                : concertRepository.searchConcertsWithStatus(q, status, pageable);
+                ? concertRepository.searchConcerts(qLike, HIDDEN_STATUSES, pageable)
+                : concertRepository.searchConcertsWithStatus(qLike, status, pageable);
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }

@@ -731,7 +731,7 @@ class ConcertServiceTest {
         ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
         Artist artist = buildArtist(ARTIST_ID, "IU");
 
-        given(concertRepository.searchConcerts(eq("IU"), anyList(), eq(PAGEABLE))).willReturn(page);
+        given(concertRepository.searchConcerts(eq("%iu%"), anyList(), eq(PAGEABLE))).willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
@@ -742,7 +742,7 @@ class ConcertServiceTest {
         PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("IU", null, PAGEABLE, USER_ID);
 
         // then
-        verify(concertRepository).searchConcerts(eq("IU"), anyList(), eq(PAGEABLE));
+        verify(concertRepository).searchConcerts(eq("%iu%"), anyList(), eq(PAGEABLE));
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).artistName()).isEqualTo("IU");
         assertThat(response.page()).isZero();
@@ -753,7 +753,7 @@ class ConcertServiceTest {
     void should_return_empty_page_when_query_matches_no_concerts() {
         // given
         Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.searchConcerts(eq("없는공연"), anyList(), eq(PAGEABLE))).willReturn(emptyPage);
+        given(concertRepository.searchConcerts(eq("%없는공연%"), anyList(), eq(PAGEABLE))).willReturn(emptyPage);
 
         // when
         PageResponse<ConcertSummaryResponse> response = concertService.searchConcerts("없는공연", null, PAGEABLE, null);
@@ -769,7 +769,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.searchConcerts(eq("공연"), anyList(), eq(PAGEABLE))).willReturn(page);
+        given(concertRepository.searchConcerts(eq("%공연%"), anyList(), eq(PAGEABLE))).willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
         // when
