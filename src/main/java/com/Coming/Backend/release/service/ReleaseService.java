@@ -5,6 +5,7 @@ import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
@@ -73,11 +74,7 @@ public class ReleaseService {
      * @param following true이면 팔로우 아티스트 릴리즈만 반환한다. artistId 필터와 조합하지 않으나 type 필터는 적용된다
      */
     public PageResponse<ReleaseListItemResponse> getReleases(Long artistId, String type, Long userId, boolean following, Pageable pageable) {
-        Pageable sorted = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Order.desc("firstReleaseDate").nullsLast())
-        );
+        Pageable sorted = releasesSorted(pageable);
         Page<ReleaseGroup> page = following
                 ? queryFollowingReleases(userId, type, sorted)
                 : queryReleases(artistId, type, sorted);
@@ -93,14 +90,33 @@ public class ReleaseService {
 
     /**
      * 릴리즈명·트랙명·아티스트명(alias 포함)으로 릴리즈를 검색한다. firstReleaseDate DESC NULLS LAST로 정렬한다.
+     *
+     * @param q         검색어. null·공백이면 텍스트 조건 없이 나머지 필터만 적용한다.
+     * @param type      null이면 전체. "Album"·"Single"만 허용하며 그 외 값은 예외를 던진다.
+     * @param userId    인증 사용자 ID (미인증이면 null)
+     * @param following true이면 팔로우 아티스트 릴리즈만 검색. 미인증 시 빈 페이지 반환.
      */
-    public PageResponse<ReleaseListItemResponse> searchReleases(String q, Pageable pageable) {
-        Pageable sorted = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Order.desc("firstReleaseDate").nullsLast())
-        );
-        Page<ReleaseGroup> page = releaseGroupRepository.searchReleases(q, sorted);
+    public PageResponse<ReleaseListItemResponse> searchReleases(String q, String type, Long userId, boolean following, Pageable pageable) {
+        if (type != null && !type.equals("Album") && !type.equals("Single")) {
+            throw new InvalidInputException();
+        }
+        String qLike = (q == null || q.isBlank()) ? null : "%" + q.toLowerCase() + "%";
+        Pageable sorted = releasesSorted(pageable);
+        Page<ReleaseGroup> page;
+        if (following) {
+            if (userId == null) {
+                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+            }
+            List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
+                    .map(UserFollowArtist::getArtistId)
+                    .toList();
+            if (artistIds.isEmpty()) {
+                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+            }
+            page = releaseGroupRepository.searchReleasesByArtistIdIn(qLike, artistIds, type, sorted);
+        } else {
+            page = releaseGroupRepository.searchReleases(qLike, type, sorted);
+        }
 
         Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
         Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()
@@ -125,6 +141,14 @@ public class ReleaseService {
                 .stream().map(TrackDto::from).toList();
 
         return ReleaseDetailResponse.of(release, artistName, tracks);
+    }
+
+    private Pageable releasesSorted(Pageable pageable) {
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Order.desc("firstReleaseDate").nullsLast())
+        );
     }
 
     private Page<ReleaseGroup> queryFollowingReleases(Long userId, String type, Pageable pageable) {
