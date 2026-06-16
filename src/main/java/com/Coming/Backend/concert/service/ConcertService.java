@@ -197,6 +197,7 @@ public class ConcertService {
                 concert.getStatus(),
                 concert.getPrice(),
                 isInCalendar,
+                concert.getTicketOpenAt(),
                 buildTicketLinks(id)
         );
     }
@@ -221,7 +222,8 @@ public class ConcertService {
                     concert.getEndDate(),
                     concert.getVenueName(),
                     concert.getStatus(),
-                    calendarConcertIds.contains(concert.getId())
+                    calendarConcertIds.contains(concert.getId()),
+                    concert.getTicketOpenAt()
             );
         }).toList();
     }

@@ -64,7 +64,8 @@ class ConcertControllerTest {
                 LocalDate.of(2025, 8, 3),
                 "올림픽공원",
                 ConcertStatus.UPCOMING,
-                false
+                false,
+                null
         );
     }
 
