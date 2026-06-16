@@ -21,11 +21,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
 import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
@@ -43,16 +46,35 @@ public class CalendarService {
     private final UserConcertCalendarRepository userConcertCalendarRepository;
 
     /**
-     * 특정 연·월에 해당하는 전체 공연 목록을 조회한다. 인증된 사용자는 각 공연의 캘린더 추가 여부를 포함한다.
+     * 특정 연·월에 해당하는 공연 및 티켓팅 일정을 조회한다. 공연은 startDate 기준, 티켓팅은 ticketOpenAt 기준으로 포함된다.
+     * type 필드로 구분("CONCERT" | "TICKETING")하며, 날짜 기준 오름차순으로 정렬된다.
      *
      * @param userId 인증된 사용자 ID (null이면 isInCalendar false)
      */
     public List<CalendarEntryResponse> getCalendar(int year, int month, Long userId) {
         LocalDate firstDay = LocalDate.of(year, month, 1);
         LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
-        List<Concert> concerts = concertRepository.findByDateRange(firstDay, lastDay, HIDDEN_STATUSES);
-        Set<Long> userCalendarIds = resolveUserCalendarIds(userId, concerts);
-        return toCalendarEntryList(concerts, userCalendarIds);
+
+        List<Concert> concertList = concertRepository.findByDateRange(firstDay, lastDay, HIDDEN_STATUSES);
+        List<Concert> ticketingList = concertRepository.findByTicketOpenAtMonth(year, month, HIDDEN_STATUSES);
+
+        List<Long> allConcertIds = Stream.concat(concertList.stream(), ticketingList.stream())
+                .map(Concert::getId).distinct().toList();
+        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(allConcertIds);
+        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        Set<Long> userCalendarIds = resolveUserCalendarIdsById(userId, allConcertIds);
+
+        List<CalendarEntryResponse> result = new ArrayList<>();
+        for (Concert concert : concertList) {
+            result.add(buildCalendarEntry(concert, "CONCERT", concertToArtistId, artistNameMap, userCalendarIds));
+        }
+        for (Concert concert : ticketingList) {
+            result.add(buildCalendarEntry(concert, "TICKETING", concertToArtistId, artistNameMap, userCalendarIds));
+        }
+        result.sort(Comparator.comparing(e -> "TICKETING".equals(e.type())
+                ? e.ticketOpenAt().toLocalDate()
+                : e.startDate()));
+        return result;
     }
 
     /**
@@ -60,8 +82,13 @@ public class CalendarService {
      */
     public PageResponse<CalendarEntryResponse> getMyCalendar(Long userId, Pageable pageable) {
         Page<Concert> page = concertRepository.findByUserCalendar(userId, HIDDEN_STATUSES, pageable);
-        Set<Long> allIds = page.getContent().stream().map(Concert::getId).collect(Collectors.toSet());
-        List<CalendarEntryResponse> content = toCalendarEntryList(page.getContent(), allIds);
+        List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
+        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
+        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        Set<Long> calendarIds = new HashSet<>(concertIds);
+        List<CalendarEntryResponse> content = page.getContent().stream()
+                .map(c -> buildCalendarEntry(c, "CONCERT", concertToArtistId, artistNameMap, calendarIds))
+                .toList();
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
@@ -100,41 +127,40 @@ public class CalendarService {
         userConcertCalendarRepository.delete(entry);
     }
 
-    private Set<Long> resolveUserCalendarIds(Long userId, List<Concert> concerts) {
-        if (userId == null || concerts.isEmpty()) {
+    private Set<Long> resolveUserCalendarIdsById(Long userId, List<Long> concertIds) {
+        if (userId == null || concertIds.isEmpty()) {
             return Set.of();
         }
-        List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
         return userConcertCalendarRepository.findByUserIdAndConcertIdIn(userId, concertIds).stream()
                 .map(UserConcertCalendar::getConcertId)
                 .collect(Collectors.toSet());
     }
 
-    private List<CalendarEntryResponse> toCalendarEntryList(List<Concert> concerts, Set<Long> userCalendarIds) {
-        if (concerts.isEmpty()) {
-            return List.of();
-        }
-        List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
-        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
-        return concerts.stream().map(concert -> {
-            Long artistId = concertToArtistId.get(concert.getId());
-            String artistName = artistId != null ? artistNameMap.get(artistId) : null;
-            return new CalendarEntryResponse(
-                    concert.getId(),
-                    artistName,
-                    concert.getTitle(),
-                    concert.getStartDate(),
-                    concert.getEndDate(),
-                    concert.getStatus().name(),
-                    concert.getPosterUrl(),
-                    concert.getVenueName(),
-                    userCalendarIds.contains(concert.getId())
-            );
-        }).toList();
+    private CalendarEntryResponse buildCalendarEntry(Concert concert, String type,
+                                                      Map<Long, Long> concertToArtistId,
+                                                      Map<Long, String> artistNameMap,
+                                                      Set<Long> userCalendarIds) {
+        Long artistId = concertToArtistId.get(concert.getId());
+        String artistName = artistId != null ? artistNameMap.get(artistId) : null;
+        return new CalendarEntryResponse(
+                concert.getId(),
+                type,
+                artistName,
+                concert.getTitle(),
+                concert.getStartDate(),
+                concert.getEndDate(),
+                concert.getStatus().name(),
+                concert.getPosterUrl(),
+                concert.getVenueName(),
+                userCalendarIds.contains(concert.getId()),
+                concert.getTicketOpenAt()
+        );
     }
 
     private Map<Long, Long> buildConcertArtistIdMap(List<Long> concertIds) {
+        if (concertIds.isEmpty()) {
+            return Map.of();
+        }
         return concertArtistRepository.findByConcertIdIn(concertIds).stream()
                 .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId));
     }

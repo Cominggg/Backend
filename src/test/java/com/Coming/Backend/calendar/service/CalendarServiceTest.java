@@ -25,6 +25,7 @@ import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -121,6 +122,7 @@ class CalendarServiceTest {
         // then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).concertId()).isEqualTo(CONCERT_ID);
+        assertThat(result.get(0).type()).isEqualTo("CONCERT");
         assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
         assertThat(result.get(0).status()).isEqualTo("UPCOMING");
         assertThat(result.get(0).venue()).isEqualTo("KSPO DOME, 서울");
@@ -175,6 +177,66 @@ class CalendarServiceTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    void should_return_ticketing_type_when_concert_has_ticket_open_at_in_month() {
+        // given
+        LocalDateTime ticketOpenAt = LocalDateTime.of(2025, 8, 10, 10, 0);
+        Concert concert = Concert.builder()
+                .id(CONCERT_ID)
+                .kopisId("kopis-1")
+                .title("공연 1")
+                .startDate(LocalDate.of(2025, 9, 1))
+                .endDate(LocalDate.of(2025, 9, 1))
+                .venueName("KSPO DOME, 서울")
+                .status(ConcertStatus.UPCOMING)
+                .viewCount(0L)
+                .kopisUpdateDate(LocalDate.now())
+                .ticketOpenAt(ticketOpenAt)
+                .build();
+
+        given(concertRepository.findByDateRange(any(), any(), anyList())).willReturn(List.of());
+        given(concertRepository.findByTicketOpenAtMonth(eq(2025), eq(8), anyList())).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8, null);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).type()).isEqualTo("TICKETING");
+        assertThat(result.get(0).ticketOpenAt()).isEqualTo(ticketOpenAt);
+    }
+
+    @Test
+    void should_sort_ticketing_before_concert_when_ticket_open_at_is_earlier_in_month() {
+        // given
+        Concert concertEntry = buildConcert(1L);  // startDate = 2025-08-15
+        Concert ticketingEntry = Concert.builder()
+                .id(2L)
+                .kopisId("kopis-2")
+                .title("공연 2")
+                .startDate(LocalDate.of(2025, 9, 1))
+                .endDate(LocalDate.of(2025, 9, 1))
+                .venueName("KSPO DOME, 서울")
+                .status(ConcertStatus.UPCOMING)
+                .viewCount(0L)
+                .kopisUpdateDate(LocalDate.now())
+                .ticketOpenAt(LocalDateTime.of(2025, 8, 5, 10, 0))  // 8월 5일 (15일보다 앞)
+                .build();
+
+        given(concertRepository.findByDateRange(any(), any(), anyList())).willReturn(List.of(concertEntry));
+        given(concertRepository.findByTicketOpenAtMonth(eq(2025), eq(8), anyList())).willReturn(List.of(ticketingEntry));
+        given(concertArtistRepository.findByConcertIdIn(any())).willReturn(List.of());
+
+        // when
+        List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8, null);
+
+        // then
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).type()).isEqualTo("TICKETING");  // 8월 5일
+        assertThat(result.get(1).type()).isEqualTo("CONCERT");     // 8월 15일
+    }
+
     // -------------------------------------------------------------------------
     // getMyCalendar
     // -------------------------------------------------------------------------
@@ -198,6 +260,7 @@ class CalendarServiceTest {
         // then
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0).concertId()).isEqualTo(CONCERT_ID);
+        assertThat(result.content().get(0).type()).isEqualTo("CONCERT");
         assertThat(result.content().get(0).artistName()).isEqualTo("YOASOBI");
         assertThat(result.content().get(0).isInCalendar()).isTrue();
         assertThat(result.totalElements()).isEqualTo(1);
