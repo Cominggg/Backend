@@ -66,12 +66,15 @@ public class Concert {
     @Column(name = "fetch_attempted_at")
     private LocalDateTime fetchAttemptedAt;
 
+    @Column(name = "ticket_open_at")
+    private LocalDateTime ticketOpenAt;
+
     public void markFetchAttempted(LocalDateTime at) {
         this.fetchAttemptedAt = at;
     }
 
     public void update(String title, String cast, LocalDate startDate, LocalDate endDate,
-                       String venueName, String posterUrl, String price) {
+                       String venueName, String posterUrl, String price, LocalDateTime ticketOpenAt) {
         if (title != null) this.title = title;
         if (cast != null) this.cast = cast;
         if (startDate != null) this.startDate = startDate;
@@ -79,6 +82,7 @@ public class Concert {
         if (venueName != null) this.venueName = venueName;
         if (posterUrl != null) this.posterUrl = posterUrl;
         if (price != null) this.price = price;
+        if (ticketOpenAt != null) this.ticketOpenAt = ticketOpenAt;
     }
 
     public ConcertStatus forceChangeStatus(ConcertStatus newStatus) {

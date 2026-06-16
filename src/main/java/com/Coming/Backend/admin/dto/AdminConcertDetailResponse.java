@@ -5,6 +5,7 @@ import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record AdminConcertDetailResponse(
@@ -17,6 +18,7 @@ public record AdminConcertDetailResponse(
         String posterUrl,
         String price,
         ConcertStatus status,
+        LocalDateTime ticketOpenAt,
         List<BookingLinkDto> bookingLinks
 ) {
     public record BookingLinkDto(String name, String url) {}
@@ -32,6 +34,7 @@ public record AdminConcertDetailResponse(
                 concert.getPosterUrl(),
                 concert.getPrice(),
                 concert.getStatus(),
+                concert.getTicketOpenAt(),
                 links.stream().map(l -> new BookingLinkDto(l.getName(), l.getUrl())).toList()
         );
     }
