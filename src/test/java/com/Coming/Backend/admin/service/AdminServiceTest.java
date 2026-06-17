@@ -462,6 +462,23 @@ class AdminServiceTest {
     }
 
     @Test
+    void should_clear_ticket_open_at_when_null_given() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        ReflectionTestUtils.setField(concert, "ticketOpenAt", LocalDateTime.of(2025, 8, 1, 10, 0));
+        AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
+                null, null, null, null, null, null, null, null, null
+        );
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when
+        adminService.updateConcert(CONCERT_ID, request);
+
+        // then
+        assertThat(concert.getTicketOpenAt()).isNull();
+    }
+
+    @Test
     void should_throw_concert_not_found_when_update_target_does_not_exist() {
         // given
         AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(

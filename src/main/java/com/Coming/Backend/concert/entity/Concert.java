@@ -82,7 +82,7 @@ public class Concert {
         if (venueName != null) this.venueName = venueName;
         if (posterUrl != null) this.posterUrl = posterUrl;
         if (price != null) this.price = price;
-        if (ticketOpenAt != null) this.ticketOpenAt = ticketOpenAt;
+        this.ticketOpenAt = ticketOpenAt;
     }
 
     public ConcertStatus forceChangeStatus(ConcertStatus newStatus) {
