@@ -237,6 +237,39 @@ class CalendarServiceTest {
         assertThat(result.get(1).type()).isEqualTo("CONCERT");     // 8월 15일
     }
 
+    @Test
+    void should_return_both_types_when_same_concert_has_start_date_and_ticket_open_at_in_same_month() {
+        // given
+        LocalDateTime ticketOpenAt = LocalDateTime.of(2025, 8, 5, 10, 0);
+        Concert concert = Concert.builder()
+                .id(CONCERT_ID)
+                .kopisId("kopis-1")
+                .title("공연 1")
+                .startDate(LocalDate.of(2025, 8, 15))
+                .endDate(LocalDate.of(2025, 8, 15))
+                .venueName("KSPO DOME, 서울")
+                .status(ConcertStatus.UPCOMING)
+                .viewCount(0L)
+                .kopisUpdateDate(LocalDate.now())
+                .ticketOpenAt(ticketOpenAt)
+                .build();
+
+        given(concertRepository.findByDateRange(any(), any(), anyList())).willReturn(List.of(concert));
+        given(concertRepository.findByTicketOpenAtMonth(eq(2025), eq(8), anyList())).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        List<CalendarEntryResponse> result = calendarService.getCalendar(2025, 8, null);
+
+        // then
+        assertThat(result).hasSize(2);
+        assertThat(result.stream().filter(e -> "TICKETING".equals(e.type())).count()).isEqualTo(1);
+        assertThat(result.stream().filter(e -> "CONCERT".equals(e.type())).count()).isEqualTo(1);
+        assertThat(result.stream().allMatch(e -> e.concertId().equals(CONCERT_ID))).isTrue();
+        assertThat(result.get(0).type()).isEqualTo("TICKETING");  // 8월 5일 (15일보다 앞)
+        assertThat(result.get(1).type()).isEqualTo("CONCERT");    // 8월 15일
+    }
+
     // -------------------------------------------------------------------------
     // getMyCalendar
     // -------------------------------------------------------------------------
