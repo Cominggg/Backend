@@ -219,11 +219,13 @@ class ConcertControllerTest {
     }
 
     @Test
-    void should_return_401_when_following_true_and_user_not_authenticated() throws Exception {
+    void should_return_401_with_error_body_when_following_true_and_user_not_authenticated() throws Exception {
         // when & then
         mockMvc.perform(get("/api/concerts/ticketing")
                         .param("following", "true")
                         .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHORIZED.name()))
+                .andExpect(jsonPath("$.message").exists());
     }
 }

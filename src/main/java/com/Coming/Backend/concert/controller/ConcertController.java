@@ -6,6 +6,7 @@ import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.dto.SetlistResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.exception.UnauthorizedException;
 import com.Coming.Backend.concert.service.ConcertService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -99,7 +100,7 @@ public class ConcertController {
             @RequestParam(defaultValue = "false") boolean following,
             @AuthenticationPrincipal Long userId) {
         if (following && userId == null) {
-            return ResponseEntity.status(401).build();
+            throw new UnauthorizedException();
         }
         return ResponseEntity.ok(concertService.getTicketingConcerts(userId, following));
     }
