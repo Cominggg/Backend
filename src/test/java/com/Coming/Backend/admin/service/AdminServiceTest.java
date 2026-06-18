@@ -541,6 +541,7 @@ class AdminServiceTest {
         given(concertRepository.findByStatus(ConcertStatus.PENDING, PAGEABLE)).willReturn(page);
         given(concertArtistCandidateRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of(candidate));
         given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertBookingLinkRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
         // when
         PageResponse<AdminPendingConcertResponse> response = adminService.getPendingConcerts(PAGEABLE);
@@ -552,6 +553,29 @@ class AdminServiceTest {
         assertThat(response.content().get(0).candidates().get(0).artistId()).isEqualTo(ARTIST_ID);
         assertThat(response.content().get(0).candidates().get(0).name()).isEqualTo("YOASOBI");
         assertThat(response.content().get(0).candidates().get(0).matchedBy()).isEqualTo("kopis");
+        assertThat(response.content().get(0).bookingLinks()).isEmpty();
+    }
+
+    @Test
+    void should_return_booking_links_when_pending_concert_has_booking_links() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+        ConcertBookingLink link = ConcertBookingLink.builder()
+                .concertId(CONCERT_ID).name("인터파크").url("https://interpark.com").build();
+
+        given(concertRepository.findByStatus(ConcertStatus.PENDING, PAGEABLE)).willReturn(page);
+        given(concertArtistCandidateRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+        given(artistRepository.findAllById(List.of())).willReturn(List.of());
+        given(concertBookingLinkRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of(link));
+
+        // when
+        PageResponse<AdminPendingConcertResponse> response = adminService.getPendingConcerts(PAGEABLE);
+
+        // then
+        assertThat(response.content().get(0).bookingLinks()).hasSize(1);
+        assertThat(response.content().get(0).bookingLinks().get(0).name()).isEqualTo("인터파크");
+        assertThat(response.content().get(0).bookingLinks().get(0).url()).isEqualTo("https://interpark.com");
     }
 
     @Test
@@ -563,6 +587,7 @@ class AdminServiceTest {
         given(concertRepository.findByStatus(ConcertStatus.PENDING, PAGEABLE)).willReturn(page);
         given(concertArtistCandidateRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
         given(artistRepository.findAllById(List.of())).willReturn(List.of());
+        given(concertBookingLinkRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
         // when
         PageResponse<AdminPendingConcertResponse> response = adminService.getPendingConcerts(PAGEABLE);
@@ -570,6 +595,7 @@ class AdminServiceTest {
         // then
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).candidates()).isEmpty();
+        assertThat(response.content().get(0).bookingLinks()).isEmpty();
     }
 
     @Test

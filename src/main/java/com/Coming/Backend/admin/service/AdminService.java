@@ -240,6 +240,10 @@ public class AdminService {
         Map<Long, String> artistNameById = artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
 
+        Map<Long, List<ConcertBookingLink>> linksByConcertId = concertBookingLinkRepository
+                .findByConcertIdIn(concertIds).stream()
+                .collect(Collectors.groupingBy(ConcertBookingLink::getConcertId));
+
         List<AdminPendingConcertResponse> content = page.getContent().stream()
                 .map(concert -> {
                     List<AdminCandidateArtistResponse> candidates = candidatesByConcertId
@@ -249,7 +253,8 @@ public class AdminService {
                                     artistNameById.get(c.getArtistId()),
                                     c.getMatchedBy()))
                             .toList();
-                    return AdminPendingConcertResponse.of(concert, candidates);
+                    List<ConcertBookingLink> links = linksByConcertId.getOrDefault(concert.getId(), List.of());
+                    return AdminPendingConcertResponse.of(concert, links, candidates);
                 })
                 .toList();
 

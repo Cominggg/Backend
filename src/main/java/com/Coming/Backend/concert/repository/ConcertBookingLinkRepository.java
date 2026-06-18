@@ -12,6 +12,8 @@ public interface ConcertBookingLinkRepository extends JpaRepository<ConcertBooki
 
     List<ConcertBookingLink> findByConcertId(Long concertId);
 
+    List<ConcertBookingLink> findByConcertIdIn(List<Long> concertIds);
+
     @Modifying
     @Query("DELETE FROM ConcertBookingLink cbl WHERE cbl.concertId = :concertId")
     void deleteByConcertId(@Param("concertId") Long concertId);
