@@ -10,6 +10,7 @@ import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertApproveRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
@@ -137,8 +138,10 @@ public class AdminController {
     @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
     @ApiResponse(responseCode = "400", description = "CONCERT_NOT_PENDING")
     @PutMapping("/concerts/{id}/approve")
-    public ResponseEntity<Void> approveConcert(@PathVariable Long id) {
-        adminService.approveConcert(id);
+    public ResponseEntity<Void> approveConcert(
+            @PathVariable Long id,
+            @RequestBody(required = false) @Valid AdminConcertApproveRequest request) {
+        adminService.approveConcert(id, request);
         return ResponseEntity.ok().build();
     }
 

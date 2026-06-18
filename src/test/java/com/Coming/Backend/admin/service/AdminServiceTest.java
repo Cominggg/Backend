@@ -4,6 +4,7 @@ import com.Coming.Backend.admin.client.DataPipelineClient;
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertApproveRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
@@ -605,7 +606,7 @@ class AdminServiceTest {
         given(concertRepository.existsActiveByArtistId(eq(ARTIST_ID), any())).willReturn(true);
 
         // when
-        adminService.approveConcert(CONCERT_ID);
+        adminService.approveConcert(CONCERT_ID, null);
 
         // then
         verify(concertArtistRepository).saveAll(any());
@@ -630,7 +631,7 @@ class AdminServiceTest {
         given(concertRepository.existsActiveByArtistId(eq(ARTIST_ID), any())).willReturn(false);
 
         // when
-        adminService.approveConcert(CONCERT_ID);
+        adminService.approveConcert(CONCERT_ID, null);
 
         // then
         assertThat(concert.getStatus()).isEqualTo(ConcertStatus.ENDED);
@@ -644,8 +645,81 @@ class AdminServiceTest {
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
 
         // when & then
-        assertThatThrownBy(() -> adminService.approveConcert(CONCERT_ID))
+        assertThatThrownBy(() -> adminService.approveConcert(CONCERT_ID, null))
                 .isInstanceOf(ConcertNotPendingException.class);
+    }
+
+    @Test
+    void should_set_ticket_open_at_when_approve_request_has_ticket_open_at() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        ReflectionTestUtils.setField(concert, "startDate", LocalDate.now().plusDays(10));
+        ReflectionTestUtils.setField(concert, "endDate", LocalDate.now().plusDays(12));
+        LocalDateTime ticketOpenAt = LocalDateTime.of(2026, 7, 1, 10, 0);
+        AdminConcertApproveRequest request = new AdminConcertApproveRequest(ticketOpenAt, null);
+        ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistCandidateRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(candidate));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertRepository.existsActiveByArtistId(eq(ARTIST_ID), any())).willReturn(true);
+
+        // when
+        adminService.approveConcert(CONCERT_ID, request);
+
+        // then
+        assertThat(concert.getTicketOpenAt()).isEqualTo(ticketOpenAt);
+    }
+
+    @Test
+    void should_save_booking_links_when_approve_request_has_booking_links() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        ReflectionTestUtils.setField(concert, "startDate", LocalDate.now().plusDays(10));
+        ReflectionTestUtils.setField(concert, "endDate", LocalDate.now().plusDays(12));
+        AdminConcertApproveRequest request = new AdminConcertApproveRequest(
+                null,
+                List.of(new BookingLinkRequest("인터파크", "https://interpark.com"))
+        );
+        ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistCandidateRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(candidate));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertRepository.existsActiveByArtistId(eq(ARTIST_ID), any())).willReturn(true);
+
+        // when
+        adminService.approveConcert(CONCERT_ID, request);
+
+        // then
+        verify(concertBookingLinkRepository).saveAll(any());
+    }
+
+    @Test
+    void should_not_save_booking_links_when_approve_request_is_null() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        ReflectionTestUtils.setField(concert, "startDate", LocalDate.now().plusDays(10));
+        ReflectionTestUtils.setField(concert, "endDate", LocalDate.now().plusDays(12));
+        ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistCandidateRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(candidate));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertRepository.existsActiveByArtistId(eq(ARTIST_ID), any())).willReturn(true);
+
+        // when
+        adminService.approveConcert(CONCERT_ID, null);
+
+        // then
+        verify(concertBookingLinkRepository, never()).saveAll(any());
+        assertThat(concert.getTicketOpenAt()).isNull();
     }
 
     // -------------------------------------------------------------------------

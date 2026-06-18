@@ -12,6 +12,7 @@ import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminExcludedArtistResponse;
 import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
+import com.Coming.Backend.admin.dto.AdminConcertApproveRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
@@ -257,12 +258,14 @@ public class AdminService {
 
     /**
      * PENDING 공연을 승인한다. 후보 아티스트를 concert_artist로 이동하고, 날짜 기반으로 상태를 계산하며, 연결된 아티스트의 is_coming을 갱신한다.
+     * request가 제공된 경우 ticketOpenAt과 bookingLinks를 함께 저장한다.
      *
+     * @param request 티켓 오픈 일시·예매 링크 (선택, null 가능)
      * @throws ConcertNotFoundException   존재하지 않는 공연 ID
      * @throws ConcertNotPendingException 공연이 PENDING 상태가 아닌 경우
      */
     @Transactional
-    public void approveConcert(Long concertId) {
+    public void approveConcert(Long concertId, AdminConcertApproveRequest request) {
         Concert concert = concertRepository.findById(concertId)
                 .orElseThrow(ConcertNotFoundException::new);
         if (concert.getStatus() != ConcertStatus.PENDING) {
@@ -287,6 +290,22 @@ public class AdminService {
         List<ConcertStatus> activeStatuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
         artistRepository.findAllById(artistIds).forEach(artist ->
                 artist.updateIsComing(concertRepository.existsActiveByArtistId(artist.getId(), activeStatuses)));
+
+        if (request != null) {
+            if (request.ticketOpenAt() != null) {
+                concert.update(null, null, null, null, null, null, null, request.ticketOpenAt());
+            }
+            if (request.bookingLinks() != null && !request.bookingLinks().isEmpty()) {
+                List<ConcertBookingLink> links = request.bookingLinks().stream()
+                        .map(link -> ConcertBookingLink.builder()
+                                .concertId(concertId)
+                                .name(link.name())
+                                .url(link.url())
+                                .build())
+                        .toList();
+                concertBookingLinkRepository.saveAll(links);
+            }
+        }
     }
 
     /**
