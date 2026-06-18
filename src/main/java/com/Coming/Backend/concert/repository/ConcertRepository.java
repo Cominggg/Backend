@@ -59,10 +59,10 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     List<Concert> findByTicketOpenAtMonth(@Param("year") int year, @Param("month") int month, @Param("hidden") Collection<ConcertStatus> hidden);
 
     @Query("SELECT c FROM Concert c WHERE c.ticketOpenAt > :now AND c.status NOT IN :hidden ORDER BY c.ticketOpenAt ASC")
-    List<Concert> findUpcomingTicketing(@Param("now") LocalDateTime now, @Param("hidden") Collection<ConcertStatus> hidden);
+    List<Concert> findUpcomingTicketing(@Param("now") LocalDateTime now, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);
 
     @Query("SELECT c FROM Concert c WHERE c.ticketOpenAt > :now AND c.status NOT IN :hidden AND c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId IN :artistIds) ORDER BY c.ticketOpenAt ASC")
-    List<Concert> findUpcomingTicketingByArtistIds(@Param("now") LocalDateTime now, @Param("hidden") Collection<ConcertStatus> hidden, @Param("artistIds") List<Long> artistIds);
+    List<Concert> findUpcomingTicketingByArtistIds(@Param("now") LocalDateTime now, @Param("hidden") Collection<ConcertStatus> hidden, @Param("artistIds") List<Long> artistIds, Pageable pageable);
 
     @Query("SELECT c FROM Concert c WHERE c.id IN (SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :userId) AND c.startDate < :today AND c.status NOT IN :hidden")
     Page<Concert> findPastByUserCalendar(@Param("userId") Long userId, @Param("today") LocalDate today, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);

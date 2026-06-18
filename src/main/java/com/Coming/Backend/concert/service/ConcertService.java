@@ -27,6 +27,7 @@ import com.Coming.Backend.concert.repository.SetlistRepository;
 import com.Coming.Backend.concert.repository.SetlistTrackRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,6 +77,7 @@ public class ConcertService {
      */
     public List<ConcertSummaryResponse> getTicketingConcerts(Long userId, boolean following) {
         LocalDateTime now = LocalDateTime.now();
+        Pageable limit = PageRequest.of(0, 20);
         List<Concert> concerts;
         if (following) {
             List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
@@ -84,12 +86,11 @@ public class ConcertService {
             if (artistIds.isEmpty()) {
                 return List.of();
             }
-            concerts = concertRepository.findUpcomingTicketingByArtistIds(now, HIDDEN_STATUSES, artistIds);
+            concerts = concertRepository.findUpcomingTicketingByArtistIds(now, HIDDEN_STATUSES, artistIds, limit);
         } else {
-            concerts = concertRepository.findUpcomingTicketing(now, HIDDEN_STATUSES);
+            concerts = concertRepository.findUpcomingTicketing(now, HIDDEN_STATUSES, limit);
         }
-        List<Concert> limited = concerts.size() > 20 ? concerts.subList(0, 20) : concerts;
-        return toConcertSummaryList(limited, userId);
+        return toConcertSummaryList(concerts, userId);
     }
 
     /**
