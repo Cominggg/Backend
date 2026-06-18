@@ -3,6 +3,7 @@ package com.Coming.Backend.concert.dto;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record ConcertDetailResponse(
@@ -18,6 +19,7 @@ public record ConcertDetailResponse(
         ConcertStatus status,
         String price,
         boolean isInCalendar,
+        LocalDateTime ticketOpenAt,
         List<TicketLinkDto> ticketLinks
 ) {
 }

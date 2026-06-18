@@ -3,6 +3,7 @@ package com.Coming.Backend.concert.dto;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record ConcertSummaryResponse(
         Long id,
@@ -13,6 +14,7 @@ public record ConcertSummaryResponse(
         LocalDate endDate,
         String venue,
         ConcertStatus status,
-        boolean isInCalendar
+        boolean isInCalendar,
+        LocalDateTime ticketOpenAt
 ) {
 }

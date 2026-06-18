@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -53,6 +54,15 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
 
     @Query("SELECT COUNT(c) > 0 FROM Concert c WHERE c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId = :artistId) AND c.status IN :statuses")
     boolean existsActiveByArtistId(@Param("artistId") Long artistId, @Param("statuses") Collection<ConcertStatus> statuses);
+
+    @Query("SELECT c FROM Concert c WHERE YEAR(c.ticketOpenAt) = :year AND MONTH(c.ticketOpenAt) = :month AND c.status NOT IN :hidden ORDER BY c.ticketOpenAt ASC")
+    List<Concert> findByTicketOpenAtMonth(@Param("year") int year, @Param("month") int month, @Param("hidden") Collection<ConcertStatus> hidden);
+
+    @Query("SELECT c FROM Concert c WHERE c.ticketOpenAt > :now AND c.status NOT IN :hidden ORDER BY c.ticketOpenAt ASC")
+    List<Concert> findUpcomingTicketing(@Param("now") LocalDateTime now, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);
+
+    @Query("SELECT c FROM Concert c WHERE c.ticketOpenAt > :now AND c.status NOT IN :hidden AND c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId IN :artistIds) ORDER BY c.ticketOpenAt ASC")
+    List<Concert> findUpcomingTicketingByArtistIds(@Param("now") LocalDateTime now, @Param("hidden") Collection<ConcertStatus> hidden, @Param("artistIds") List<Long> artistIds, Pageable pageable);
 
     @Query("SELECT c FROM Concert c WHERE c.id IN (SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :userId) AND c.startDate < :today AND c.status NOT IN :hidden")
     Page<Concert> findPastByUserCalendar(@Param("userId") Long userId, @Param("today") LocalDate today, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);

@@ -1,0 +1,2 @@
+ALTER TABLE artist ADD COLUMN IF NOT EXISTS spotify_album_total INTEGER;
+ALTER TABLE concert ADD COLUMN IF NOT EXISTS ticket_open_at TIMESTAMP;

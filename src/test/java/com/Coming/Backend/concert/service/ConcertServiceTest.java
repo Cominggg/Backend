@@ -36,6 +36,7 @@ import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -818,5 +819,127 @@ class ConcertServiceTest {
         assertThat(response.content()).hasSize(1);
         verify(concertRepository).searchConcertsWithStatus(eq("%iu%"), eq(ConcertStatus.UPCOMING), eq(PAGEABLE));
         verify(concertRepository, never()).searchConcerts(any(), anyList(), any());
+    }
+
+    // -------------------------------------------------------------------------
+    // ticketOpenAt 매핑
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_include_ticket_open_at_in_summary_when_concert_has_ticket_open_at() {
+        // given
+        LocalDateTime ticketOpenAt = LocalDateTime.of(2025, 5, 1, 10, 0);
+        Concert concert = Concert.builder()
+                .id(CONCERT_ID)
+                .kopisId("kopis-1")
+                .title("공연")
+                .startDate(LocalDate.of(2025, 6, 1))
+                .endDate(LocalDate.of(2025, 6, 3))
+                .venueName("올림픽공원")
+                .status(ConcertStatus.UPCOMING)
+                .viewCount(0L)
+                .kopisUpdateDate(LocalDate.now())
+                .ticketOpenAt(ticketOpenAt)
+                .build();
+        given(concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(anyList())).willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
+
+        // then
+        assertThat(result.get(0).ticketOpenAt()).isEqualTo(ticketOpenAt);
+    }
+
+    @Test
+    void should_include_ticket_open_at_in_detail_when_concert_has_ticket_open_at() {
+        // given
+        LocalDateTime ticketOpenAt = LocalDateTime.of(2025, 5, 1, 10, 0);
+        Concert concert = Concert.builder()
+                .id(CONCERT_ID)
+                .kopisId("kopis-1")
+                .title("공연")
+                .startDate(LocalDate.of(2025, 6, 1))
+                .endDate(LocalDate.of(2025, 6, 3))
+                .venueName("올림픽공원")
+                .status(ConcertStatus.UPCOMING)
+                .viewCount(0L)
+                .kopisUpdateDate(LocalDate.now())
+                .ticketOpenAt(ticketOpenAt)
+                .build();
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID)).willReturn(Optional.empty());
+        given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
+
+        // when
+        ConcertDetailResponse response = concertService.getConcert(CONCERT_ID, null);
+
+        // then
+        assertThat(response.ticketOpenAt()).isEqualTo(ticketOpenAt);
+    }
+
+    // -------------------------------------------------------------------------
+    // getTicketingConcerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_upcoming_ticketing_concerts_ordered_by_ticket_open_at() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(concertRepository.findUpcomingTicketing(any(LocalDateTime.class), anyList(), any(Pageable.class)))
+                .willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getTicketingConcerts(null, false);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).id()).isEqualTo(CONCERT_ID);
+    }
+
+    @Test
+    void should_return_following_ticketing_concerts_when_following_is_true() {
+        // given
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(concertRepository.findUpcomingTicketingByArtistIds(any(LocalDateTime.class), anyList(), eq(List.of(ARTIST_ID)), any(Pageable.class)))
+                .willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getTicketingConcerts(USER_ID, true);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).id()).isEqualTo(CONCERT_ID);
+    }
+
+    @Test
+    void should_return_empty_list_when_following_is_true_and_user_follows_no_artists() {
+        // given
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getTicketingConcerts(USER_ID, true);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_query_with_page_size_20_when_getting_ticketing_concerts() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(concertRepository.findUpcomingTicketing(any(LocalDateTime.class), anyList(), any(Pageable.class)))
+                .willReturn(List.of(concert));
+        given(concertArtistRepository.findByConcertIdIn(any())).willReturn(List.of());
+
+        // when
+        concertService.getTicketingConcerts(null, false);
+
+        // then
+        verify(concertRepository).findUpcomingTicketing(any(LocalDateTime.class), anyList(), eq(PageRequest.of(0, 20)));
     }
 }

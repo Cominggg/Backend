@@ -1,9 +1,11 @@
 package com.Coming.Backend.calendar.dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record CalendarEntryResponse(
         Long concertId,
+        String type,
         String artistName,
         String title,
         LocalDate startDate,
@@ -11,6 +13,7 @@ public record CalendarEntryResponse(
         String status,
         String posterUrl,
         String venue,
-        boolean isInCalendar
+        boolean isInCalendar,
+        LocalDateTime ticketOpenAt
 ) {
 }

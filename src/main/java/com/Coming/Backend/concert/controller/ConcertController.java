@@ -6,6 +6,7 @@ import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.dto.SetlistResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.exception.UnauthorizedException;
 import com.Coming.Backend.concert.service.ConcertService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -90,6 +91,18 @@ public class ConcertController {
             @PathVariable Long id,
             @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(concertService.getConcert(id, userId));
+    }
+
+    @Operation(summary = "티켓 오픈 예정 공연 조회")
+    @ApiResponse(responseCode = "401", description = "UNAUTHORIZED (following=true이고 비인증)")
+    @GetMapping("/ticketing")
+    public ResponseEntity<List<ConcertSummaryResponse>> getTicketingConcerts(
+            @RequestParam(defaultValue = "false") boolean following,
+            @AuthenticationPrincipal Long userId) {
+        if (following && userId == null) {
+            throw new UnauthorizedException();
+        }
+        return ResponseEntity.ok(concertService.getTicketingConcerts(userId, following));
     }
 
     @Operation(summary = "셋리스트 조회")
