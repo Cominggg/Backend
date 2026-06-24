@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.dto.FollowingArtistResponse;
@@ -98,7 +99,7 @@ class ArtistServiceTest {
         given(artistRepository.findAll(PAGEABLE)).willReturn(page);
 
         // when
-        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, PAGEABLE, null);
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -115,7 +116,7 @@ class ArtistServiceTest {
         given(artistRepository.findByNameOrAliasContainingIgnoreCase("yoa", PAGEABLE)).willReturn(page);
 
         // when
-        PageResponse<ArtistSummaryResponse> response = artistService.getArtists("yoa", PAGEABLE, null);
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists("yoa", null, null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -130,7 +131,7 @@ class ArtistServiceTest {
         given(artistRepository.findByNameOrAliasContainingIgnoreCase("IU", PAGEABLE)).willReturn(page);
 
         // when
-        PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", PAGEABLE, null);
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", null, null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).hasSize(1);
@@ -150,10 +151,150 @@ class ArtistServiceTest {
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
 
         // when
-        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, PAGEABLE, USER_ID);
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, null, PAGEABLE, USER_ID);
 
         // then
         assertThat(response.content().get(0).isFollowing()).isTrue();
+    }
+
+    @Test
+    void should_call_findByIsComing_true_when_isComing_is_true() {
+        // given
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
+        given(artistRepository.findByIsComing(true, PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, true, null, PAGEABLE, null);
+
+        // then
+        verify(artistRepository).findByIsComing(true, PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).name()).isEqualTo("IU");
+    }
+
+    @Test
+    void should_call_findByIsComing_false_when_isComing_is_false() {
+        // given
+        Artist artist = buildArtist(ARTIST_ID, "Unknown Artist");
+        Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
+        given(artistRepository.findByIsComing(false, PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, false, null, PAGEABLE, null);
+
+        // then
+        verify(artistRepository).findByIsComing(false, PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+    }
+
+    @Test
+    void should_call_findAllByIdIn_when_following_is_true_and_followingIds_exist() {
+        // given
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(artistRepository.findAllByIdIn(List.of(ARTIST_ID), PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, true, PAGEABLE, USER_ID);
+
+        // then
+        verify(artistRepository).findAllByIdIn(List.of(ARTIST_ID), PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).isFollowing()).isTrue();
+    }
+
+    @Test
+    void should_return_empty_page_immediately_when_following_is_true_and_followingIds_empty() {
+        // given
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of());
+
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, true, PAGEABLE, USER_ID);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+        verify(artistRepository, never()).findAllByIdIn(anyList(), any(Pageable.class));
+    }
+
+    @Test
+    void should_return_empty_page_immediately_when_following_is_true_and_userId_is_null() {
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, true, PAGEABLE, null);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+        verify(artistRepository, never()).findAllByIdIn(anyList(), any(Pageable.class));
+    }
+
+    @Test
+    void should_call_findByIsComingAndNameOrAlias_when_name_and_isComing_given() {
+        // given
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
+        given(artistRepository.findByIsComingAndNameOrAliasContainingIgnoreCase(true, "IU", PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", true, null, PAGEABLE, null);
+
+        // then
+        verify(artistRepository).findByIsComingAndNameOrAliasContainingIgnoreCase(true, "IU", PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+    }
+
+    @Test
+    void should_call_findByIdInAndNameOrAlias_when_name_and_following_given() {
+        // given
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(artistRepository.findByIdInAndNameOrAliasContainingIgnoreCase(List.of(ARTIST_ID), "IU", PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", null, true, PAGEABLE, USER_ID);
+
+        // then
+        verify(artistRepository).findByIdInAndNameOrAliasContainingIgnoreCase(List.of(ARTIST_ID), "IU", PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+    }
+
+    @Test
+    void should_call_findByIsComingAndIdIn_when_isComing_and_following_given() {
+        // given
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(artistRepository.findByIsComingAndIdIn(true, List.of(ARTIST_ID), PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, true, true, PAGEABLE, USER_ID);
+
+        // then
+        verify(artistRepository).findByIsComingAndIdIn(true, List.of(ARTIST_ID), PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+    }
+
+    @Test
+    void should_call_findByIsComingAndIdInAndNameOrAlias_when_all_filters_given() {
+        // given
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
+        UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
+        given(artistRepository.findByIsComingAndIdInAndNameOrAliasContainingIgnoreCase(true, List.of(ARTIST_ID), "IU", PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", true, true, PAGEABLE, USER_ID);
+
+        // then
+        verify(artistRepository).findByIsComingAndIdInAndNameOrAliasContainingIgnoreCase(true, List.of(ARTIST_ID), "IU", PAGEABLE);
+        assertThat(response.content()).hasSize(1);
     }
 
     // -------------------------------------------------------------------------
