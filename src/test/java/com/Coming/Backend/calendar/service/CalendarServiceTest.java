@@ -275,7 +275,7 @@ class CalendarServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_return_paginated_calendar_entries_when_user_has_saved_concerts() {
+    void should_return_all_calendar_entries_when_upcoming_is_false() {
         // given
         Concert concert = buildConcert(CONCERT_ID);
         ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
@@ -288,7 +288,7 @@ class CalendarServiceTest {
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 
         // when
-        PageResponse<CalendarEntryResponse> result = calendarService.getMyCalendar(USER_ID, PAGEABLE);
+        PageResponse<CalendarEntryResponse> result = calendarService.getMyCalendar(USER_ID, false, PAGEABLE);
 
         // then
         assertThat(result.content()).hasSize(1);
@@ -299,6 +299,28 @@ class CalendarServiceTest {
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.page()).isZero();
         assertThat(result.size()).isEqualTo(10);
+    }
+
+    @Test
+    void should_return_only_upcoming_concerts_when_upcoming_is_true() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID);
+        ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
+        Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
+        Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
+
+        given(concertRepository.findUpcomingByUserCalendar(eq(USER_ID), any(LocalDate.class), anyList(), eq(PAGEABLE))).willReturn(page);
+        given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
+                .willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(any())).willReturn(List.of(artist));
+
+        // when
+        PageResponse<CalendarEntryResponse> result = calendarService.getMyCalendar(USER_ID, true, PAGEABLE);
+
+        // then
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().get(0).concertId()).isEqualTo(CONCERT_ID);
+        assertThat(result.totalElements()).isEqualTo(1);
     }
 
     // -------------------------------------------------------------------------

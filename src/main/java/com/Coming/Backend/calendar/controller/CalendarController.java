@@ -45,8 +45,9 @@ public class CalendarController {
     @GetMapping("/my")
     public ResponseEntity<PageResponse<CalendarEntryResponse>> getMyCalendar(
             @AuthenticationPrincipal Long userId,
+            @RequestParam(defaultValue = "false") boolean upcoming,
             @PageableDefault(size = 10, sort = "startDate", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(calendarService.getMyCalendar(userId, pageable));
+        return ResponseEntity.ok(calendarService.getMyCalendar(userId, upcoming, pageable));
     }
 
     @Operation(summary = "내 캘린더에 공연 추가")
