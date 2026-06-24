@@ -25,9 +25,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
 import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
@@ -46,25 +46,64 @@ public class ArtistService {
     private final ConcertRepository concertRepository;
 
     /**
-     * 아티스트 목록을 조회한다. name이 있으면 이름 부분 일치 검색을 적용한다.
+     * 아티스트 목록을 조회한다. name, isComing, following 필터를 조합해 적용한다.
      *
-     * @param name   검색 키워드 (null 또는 공백이면 전체 조회)
-     * @param userId 인증된 사용자 ID (null이면 isFollowing 항상 false)
+     * @param name      검색 키워드 (null 또는 공백이면 전체 조회)
+     * @param isComing  null이면 전체, true/false이면 isComing 필드 기준 필터 적용
+     * @param following true이면 팔로잉 아티스트만 반환 (미인증·팔로잉 없으면 빈 페이지)
+     * @param userId    인증된 사용자 ID (null이면 isFollowing 항상 false)
      */
-    public PageResponse<ArtistSummaryResponse> getArtists(String name, Pageable pageable, Long userId) {
-        Page<Artist> page = (name == null || name.isBlank())
-                ? artistRepository.findAll(pageable)
-                : artistRepository.findByNameOrAliasContainingIgnoreCase(name, pageable);
+    public PageResponse<ArtistSummaryResponse> getArtists(String name, Boolean isComing, Boolean following, Pageable pageable, Long userId) {
+        List<Long> followingIds = userId != null
+                ? userFollowArtistRepository.findByUserId(userId).stream()
+                        .map(UserFollowArtist::getArtistId)
+                        .toList()
+                : List.of();
 
-        Set<Long> followingIds = resolveFollowingIds(userId);
+        List<Long> filterIds = null;
+        if (Boolean.TRUE.equals(following)) {
+            if (followingIds.isEmpty()) {
+                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+            }
+            filterIds = followingIds;
+        }
 
+        boolean hasName = name != null && !name.isBlank();
+        Page<Artist> page = fetchArtists(hasName, isComing, filterIds, name, pageable);
+
+        Set<Long> followingIdSet = new HashSet<>(followingIds);
         return PageResponse.from(page.map(artist -> new ArtistSummaryResponse(
                 artist.getId(),
                 artist.getName(),
                 artist.getImageUrl(),
                 artist.isComing(),
-                followingIds.contains(artist.getId())
+                followingIdSet.contains(artist.getId())
         )));
+    }
+
+    private Page<Artist> fetchArtists(boolean hasName, Boolean isComing, List<Long> ids, String name, Pageable pageable) {
+        if (hasName && isComing != null && ids != null) {
+            return artistRepository.findByIsComingAndIdInAndNameOrAliasContainingIgnoreCase(isComing, ids, name, pageable);
+        }
+        if (hasName && isComing != null) {
+            return artistRepository.findByIsComingAndNameOrAliasContainingIgnoreCase(isComing, name, pageable);
+        }
+        if (hasName && ids != null) {
+            return artistRepository.findByIdInAndNameOrAliasContainingIgnoreCase(ids, name, pageable);
+        }
+        if (hasName) {
+            return artistRepository.findByNameOrAliasContainingIgnoreCase(name, pageable);
+        }
+        if (isComing != null && ids != null) {
+            return artistRepository.findByIsComingAndIdIn(isComing, ids, pageable);
+        }
+        if (isComing != null) {
+            return artistRepository.findByIsComing(isComing, pageable);
+        }
+        if (ids != null) {
+            return artistRepository.findAllByIdIn(ids, pageable);
+        }
+        return artistRepository.findAll(pageable);
     }
 
     /**
@@ -161,15 +200,6 @@ public class ArtistService {
                         true
                 ))
                 .toList();
-    }
-
-    private Set<Long> resolveFollowingIds(Long userId) {
-        if (userId == null) {
-            return Set.of();
-        }
-        return userFollowArtistRepository.findByUserId(userId).stream()
-                .map(UserFollowArtist::getArtistId)
-                .collect(Collectors.toSet());
     }
 
     private static List<ConcertStatus> toStatuses(String tab) {
