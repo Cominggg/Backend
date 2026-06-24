@@ -40,9 +40,11 @@ public class ArtistController {
     @GetMapping
     public ResponseEntity<PageResponse<ArtistSummaryResponse>> getArtists(
             @RequestParam(required = false) String name,
+            @RequestParam(required = false) Boolean isComing,
+            @RequestParam(required = false) Boolean following,
             @PageableDefault(size = 25) Pageable pageable,
             @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(artistService.getArtists(name, pageable, userId));
+        return ResponseEntity.ok(artistService.getArtists(name, isComing, following, pageable, userId));
     }
 
     @Operation(summary = "아티스트 상세 조회")
