@@ -75,7 +75,7 @@ class ArtistControllerTest {
         // given
         ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
-        given(artistService.getArtists(isNull(), any(Pageable.class), isNull()))
+        given(artistService.getArtists(isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
 
         // when & then
@@ -95,7 +95,7 @@ class ArtistControllerTest {
         // given
         ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
-        given(artistService.getArtists(eq("yoa"), any(Pageable.class), isNull()))
+        given(artistService.getArtists(eq("yoa"), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
 
         // when & then
