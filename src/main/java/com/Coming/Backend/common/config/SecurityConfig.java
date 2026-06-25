@@ -66,9 +66,10 @@ public class SecurityConfig {
                                 "/api/auth/login/**",
                                 "/api/auth/callback/**",
                                 "/api/auth/refresh",
+                                "/api/auth/check-nickname",
                                 "/api/dev/**"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/artists/following").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/artists/following").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.GET,
                                 "/api/artists/**",
                                 "/api/concerts/**",
@@ -76,7 +77,9 @@ public class SecurityConfig {
                                 "/api/calendar"
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/auth/register").hasRole("PENDING")
+                        .requestMatchers("/api/auth/logout", "/api/auth/withdraw").hasAnyRole("USER", "ADMIN", "PENDING")
+                        .anyRequest().hasAnyRole("USER", "ADMIN")
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .redirectionEndpoint(endpoint -> endpoint.baseUri("/api/auth/callback/*"))
