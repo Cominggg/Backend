@@ -76,7 +76,7 @@ class UserControllerTest {
                 "UPCOMING", "poster.jpg", "올림픽홀", true, null
         );
         PageResponse<CalendarEntryResponse> pageResponse = new PageResponse<>(List.of(entry), 0, 10, 1, 1);
-        given(calendarService.getMyCalendar(isNull(), eq(true), any(Pageable.class))).willReturn(pageResponse);
+        given(calendarService.getMyCalendar(isNull(), any(Pageable.class))).willReturn(pageResponse);
 
         // when & then
         mockMvc.perform(get("/api/me/concerts/upcoming").accept(MediaType.APPLICATION_JSON))

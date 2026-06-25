@@ -41,7 +41,7 @@ public class UserController {
     public ResponseEntity<PageResponse<CalendarEntryResponse>> getUpcomingConcerts(
             @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 10, sort = "startDate", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(calendarService.getMyCalendar(userId, true, pageable));
+        return ResponseEntity.ok(calendarService.getMyCalendar(userId, pageable));
     }
 
     @Operation(summary = "다녀온 공연 목록 조회")
