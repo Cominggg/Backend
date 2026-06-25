@@ -7,8 +7,8 @@ import com.Coming.Backend.inquiry.dto.InquiryDetailResponse;
 import com.Coming.Backend.inquiry.dto.InquiryListItemResponse;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.service.InquiryService;
-import com.Coming.Backend.my.dto.ConcertHistoryResponse;
-import com.Coming.Backend.my.service.MyService;
+import com.Coming.Backend.user.dto.ConcertHistoryResponse;
+import com.Coming.Backend.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final CalendarService calendarService;
-    private final MyService myService;
+    private final UserService userService;
     private final InquiryService inquiryService;
 
     @Operation(summary = "예정·진행 중 공연 목록 조회")
@@ -49,7 +49,7 @@ public class UserController {
     public ResponseEntity<PageResponse<ConcertHistoryResponse>> getConcertHistory(
             @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 10, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(myService.getHistory(userId, pageable));
+        return ResponseEntity.ok(userService.getHistory(userId, pageable));
     }
 
     @Operation(summary = "내 문의 목록 조회")

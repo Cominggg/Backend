@@ -19,8 +19,8 @@ import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.Coming.Backend.inquiry.service.InquiryService;
-import com.Coming.Backend.my.dto.ConcertHistoryResponse;
-import com.Coming.Backend.my.service.MyService;
+import com.Coming.Backend.user.dto.ConcertHistoryResponse;
+import com.Coming.Backend.user.service.UserService;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +44,7 @@ class UserControllerTest {
     private CalendarService calendarService;
 
     @Mock
-    private MyService myService;
+    private UserService userService;
 
     @Mock
     private InquiryService inquiryService;
@@ -100,7 +100,7 @@ class UserControllerTest {
                 "올림픽홀", "ENDED"
         );
         PageResponse<ConcertHistoryResponse> pageResponse = new PageResponse<>(List.of(history), 0, 10, 1, 1);
-        given(myService.getHistory(isNull(), any(Pageable.class))).willReturn(pageResponse);
+        given(userService.getHistory(isNull(), any(Pageable.class))).willReturn(pageResponse);
 
         // when & then
         mockMvc.perform(get("/api/me/concerts/history").accept(MediaType.APPLICATION_JSON))
