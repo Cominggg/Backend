@@ -1,4 +1,4 @@
-package com.Coming.Backend.my.service;
+package com.Coming.Backend.user.service;
 
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
@@ -8,7 +8,7 @@ import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
-import com.Coming.Backend.my.dto.ConcertHistoryResponse;
+import com.Coming.Backend.user.dto.ConcertHistoryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,7 +28,7 @@ import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class MyService {
+public class UserService {
 
     private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
 

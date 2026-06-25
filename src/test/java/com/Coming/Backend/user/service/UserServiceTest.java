@@ -1,4 +1,4 @@
-package com.Coming.Backend.my.service;
+package com.Coming.Backend.user.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,7 +14,7 @@ import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
-import com.Coming.Backend.my.dto.ConcertHistoryResponse;
+import com.Coming.Backend.user.dto.ConcertHistoryResponse;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -30,10 +30,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
-class MyServiceTest {
+class UserServiceTest {
 
     @InjectMocks
-    private MyService myService;
+    private UserService userService;
 
     @Mock
     private ConcertRepository concertRepository;
@@ -100,7 +100,7 @@ class MyServiceTest {
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
 
         // when
-        PageResponse<ConcertHistoryResponse> result = myService.getHistory(USER_ID, PAGEABLE);
+        PageResponse<ConcertHistoryResponse> result = userService.getHistory(USER_ID, PAGEABLE);
 
         // then
         assertThat(result.content()).hasSize(1);
@@ -123,7 +123,7 @@ class MyServiceTest {
                 .willReturn(emptyPage);
 
         // when
-        PageResponse<ConcertHistoryResponse> result = myService.getHistory(USER_ID, PAGEABLE);
+        PageResponse<ConcertHistoryResponse> result = userService.getHistory(USER_ID, PAGEABLE);
 
         // then
         assertThat(result.content()).isEmpty();
@@ -142,7 +142,7 @@ class MyServiceTest {
                 .willReturn(List.of());
 
         // when
-        PageResponse<ConcertHistoryResponse> result = myService.getHistory(USER_ID, PAGEABLE);
+        PageResponse<ConcertHistoryResponse> result = userService.getHistory(USER_ID, PAGEABLE);
 
         // then
         assertThat(result.content()).hasSize(1);

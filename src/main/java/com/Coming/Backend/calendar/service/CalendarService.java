@@ -78,10 +78,11 @@ public class CalendarService {
     }
 
     /**
-     * 내 캘린더에 저장된 공연 목록을 페이지네이션으로 조회한다.
+     * 내 캘린더에 저장된 종료되지 않은 공연 목록을 페이지네이션으로 조회한다.
      */
     public PageResponse<CalendarEntryResponse> getMyCalendar(Long userId, Pageable pageable) {
-        Page<Concert> page = concertRepository.findByUserCalendar(userId, HIDDEN_STATUSES, pageable);
+        LocalDate today = LocalDate.now();
+        Page<Concert> page = concertRepository.findUpcomingByUserCalendar(userId, today, HIDDEN_STATUSES, pageable);
         List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
         Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
         Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
