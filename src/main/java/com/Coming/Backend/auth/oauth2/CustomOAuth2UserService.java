@@ -50,7 +50,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                                     .provider(provider)
                                     .providerId(userInfo.getProviderId())
                                     .nickname(userInfo.getNickname())
-                                    .profileImageUrl(userInfo.getProfileImageUrl())
                                     .role(UserRole.USER)
                                     .status(UserStatus.ACTIVE)
                                     .build()

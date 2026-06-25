@@ -16,20 +16,6 @@ public class KakaoOAuth2UserInfo implements OAuth2UserInfo {
     @Override
     @SuppressWarnings("unchecked")
     public String getNickname() {
-        Map<String, Object> profile = (Map<String, Object>) attributes.get("kakao_account");
-        if (profile == null) {
-            return null;
-        }
-        Map<String, Object> profileDetail = (Map<String, Object>) profile.get("profile");
-        if (profileDetail == null) {
-            return null;
-        }
-        return (String) profileDetail.get("nickname");
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public String getProfileImageUrl() {
         Map<String, Object> kakaoAccount = (Map<String, Object>) attributes.get("kakao_account");
         if (kakaoAccount == null) {
             return null;
@@ -38,6 +24,6 @@ public class KakaoOAuth2UserInfo implements OAuth2UserInfo {
         if (profile == null) {
             return null;
         }
-        return (String) profile.get("profile_image_url");
+        return (String) profile.get("nickname");
     }
 }

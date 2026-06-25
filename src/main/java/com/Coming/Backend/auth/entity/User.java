@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,11 +34,8 @@ public class User extends BaseTimeEntity {
     @Column(name = "provider_id", nullable = false, length = 255)
     private String providerId;
 
-    @Column(name = "nickname", nullable = false, length = 50)
+    @Column(name = "nickname", length = 50)
     private String nickname;
-
-    @Column(name = "profile_image_url", columnDefinition = "text")
-    private String profileImageUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
@@ -47,15 +45,37 @@ public class User extends BaseTimeEntity {
     @Column(name = "status", nullable = false, length = 20)
     private UserStatus status;
 
-    public void withdraw() {
-        this.status = UserStatus.INACTIVE;
+    @Column(name = "birth_year")
+    private Integer birthYear;
+
+    @Column(name = "agreed_terms")
+    private Boolean agreedTerms;
+
+    @Column(name = "agreed_privacy")
+    private Boolean agreedPrivacy;
+
+    @Column(name = "agreed_marketing")
+    private Boolean agreedMarketing;
+
+    @Column(name = "agreed_at")
+    private LocalDateTime agreedAt;
+
+    public void completeRegistration(String nickname, int birthYear,
+            boolean agreedTerms, boolean agreedPrivacy, boolean agreedMarketing) {
+        this.nickname = nickname;
+        this.birthYear = birthYear;
+        this.agreedTerms = agreedTerms;
+        this.agreedPrivacy = agreedPrivacy;
+        this.agreedMarketing = agreedMarketing;
+        this.agreedAt = LocalDateTime.now();
+        this.role = UserRole.USER;
     }
 
     public void updateNickname(String nickname) {
         this.nickname = nickname;
     }
 
-    public void updateProfileImageUrl(String profileImageUrl) {
-        this.profileImageUrl = profileImageUrl;
+    public void withdraw() {
+        this.status = UserStatus.INACTIVE;
     }
 }

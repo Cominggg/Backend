@@ -129,7 +129,6 @@ public class AuthService {
         return new MeResponse(
                 user.getId(),
                 user.getNickname(),
-                user.getProfileImageUrl(),
                 user.getRole().name()
         );
     }
