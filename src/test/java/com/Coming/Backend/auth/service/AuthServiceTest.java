@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.auth.dto.MeResponse;
@@ -13,7 +12,6 @@ import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.ExpiredTokenException;
-import com.Coming.Backend.auth.exception.InvalidFileTypeException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
@@ -31,7 +29,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.multipart.MultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -69,7 +66,6 @@ class AuthServiceTest {
         return User.builder()
                 .id(USER_ID)
                 .nickname("테스터")
-                .profileImageUrl(null)
                 .role(UserRole.USER)
                 .status(UserStatus.ACTIVE)
                 .provider("google")
@@ -192,23 +188,11 @@ class AuthServiceTest {
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
 
         // when
-        MeResponse response = authService.updateMe(USER_ID, "새닉네임", null);
+        MeResponse response = authService.updateMe(USER_ID, "새닉네임");
 
         // then
         assertThat(response.nickname()).isEqualTo("새닉네임");
         assertThat(response.id()).isEqualTo(USER_ID);
         assertThat(response.role()).isEqualTo(UserRole.USER.name());
-    }
-
-    @Test
-    void should_throw_invalid_file_type_exception_when_profile_image_is_provided() {
-        // given
-        MultipartFile profileImage = mock(MultipartFile.class);
-        given(profileImage.isEmpty()).willReturn(false);
-
-        // when & then
-        assertThatThrownBy(() -> authService.updateMe(USER_ID, "테스터", profileImage))
-                .isInstanceOf(InvalidFileTypeException.class)
-                .hasMessage(ErrorCode.INVALID_FILE_TYPE.getMessage());
     }
 }

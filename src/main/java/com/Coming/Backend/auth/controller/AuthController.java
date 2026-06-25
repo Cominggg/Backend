@@ -1,6 +1,8 @@
 package com.Coming.Backend.auth.controller;
 
 import com.Coming.Backend.auth.dto.MeResponse;
+import com.Coming.Backend.auth.dto.NicknameCheckResponse;
+import com.Coming.Backend.auth.dto.RegisterRequest;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,7 +13,6 @@ import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,12 +22,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "Auth")
 @RestController
@@ -83,13 +83,28 @@ public class AuthController {
     }
 
     @Operation(summary = "내 프로필 수정")
-    @ApiResponse(responseCode = "400", description = "닉네임 20자 초과 또는 허용되지 않는 파일 형식")
-    @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ApiResponse(responseCode = "400", description = "닉네임 20자 초과")
+    @PutMapping("/me")
     public ResponseEntity<MeResponse> updateMe(
             @AuthenticationPrincipal Long userId,
-            @RequestParam(required = false) String nickname,
-            @RequestPart(required = false) MultipartFile profileImage) {
-        return ResponseEntity.ok(authService.updateMe(userId, nickname, profileImage));
+            @RequestParam(required = false) String nickname) {
+        return ResponseEntity.ok(authService.updateMe(userId, nickname));
+    }
+
+    @Operation(summary = "회원가입 완료")
+    @ApiResponse(responseCode = "400", description = "필수 약관 미동의 또는 닉네임 20자 초과")
+    @ApiResponse(responseCode = "409", description = "닉네임 중복")
+    @PostMapping("/register")
+    public ResponseEntity<TokenResponse> register(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody RegisterRequest request) {
+        return ResponseEntity.ok(authService.register(userId, request));
+    }
+
+    @Operation(summary = "닉네임 중복 검사")
+    @GetMapping("/check-nickname")
+    public ResponseEntity<NicknameCheckResponse> checkNickname(@RequestParam String nickname) {
+        return ResponseEntity.ok(authService.checkNickname(nickname));
     }
 
     private void deleteRefreshTokenCookie(HttpServletResponse response) {
