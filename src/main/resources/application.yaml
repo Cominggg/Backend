@@ -59,6 +59,8 @@ jwt:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  oauth2:
+    redirect-base-uri: ${OAUTH2_REDIRECT_BASE_URI:http://localhost:3000/auth/callback}
 
 data-pipeline:
   base-url: ${DATA_PIPELINE_BASE_URL:http://localhost:8000}

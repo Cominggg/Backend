@@ -5,6 +5,7 @@ import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.repository.UserRepository;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -29,8 +30,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         Map<String, Object> attributes = oAuth2User.getAttributes();
 
         OAuth2UserInfo userInfo = resolveUserInfo(provider, attributes);
-        User user = findOrCreateUser(provider, userInfo);
-        return new CustomOAuth2User(user, attributes);
+        boolean[] isNewUserRef = {false};
+        User user = findOrCreateUser(provider, userInfo, isNewUserRef);
+        return new CustomOAuth2User(user, attributes, isNewUserRef[0]);
     }
 
     private OAuth2UserInfo resolveUserInfo(String provider, Map<String, Object> attributes) {
@@ -41,19 +43,20 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         };
     }
 
-    private User findOrCreateUser(String provider, OAuth2UserInfo userInfo) {
-        return userRepository.findByProviderAndProviderId(provider, userInfo.getProviderId())
-                .orElseGet(() -> {
-                    log.info("신규 OAuth2 사용자 생성 — provider: {}, providerId: {}", provider, userInfo.getProviderId());
-                    return userRepository.save(
-                            User.builder()
-                                    .provider(provider)
-                                    .providerId(userInfo.getProviderId())
-                                    .nickname(userInfo.getNickname())
-                                    .role(UserRole.USER)
-                                    .status(UserStatus.ACTIVE)
-                                    .build()
-                    );
-                });
+    private User findOrCreateUser(String provider, OAuth2UserInfo userInfo, boolean[] isNewUserRef) {
+        Optional<User> existing = userRepository.findByProviderAndProviderId(provider, userInfo.getProviderId());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        log.info("신규 OAuth2 사용자 생성 — provider: {}, providerId: {}", provider, userInfo.getProviderId());
+        isNewUserRef[0] = true;
+        return userRepository.save(
+                User.builder()
+                        .provider(provider)
+                        .providerId(userInfo.getProviderId())
+                        .role(UserRole.PENDING)
+                        .status(UserStatus.ACTIVE)
+                        .build()
+        );
     }
 }
