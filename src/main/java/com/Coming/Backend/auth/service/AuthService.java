@@ -7,6 +7,7 @@ import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.exception.ExpiredTokenException;
 import com.Coming.Backend.auth.exception.InvalidTokenException;
+import com.Coming.Backend.auth.exception.BirthYearRequiredException;
 import com.Coming.Backend.auth.exception.NicknameDuplicateException;
 import com.Coming.Backend.auth.exception.NicknameTooLongException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
@@ -119,6 +120,9 @@ public class AuthService {
         }
         if (userRepository.existsByNickname(request.nickname())) {
             throw new NicknameDuplicateException();
+        }
+        if (request.birthYear() == null) {
+            throw new BirthYearRequiredException();
         }
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         user.completeRegistration(

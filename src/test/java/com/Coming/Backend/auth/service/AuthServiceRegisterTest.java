@@ -11,6 +11,7 @@ import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
+import com.Coming.Backend.auth.exception.BirthYearRequiredException;
 import com.Coming.Backend.auth.exception.NicknameDuplicateException;
 import com.Coming.Backend.auth.exception.NicknameTooLongException;
 import com.Coming.Backend.auth.exception.TermsNotAgreedException;
@@ -136,6 +137,18 @@ class AuthServiceRegisterTest {
         assertThatThrownBy(() -> authService.register(USER_ID, request))
                 .isInstanceOf(NicknameDuplicateException.class)
                 .hasMessage(ErrorCode.NICKNAME_DUPLICATE.getMessage());
+    }
+
+    @Test
+    void should_throw_birth_year_required_exception_when_birth_year_is_null() {
+        // given
+        RegisterRequest request = new RegisterRequest("IU", null, true, true, false);
+        given(userRepository.existsByNickname("IU")).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.register(USER_ID, request))
+                .isInstanceOf(BirthYearRequiredException.class)
+                .hasMessage(ErrorCode.BIRTH_YEAR_REQUIRED.getMessage());
     }
 
     @Test

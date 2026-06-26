@@ -21,6 +21,7 @@ public enum ErrorCode {
     NICKNAME_TOO_LONG(HttpStatus.BAD_REQUEST, "닉네임은 20자를 초과할 수 없습니다."),
     NICKNAME_DUPLICATE(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
     TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "필수 약관에 동의해야 합니다."),
+    BIRTH_YEAR_REQUIRED(HttpStatus.BAD_REQUEST, "생년은 필수입니다."),
 
     // Artist
     ARTIST_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 아티스트입니다."),
