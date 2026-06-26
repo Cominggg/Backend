@@ -1,6 +1,7 @@
 package com.Coming.Backend.auth.oauth2;
 
 import com.Coming.Backend.auth.entity.User;
+import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.jwt.JwtProvider;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,7 +47,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         tokenRepository.save(user.getId(), refreshToken, refreshTokenExpiry);
         addRefreshTokenCookie(response, refreshToken);
 
-        String redirectUrl = redirectBaseUri + "?isNewUser=" + oAuth2User.isNewUser();
+        String redirectUrl = redirectBaseUri + "?isNewUser=" + (user.getRole() == UserRole.PENDING);
         response.sendRedirect(redirectUrl);
     }
 

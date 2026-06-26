@@ -91,6 +91,23 @@ class OAuth2SuccessHandlerTest {
     }
 
     @Test
+    void should_redirect_with_isNewUser_true_when_returning_pending_user_logs_in() throws Exception {
+        // given — isNewUser 플래그가 false여도 role이 PENDING이면 isNewUser=true
+        CustomOAuth2User oAuth2User = new CustomOAuth2User(buildUser(UserRole.PENDING), Map.of(), false);
+        given(authentication.getPrincipal()).willReturn(oAuth2User);
+        given(jwtProvider.generateRefreshToken(1L)).willReturn("refresh-token-value");
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // when
+        oAuth2SuccessHandler.onAuthenticationSuccess(request, response, authentication);
+
+        // then
+        assertThat(response.getRedirectedUrl()).isEqualTo(REDIRECT_BASE_URI + "?isNewUser=true");
+    }
+
+    @Test
     void should_set_httpOnly_refresh_token_cookie_when_authentication_success() throws Exception {
         // given
         CustomOAuth2User oAuth2User = new CustomOAuth2User(buildUser(UserRole.USER), Map.of(), false);
