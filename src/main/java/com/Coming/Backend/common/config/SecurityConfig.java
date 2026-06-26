@@ -78,6 +78,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/auth/register").hasRole("PENDING")
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").hasAnyRole("USER", "ADMIN", "PENDING")
                         .requestMatchers("/api/auth/logout", "/api/auth/withdraw").hasAnyRole("USER", "ADMIN", "PENDING")
                         .anyRequest().hasAnyRole("USER", "ADMIN")
                 )
