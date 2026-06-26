@@ -13,6 +13,7 @@ import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.BirthYearRequiredException;
 import com.Coming.Backend.auth.exception.NicknameDuplicateException;
+import com.Coming.Backend.auth.exception.NicknameRequiredException;
 import com.Coming.Backend.auth.exception.NicknameTooLongException;
 import com.Coming.Backend.auth.exception.TermsNotAgreedException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
@@ -113,6 +114,28 @@ class AuthServiceRegisterTest {
         assertThatThrownBy(() -> authService.register(USER_ID, request))
                 .isInstanceOf(TermsNotAgreedException.class)
                 .hasMessage(ErrorCode.TERMS_NOT_AGREED.getMessage());
+    }
+
+    @Test
+    void should_throw_nickname_required_exception_when_nickname_is_null() {
+        // given
+        RegisterRequest request = new RegisterRequest(null, 1993, true, true, false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.register(USER_ID, request))
+                .isInstanceOf(NicknameRequiredException.class)
+                .hasMessage(ErrorCode.NICKNAME_REQUIRED.getMessage());
+    }
+
+    @Test
+    void should_throw_nickname_required_exception_when_nickname_is_blank() {
+        // given
+        RegisterRequest request = new RegisterRequest("   ", 1993, true, true, false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.register(USER_ID, request))
+                .isInstanceOf(NicknameRequiredException.class)
+                .hasMessage(ErrorCode.NICKNAME_REQUIRED.getMessage());
     }
 
     @Test

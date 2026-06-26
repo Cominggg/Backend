@@ -9,6 +9,7 @@ import com.Coming.Backend.auth.exception.ExpiredTokenException;
 import com.Coming.Backend.auth.exception.InvalidTokenException;
 import com.Coming.Backend.auth.exception.BirthYearRequiredException;
 import com.Coming.Backend.auth.exception.NicknameDuplicateException;
+import com.Coming.Backend.auth.exception.NicknameRequiredException;
 import com.Coming.Backend.auth.exception.NicknameTooLongException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
@@ -115,7 +116,10 @@ public class AuthService {
         if (!Boolean.TRUE.equals(request.agreedTerms()) || !Boolean.TRUE.equals(request.agreedPrivacy())) {
             throw new TermsNotAgreedException();
         }
-        if (request.nickname() != null && request.nickname().length() > 20) {
+        if (request.nickname() == null || request.nickname().isBlank()) {
+            throw new NicknameRequiredException();
+        }
+        if (request.nickname().length() > 20) {
             throw new NicknameTooLongException();
         }
         if (userRepository.existsByNickname(request.nickname())) {
