@@ -113,6 +113,21 @@ public class AuthService {
      */
     @Transactional
     public TokenResponse register(Long userId, RegisterRequest request) {
+        validateRegisterRequest(request);
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        user.completeRegistration(
+                request.nickname(),
+                request.birthYear(),
+                request.agreedTerms(),
+                request.agreedPrivacy(),
+                Boolean.TRUE.equals(request.agreedMarketing())
+        );
+        String accessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
+        log.info("회원가입 완료 — userId: {}", userId);
+        return new TokenResponse(accessToken);
+    }
+
+    private void validateRegisterRequest(RegisterRequest request) {
         if (!Boolean.TRUE.equals(request.agreedTerms()) || !Boolean.TRUE.equals(request.agreedPrivacy())) {
             throw new TermsNotAgreedException();
         }
@@ -128,17 +143,6 @@ public class AuthService {
         if (request.birthYear() == null) {
             throw new BirthYearRequiredException();
         }
-        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
-        user.completeRegistration(
-                request.nickname(),
-                request.birthYear(),
-                request.agreedTerms(),
-                request.agreedPrivacy(),
-                Boolean.TRUE.equals(request.agreedMarketing())
-        );
-        String accessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
-        log.info("회원가입 완료 — userId: {}", userId);
-        return new TokenResponse(accessToken);
     }
 
     /**
