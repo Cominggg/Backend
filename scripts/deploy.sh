@@ -23,7 +23,7 @@ fi
 
 echo "[deploy] $current → $next (:$next_port)"
 
-docker compose -f "$COMPOSE_FILE" pull "be-$next"
+timeout 300 docker compose -f "$COMPOSE_FILE" pull "be-$next"
 docker compose -f "$COMPOSE_FILE" up -d "be-$next"
 
 echo "[deploy] health check (최대 ${HEALTH_TIMEOUT}s) ..."

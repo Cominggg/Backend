@@ -37,7 +37,7 @@ jobs:
       DB_URL: jdbc:postgresql://localhost:5432/coming_test
       DB_USERNAME: coming
       DB_PASSWORD: coming
-      JWT_SECRET: test-secret-key-for-ci-minimum-32-characters-long
+      JWT_SECRET: dGVzdHNlY3JldGtleWZvcmNpbWluaW11bWxlbmd0aDMyY2hhcnM=
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       GOOGLE_CLIENT_ID: test
@@ -61,6 +61,7 @@ jobs:
         run: ./gradlew test --no-daemon
 
   build-image:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
