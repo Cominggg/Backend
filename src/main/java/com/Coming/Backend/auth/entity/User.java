@@ -77,6 +77,7 @@ public class User extends BaseTimeEntity {
 
     public void withdraw() {
         this.status = UserStatus.INACTIVE;
+        this.nickname = null;
     }
 
     public void reactivate() {

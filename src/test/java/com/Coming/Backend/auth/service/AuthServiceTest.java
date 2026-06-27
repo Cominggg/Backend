@@ -155,6 +155,7 @@ class AuthServiceTest {
 
         // then
         assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
+        assertThat(user.getNickname()).isNull();
         verify(userFollowArtistRepository).deleteByUserId(USER_ID);
         verify(userConcertCalendarRepository).deleteByUserId(USER_ID);
         verify(inquiryRepository).deleteByUserId(USER_ID);
