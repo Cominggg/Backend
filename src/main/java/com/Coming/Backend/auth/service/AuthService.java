@@ -1,14 +1,20 @@
 package com.Coming.Backend.auth.service;
 
 import com.Coming.Backend.auth.dto.MeResponse;
+import com.Coming.Backend.auth.dto.NicknameCheckResponse;
+import com.Coming.Backend.auth.dto.RegisterRequest;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.exception.ExpiredTokenException;
-import com.Coming.Backend.auth.exception.InvalidFileTypeException;
 import com.Coming.Backend.auth.exception.InvalidTokenException;
+import com.Coming.Backend.auth.exception.BirthYearRequiredException;
+import com.Coming.Backend.auth.exception.NicknameDuplicateException;
+import com.Coming.Backend.auth.exception.NicknameRequiredException;
 import com.Coming.Backend.auth.exception.NicknameTooLongException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
+import com.Coming.Backend.auth.entity.UserStatus;
+import com.Coming.Backend.auth.exception.TermsNotAgreedException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
@@ -19,9 +25,9 @@ import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
@@ -46,6 +52,9 @@ public class AuthService {
         validateStoredRefreshToken(userId, refreshToken);
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new RefreshTokenInvalidException();
+        }
         String newAccessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
         return new TokenResponse(newAccessToken);
     }
@@ -76,7 +85,7 @@ public class AuthService {
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         user.withdraw();
-        userRepository.flush();  // DB 반영 확인 후 Redis 쓰기 — 역순 부분 실패 방지
+        userRepository.flush();
         logout(accessToken, userId);
         log.info("회원 탈퇴 — userId: {}", userId);
     }
@@ -90,13 +99,10 @@ public class AuthService {
     }
 
     /**
-     * 닉네임을 수정한다. 프로필 이미지 파일이 전달되면 INVALID_FILE_TYPE을 반환한다.
+     * 닉네임을 수정한다.
      */
     @Transactional
-    public MeResponse updateMe(Long userId, String nickname, MultipartFile profileImage) {
-        if (profileImage != null && !profileImage.isEmpty()) {
-            throw new InvalidFileTypeException();
-        }
+    public MeResponse updateMe(Long userId, String nickname) {
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         if (nickname != null && nickname.length() > 20) {
             throw new NicknameTooLongException();
@@ -105,6 +111,56 @@ public class AuthService {
             user.updateNickname(nickname);
         }
         return toMeResponse(user);
+    }
+
+    /**
+     * 회원가입을 완료하고 USER 역할의 새 Access Token을 발급한다.
+     */
+    @Transactional
+    public TokenResponse register(Long userId, RegisterRequest request) {
+        validateRegisterRequest(request);
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        user.completeRegistration(
+                request.nickname(),
+                request.birthYear(),
+                request.agreedTerms(),
+                request.agreedPrivacy(),
+                Boolean.TRUE.equals(request.agreedMarketing())
+        );
+        try {
+            userRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new NicknameDuplicateException();
+        }
+        String accessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
+        log.info("회원가입 완료 — userId: {}", userId);
+        return new TokenResponse(accessToken);
+    }
+
+    private void validateRegisterRequest(RegisterRequest request) {
+        if (!Boolean.TRUE.equals(request.agreedTerms()) || !Boolean.TRUE.equals(request.agreedPrivacy())) {
+            throw new TermsNotAgreedException();
+        }
+        if (request.nickname() == null || request.nickname().isBlank()) {
+            throw new NicknameRequiredException();
+        }
+        if (request.nickname().length() > 20) {
+            throw new NicknameTooLongException();
+        }
+        if (userRepository.existsByNickname(request.nickname())) {
+            throw new NicknameDuplicateException();
+        }
+        if (request.birthYear() == null) {
+            throw new BirthYearRequiredException();
+        }
+    }
+
+    /**
+     * 닉네임 중복 여부를 확인한다.
+     */
+    public NicknameCheckResponse checkNickname(String nickname) {
+        boolean available = !userRepository.existsByNickname(nickname);
+        return new NicknameCheckResponse(available);
     }
 
     private Long extractUserIdFromRefreshToken(String refreshToken) {
@@ -129,7 +185,7 @@ public class AuthService {
         return new MeResponse(
                 user.getId(),
                 user.getNickname(),
-                user.getProfileImageUrl(),
+                user.getBirthYear(),
                 user.getRole().name()
         );
     }

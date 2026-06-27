@@ -13,7 +13,6 @@ class KakaoOAuth2UserInfoTest {
         // given
         Map<String, Object> profileDetail = new HashMap<>();
         profileDetail.put("nickname", "IU");
-        profileDetail.put("profile_image_url", "https://example.com/profile.jpg");
 
         Map<String, Object> kakaoAccount = new HashMap<>();
         kakaoAccount.put("profile", profileDetail);
@@ -24,36 +23,25 @@ class KakaoOAuth2UserInfoTest {
 
         KakaoOAuth2UserInfo userInfo = new KakaoOAuth2UserInfo(attributes);
 
-        // when
-        String providerId = userInfo.getProviderId();
-        String nickname = userInfo.getNickname();
-        String profileImageUrl = userInfo.getProfileImageUrl();
-
-        // then
-        assertThat(providerId).isEqualTo("123456789");
-        assertThat(nickname).isEqualTo("IU");
-        assertThat(profileImageUrl).isEqualTo("https://example.com/profile.jpg");
+        // when & then
+        assertThat(userInfo.getProviderId()).isEqualTo("123456789");
+        assertThat(userInfo.getNickname()).isEqualTo("IU");
     }
 
     @Test
-    void should_return_null_nickname_and_profileImageUrl_when_kakao_account_key_absent() {
+    void should_return_null_nickname_when_kakao_account_key_absent() {
         // given
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("id", 123456789L);
 
         KakaoOAuth2UserInfo userInfo = new KakaoOAuth2UserInfo(attributes);
 
-        // when
-        String nickname = userInfo.getNickname();
-        String profileImageUrl = userInfo.getProfileImageUrl();
-
-        // then
-        assertThat(nickname).isNull();
-        assertThat(profileImageUrl).isNull();
+        // when & then
+        assertThat(userInfo.getNickname()).isNull();
     }
 
     @Test
-    void should_return_null_nickname_and_profileImageUrl_when_profile_key_absent() {
+    void should_return_null_nickname_when_profile_key_absent() {
         // given
         Map<String, Object> kakaoAccount = new HashMap<>();
 
@@ -63,12 +51,7 @@ class KakaoOAuth2UserInfoTest {
 
         KakaoOAuth2UserInfo userInfo = new KakaoOAuth2UserInfo(attributes);
 
-        // when
-        String nickname = userInfo.getNickname();
-        String profileImageUrl = userInfo.getProfileImageUrl();
-
-        // then
-        assertThat(nickname).isNull();
-        assertThat(profileImageUrl).isNull();
+        // when & then
+        assertThat(userInfo.getNickname()).isNull();
     }
 }
