@@ -78,4 +78,15 @@ public class User extends BaseTimeEntity {
     public void withdraw() {
         this.status = UserStatus.INACTIVE;
     }
+
+    public void reactivate() {
+        this.status = UserStatus.ACTIVE;
+        this.role = UserRole.PENDING;
+        this.nickname = null;
+        this.birthYear = null;
+        this.agreedTerms = null;
+        this.agreedPrivacy = null;
+        this.agreedMarketing = null;
+        this.agreedAt = null;
+    }
 }

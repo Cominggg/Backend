@@ -2,6 +2,7 @@ package com.Coming.Backend.auth.oauth2;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -10,6 +11,7 @@ import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.common.exception.ErrorCode;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -24,6 +26,7 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
 @ExtendWith(MockitoExtension.class)
@@ -70,7 +73,16 @@ class CustomOAuth2UserServiceTest {
                 boolean[] isNewUserRef) {
             Optional<User> existing = repo.findByProviderAndProviderId(provider, userInfo.getProviderId());
             if (existing.isPresent()) {
-                return existing.get();
+                User user = existing.get();
+                if (user.getStatus() == UserStatus.SUSPENDED) {
+                    throw new OAuth2AuthenticationException(
+                            new OAuth2Error(ErrorCode.USER_SUSPENDED.name()), "정지된 계정입니다.");
+                }
+                if (user.getStatus() == UserStatus.INACTIVE) {
+                    user.reactivate();
+                    isNewUserRef[0] = true;
+                }
+                return user;
             }
             isNewUserRef[0] = true;
             return repo.save(
@@ -200,6 +212,54 @@ class CustomOAuth2UserServiceTest {
         assertThat(userCaptor.getValue().getProvider()).isEqualTo("kakao");
         assertThat(userCaptor.getValue().getProviderId()).isEqualTo("99999");
         assertThat(userCaptor.getValue().getNickname()).isNull();
+    }
+
+    @Test
+    void should_reactivate_and_return_isNewUser_true_when_inactive_user_logs_in() {
+        // given
+        User inactiveUser = User.builder()
+                .provider("google")
+                .providerId("google-provider-id-001")
+                .role(UserRole.USER)
+                .status(UserStatus.INACTIVE)
+                .nickname("IU")
+                .birthYear(1993)
+                .build();
+
+        given(userRepository.findByProviderAndProviderId("google", "google-provider-id-001"))
+                .willReturn(Optional.of(inactiveUser));
+
+        // when
+        OAuth2User result = googleService.loadUser(buildUserRequest("google"));
+
+        // then
+        CustomOAuth2User customUser = (CustomOAuth2User) result;
+        assertThat(customUser.isNewUser()).isTrue();
+        assertThat(customUser.getUser().getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(customUser.getUser().getRole()).isEqualTo(UserRole.PENDING);
+        assertThat(customUser.getUser().getNickname()).isNull();
+        assertThat(customUser.getUser().getBirthYear()).isNull();
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void should_throw_OAuth2AuthenticationException_when_suspended_user_logs_in() {
+        // given
+        User suspendedUser = User.builder()
+                .provider("google")
+                .providerId("google-provider-id-001")
+                .role(UserRole.USER)
+                .status(UserStatus.SUSPENDED)
+                .build();
+
+        given(userRepository.findByProviderAndProviderId("google", "google-provider-id-001"))
+                .willReturn(Optional.of(suspendedUser));
+
+        // when & then
+        assertThatThrownBy(() -> googleService.loadUser(buildUserRequest("google")))
+                .isInstanceOf(OAuth2AuthenticationException.class)
+                .extracting(e -> ((OAuth2AuthenticationException) e).getError().getErrorCode())
+                .isEqualTo(ErrorCode.USER_SUSPENDED.name());
     }
 
     @Test
