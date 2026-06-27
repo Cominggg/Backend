@@ -24,6 +24,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
 
+    private record UserResult(User user, boolean isNewUser) {}
+
     @Override
     @Transactional
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -32,9 +34,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         Map<String, Object> attributes = oAuth2User.getAttributes();
 
         OAuth2UserInfo userInfo = resolveUserInfo(provider, attributes);
-        boolean[] isNewUserRef = {false};
-        User user = findOrCreateUser(provider, userInfo, isNewUserRef);
-        return new CustomOAuth2User(user, attributes, isNewUserRef[0]);
+        UserResult result = findOrCreateUser(provider, userInfo);
+        return new CustomOAuth2User(result.user(), attributes, result.isNewUser());
     }
 
     private OAuth2UserInfo resolveUserInfo(String provider, Map<String, Object> attributes) {
@@ -45,7 +46,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         };
     }
 
-    private User findOrCreateUser(String provider, OAuth2UserInfo userInfo, boolean[] isNewUserRef) {
+    private UserResult findOrCreateUser(String provider, OAuth2UserInfo userInfo) {
         Optional<User> existing = userRepository.findByProviderAndProviderId(provider, userInfo.getProviderId());
         if (existing.isPresent()) {
             User user = existing.get();
@@ -57,19 +58,18 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             if (user.getStatus() == UserStatus.INACTIVE) {
                 log.info("탈퇴 후 재가입 처리 — userId: {}", user.getId());
                 user.reactivate();
-                isNewUserRef[0] = true;
+                return new UserResult(user, true);
             }
-            return user;
+            return new UserResult(user, false);
         }
         log.info("신규 OAuth2 사용자 생성 — provider: {}, providerId: {}", provider, userInfo.getProviderId());
-        isNewUserRef[0] = true;
-        return userRepository.save(
+        return new UserResult(userRepository.save(
                 User.builder()
                         .provider(provider)
                         .providerId(userInfo.getProviderId())
                         .role(UserRole.PENDING)
                         .status(UserStatus.ACTIVE)
                         .build()
-        );
+        ), true);
     }
 }

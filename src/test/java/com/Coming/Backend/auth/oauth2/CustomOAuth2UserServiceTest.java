@@ -51,13 +51,14 @@ class CustomOAuth2UserServiceTest {
             this.stubbedAttributes = stubbedAttributes;
         }
 
+        private record UserHolder(User user, boolean isNewUser) {}
+
         @Override
         public OAuth2User loadUser(OAuth2UserRequest userRequest) {
             String provider = userRequest.getClientRegistration().getRegistrationId();
             OAuth2UserInfo userInfo = resolveUserInfoForTest(provider, stubbedAttributes);
-            boolean[] isNewUserRef = {false};
-            User user = findOrCreateUserForTest(provider, userInfo, isNewUserRef);
-            return new CustomOAuth2User(user, stubbedAttributes, isNewUserRef[0]);
+            UserHolder holder = findOrCreateUserForTest(provider, userInfo);
+            return new CustomOAuth2User(holder.user(), stubbedAttributes, holder.isNewUser());
         }
 
         private OAuth2UserInfo resolveUserInfoForTest(String provider,
@@ -69,8 +70,7 @@ class CustomOAuth2UserServiceTest {
             };
         }
 
-        private User findOrCreateUserForTest(String provider, OAuth2UserInfo userInfo,
-                boolean[] isNewUserRef) {
+        private UserHolder findOrCreateUserForTest(String provider, OAuth2UserInfo userInfo) {
             Optional<User> existing = repo.findByProviderAndProviderId(provider, userInfo.getProviderId());
             if (existing.isPresent()) {
                 User user = existing.get();
@@ -80,19 +80,18 @@ class CustomOAuth2UserServiceTest {
                 }
                 if (user.getStatus() == UserStatus.INACTIVE) {
                     user.reactivate();
-                    isNewUserRef[0] = true;
+                    return new UserHolder(user, true);
                 }
-                return user;
+                return new UserHolder(user, false);
             }
-            isNewUserRef[0] = true;
-            return repo.save(
+            return new UserHolder(repo.save(
                     User.builder()
                             .provider(provider)
                             .providerId(userInfo.getProviderId())
                             .role(UserRole.PENDING)
                             .status(UserStatus.ACTIVE)
                             .build()
-            );
+            ), true);
         }
     }
 
