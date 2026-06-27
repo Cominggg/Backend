@@ -4,17 +4,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.auth.dto.MeResponse;
+import com.Coming.Backend.auth.dto.RegisterRequest;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.ExpiredTokenException;
+import com.Coming.Backend.auth.exception.NicknameDuplicateException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
@@ -102,6 +106,46 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
                 .isInstanceOf(RefreshTokenExpiredException.class)
                 .hasMessage(ErrorCode.REFRESH_TOKEN_EXPIRED.getMessage());
+    }
+
+    @Test
+    void should_throw_RefreshTokenInvalidException_when_inactive_user_refreshes_token() {
+        // given
+        User inactiveUser = User.builder()
+                .id(USER_ID)
+                .role(UserRole.USER)
+                .status(UserStatus.INACTIVE)
+                .provider("google")
+                .providerId("google-123")
+                .build();
+        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
+        given(tokenRepository.find(USER_ID)).willReturn(Optional.of(REFRESH_TOKEN));
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(inactiveUser));
+
+        // when & then
+        assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
+                .isInstanceOf(RefreshTokenInvalidException.class)
+                .hasMessage(ErrorCode.REFRESH_TOKEN_INVALID.getMessage());
+    }
+
+    @Test
+    void should_throw_RefreshTokenInvalidException_when_suspended_user_refreshes_token() {
+        // given
+        User suspendedUser = User.builder()
+                .id(USER_ID)
+                .role(UserRole.USER)
+                .status(UserStatus.SUSPENDED)
+                .provider("google")
+                .providerId("google-123")
+                .build();
+        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
+        given(tokenRepository.find(USER_ID)).willReturn(Optional.of(REFRESH_TOKEN));
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(suspendedUser));
+
+        // when & then
+        assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
+                .isInstanceOf(RefreshTokenInvalidException.class)
+                .hasMessage(ErrorCode.REFRESH_TOKEN_INVALID.getMessage());
     }
 
     @Test
@@ -195,5 +239,30 @@ class AuthServiceTest {
         assertThat(response.nickname()).isEqualTo("새닉네임");
         assertThat(response.id()).isEqualTo(USER_ID);
         assertThat(response.role()).isEqualTo(UserRole.USER.name());
+    }
+
+    // -------------------------------------------------------------------------
+    // register
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_NicknameDuplicateException_when_nickname_conflict_occurs_on_register() {
+        // given
+        User user = User.builder()
+                .id(USER_ID)
+                .role(UserRole.PENDING)
+                .status(UserStatus.ACTIVE)
+                .provider("google")
+                .providerId("google-123")
+                .build();
+        RegisterRequest request = new RegisterRequest("IU", 1993, true, true, false);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(userRepository.existsByNickname("IU")).willReturn(false);
+        willThrow(DataIntegrityViolationException.class).given(userRepository).flush();
+
+        // when & then
+        assertThatThrownBy(() -> authService.register(USER_ID, request))
+                .isInstanceOf(NicknameDuplicateException.class)
+                .hasMessage(ErrorCode.NICKNAME_DUPLICATE.getMessage());
     }
 }

@@ -13,6 +13,7 @@ import com.Coming.Backend.auth.exception.NicknameRequiredException;
 import com.Coming.Backend.auth.exception.NicknameTooLongException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
+import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.TermsNotAgreedException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
@@ -24,6 +25,7 @@ import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,9 @@ public class AuthService {
         validateStoredRefreshToken(userId, refreshToken);
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new RefreshTokenInvalidException();
+        }
         String newAccessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
         return new TokenResponse(newAccessToken);
     }
@@ -122,6 +127,11 @@ public class AuthService {
                 request.agreedPrivacy(),
                 Boolean.TRUE.equals(request.agreedMarketing())
         );
+        try {
+            userRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new NicknameDuplicateException();
+        }
         String accessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
         log.info("회원가입 완료 — userId: {}", userId);
         return new TokenResponse(accessToken);
