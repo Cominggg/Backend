@@ -30,6 +30,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Value("${jwt.refresh-token-expiry}")
     private long refreshTokenExpiry;
 
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
+
     public OAuth2SuccessHandler(JwtProvider jwtProvider, TokenRepository tokenRepository) {
         this.jwtProvider = jwtProvider;
         this.tokenRepository = tokenRepository;
@@ -54,7 +57,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(REFRESH_TOKEN_COOKIE_MAX_AGE)
                 .sameSite("Lax")
