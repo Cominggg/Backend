@@ -10,7 +10,7 @@ set -euo pipefail
 COMPOSE_FILE="$HOME/compose/docker-compose.yml"
 SLOT_FILE="$HOME/compose/active_slot"
 NGINX_UPSTREAM="/etc/nginx/conf.d/upstream.conf"
-HEALTH_TIMEOUT=30
+HEALTH_TIMEOUT=90
 
 current=$(cat "$SLOT_FILE" 2>/dev/null || echo "blue")
 if [ "$current" = "blue" ]; then
