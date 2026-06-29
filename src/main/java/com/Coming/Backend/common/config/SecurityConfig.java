@@ -67,7 +67,8 @@ public class SecurityConfig {
                                 "/api/auth/callback/**",
                                 "/api/auth/refresh",
                                 "/api/auth/check-nickname",
-                                "/api/dev/**"
+                                "/api/dev/**",
+                                "/actuator/health"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/artists/following").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.GET,
