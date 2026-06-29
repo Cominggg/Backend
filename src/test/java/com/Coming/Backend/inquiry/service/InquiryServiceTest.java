@@ -12,6 +12,7 @@ import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.inquiry.dto.InquiryCreateRequest;
 import com.Coming.Backend.inquiry.dto.InquiryDetailResponse;
+import com.Coming.Backend.inquiry.dto.InquiryExistsResponse;
 import com.Coming.Backend.inquiry.dto.InquiryListItemResponse;
 import com.Coming.Backend.inquiry.entity.Inquiry;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
@@ -266,5 +267,35 @@ class InquiryServiceTest {
         assertThatThrownBy(() -> inquiryService.getMyInquiryDetail(USER_ID, INQUIRY_ID))
                 .isInstanceOf(InquiryNotFoundException.class)
                 .hasMessage(ErrorCode.INQUIRY_NOT_FOUND.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // existsPendingInquiry
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_exists_true_when_pending_inquiry_exists() {
+        // given
+        given(inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(
+                USER_ID, TARGET_ID, InquiryType.CONCERT, InquiryStatus.PENDING)).willReturn(true);
+
+        // when
+        InquiryExistsResponse response = inquiryService.existsPendingInquiry(USER_ID, InquiryType.CONCERT, TARGET_ID);
+
+        // then
+        assertThat(response.exists()).isTrue();
+    }
+
+    @Test
+    void should_return_exists_false_when_no_pending_inquiry() {
+        // given
+        given(inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(
+                USER_ID, TARGET_ID, InquiryType.ARTIST, InquiryStatus.PENDING)).willReturn(false);
+
+        // when
+        InquiryExistsResponse response = inquiryService.existsPendingInquiry(USER_ID, InquiryType.ARTIST, TARGET_ID);
+
+        // then
+        assertThat(response.exists()).isFalse();
     }
 }

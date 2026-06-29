@@ -14,6 +14,7 @@ import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.dto.InquiryDetailResponse;
+import com.Coming.Backend.inquiry.dto.InquiryExistsResponse;
 import com.Coming.Backend.inquiry.dto.InquiryListItemResponse;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
@@ -187,5 +188,39 @@ class UserControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(ErrorCode.INQUIRY_NOT_FOUND.name()))
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/me/inquiries/exists
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_exists_true_when_pending_inquiry_found() throws Exception {
+        // given
+        given(inquiryService.existsPendingInquiry(isNull(), eq(InquiryType.CONCERT), eq(1L)))
+                .willReturn(new InquiryExistsResponse(true));
+
+        // when & then
+        mockMvc.perform(get("/api/me/inquiries/exists")
+                        .param("type", "CONCERT")
+                        .param("targetId", "1")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.exists").value(true));
+    }
+
+    @Test
+    void should_return_200_with_exists_false_when_no_pending_inquiry() throws Exception {
+        // given
+        given(inquiryService.existsPendingInquiry(isNull(), eq(InquiryType.ARTIST), eq(2L)))
+                .willReturn(new InquiryExistsResponse(false));
+
+        // when & then
+        mockMvc.perform(get("/api/me/inquiries/exists")
+                        .param("type", "ARTIST")
+                        .param("targetId", "2")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.exists").value(false));
     }
 }
