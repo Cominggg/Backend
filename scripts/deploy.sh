@@ -2,7 +2,7 @@
 # 블루-그린 배포 스크립트
 # 전제조건:
 #   - ~/compose/docker-compose.yml: be-blue(:8080), be-green(:8081), redis 서비스 정의
-#   - ~/compose/.env: 앱 환경변수
+#   - ~/compose/be.env: 앱 환경변수
 #   - /etc/nginx/conf.d/upstream.conf: coming_backend upstream 정의
 #   - deploy 유저가 nginx 명령에 대해 passwordless sudo 보유
 set -euo pipefail
