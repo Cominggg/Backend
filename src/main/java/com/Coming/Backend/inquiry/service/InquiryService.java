@@ -5,6 +5,7 @@ import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.inquiry.dto.InquiryCreateRequest;
 import com.Coming.Backend.inquiry.dto.InquiryDetailResponse;
+import com.Coming.Backend.inquiry.dto.InquiryExistsResponse;
 import com.Coming.Backend.inquiry.dto.InquiryListItemResponse;
 import com.Coming.Backend.inquiry.entity.Inquiry;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
@@ -71,6 +72,15 @@ public class InquiryService {
         Inquiry inquiry = inquiryRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(InquiryNotFoundException::new);
         return InquiryDetailResponse.from(inquiry);
+    }
+
+    /**
+     * 해당 type·targetId 조합으로 PENDING 상태 문의가 존재하는지 조회한다.
+     */
+    public InquiryExistsResponse existsPendingInquiry(Long userId, InquiryType type, Long targetId) {
+        boolean exists = inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(
+                userId, targetId, type, InquiryStatus.PENDING);
+        return new InquiryExistsResponse(exists);
     }
 
     private void validateTargetExists(InquiryType type, Long targetId) {
