@@ -106,7 +106,7 @@ public class ConcertService {
         if (setlists.isEmpty()) {
             return new SetlistResponse(List.of(), null);
         }
-        Setlist setlist = setlists.get(0);
+        Setlist setlist = setlists.getFirst();
         List<SetlistTrackDto> tracks = setlistTrackRepository
                 .findBySetlistIdOrderByPosition(setlist.getId()).stream()
                 .map(t -> new SetlistTrackDto(t.getPosition(), t.getSongName()))

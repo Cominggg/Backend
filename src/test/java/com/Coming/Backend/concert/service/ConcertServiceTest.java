@@ -594,6 +594,50 @@ class ConcertServiceTest {
     }
 
     @Test
+    void should_return_source_url_when_setlist_has_attribution_url() {
+        // given
+        String attributionUrl = "https://www.setlist.fm/setlist/yoasobi/2025/kspo-dome-1a2b3c4d.html";
+        Setlist setlist = Setlist.builder()
+                .id(1L)
+                .concertId(CONCERT_ID)
+                .setlistFmId("setlist-fm-001")
+                .collectedAt(LocalDateTime.now())
+                .attributionUrl(attributionUrl)
+                .build();
+
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
+        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of());
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result.sourceUrl()).isEqualTo(attributionUrl);
+    }
+
+    @Test
+    void should_return_null_source_url_when_setlist_has_no_attribution_url() {
+        // given
+        Setlist setlist = Setlist.builder()
+                .id(1L)
+                .concertId(CONCERT_ID)
+                .setlistFmId("setlist-fm-001")
+                .collectedAt(LocalDateTime.now())
+                .build();
+
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
+        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of());
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result.sourceUrl()).isNull();
+    }
+
+    @Test
     void should_return_empty_tracks_when_no_setlist_exists_for_concert() {
         // given
         given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
@@ -604,6 +648,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(result.tracks()).isEmpty();
+        assertThat(result.sourceUrl()).isNull();
     }
 
     @Test
