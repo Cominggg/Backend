@@ -71,6 +71,7 @@ public class SecurityConfig {
                                 "/actuator/health"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/artists/following").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/concerts/following").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.GET,
                                 "/api/artists/**",
                                 "/api/concerts/**",

@@ -4,8 +4,10 @@ import com.Coming.Backend.calendar.dto.CalendarEntryResponse;
 import com.Coming.Backend.calendar.service.CalendarService;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.dto.InquiryDetailResponse;
+import com.Coming.Backend.inquiry.dto.InquiryExistsResponse;
 import com.Coming.Backend.inquiry.dto.InquiryListItemResponse;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
+import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.service.InquiryService;
 import com.Coming.Backend.user.dto.ConcertHistoryResponse;
 import com.Coming.Backend.user.service.UserService;
@@ -50,6 +52,15 @@ public class UserController {
             @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 10, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(userService.getHistory(userId, pageable));
+    }
+
+    @Operation(summary = "PENDING 문의 존재 여부 조회")
+    @GetMapping("/inquiries/exists")
+    public ResponseEntity<InquiryExistsResponse> checkInquiryExists(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam InquiryType type,
+            @RequestParam Long targetId) {
+        return ResponseEntity.ok(inquiryService.existsPendingInquiry(userId, type, targetId));
     }
 
     @Operation(summary = "내 문의 목록 조회")
