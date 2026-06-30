@@ -13,6 +13,8 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -40,16 +42,19 @@ public class SecurityConfig {
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
     private final ObjectMapper objectMapper;
+    private final Environment environment;
 
     public SecurityConfig(JwtProvider jwtProvider, BlacklistRepository blacklistRepository,
             CustomOAuth2UserService oAuth2UserService, OAuth2SuccessHandler oAuth2SuccessHandler,
-            OAuth2FailureHandler oAuth2FailureHandler, ObjectMapper objectMapper) {
+            OAuth2FailureHandler oAuth2FailureHandler, ObjectMapper objectMapper,
+            Environment environment) {
         this.jwtProvider = jwtProvider;
         this.blacklistRepository = blacklistRepository;
         this.oAuth2UserService = oAuth2UserService;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
         this.oAuth2FailureHandler = oAuth2FailureHandler;
         this.objectMapper = objectMapper;
+        this.environment = environment;
     }
 
     @Bean
@@ -59,31 +64,32 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/api/auth/login/**",
-                                "/api/auth/callback/**",
-                                "/api/auth/refresh",
-                                "/api/auth/check-nickname",
-                                "/api/dev/**",
-                                "/actuator/health"
-                        ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/artists/following").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/concerts/following").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/artists/**",
-                                "/api/concerts/**",
-                                "/api/releases/**",
-                                "/api/calendar"
-                        ).permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/auth/register").hasRole("PENDING")
-                        .requestMatchers(HttpMethod.GET, "/api/auth/me").hasAnyRole("USER", "ADMIN", "PENDING")
-                        .requestMatchers("/api/auth/logout", "/api/auth/withdraw").hasAnyRole("USER", "ADMIN", "PENDING")
-                        .anyRequest().hasAnyRole("USER", "ADMIN")
-                )
+                .authorizeHttpRequests(auth -> {
+                    if (environment.acceptsProfiles(Profiles.of("local"))) {
+                        auth.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api/dev/**").permitAll();
+                    }
+                    auth
+                            .requestMatchers(
+                                    "/api/auth/login/**",
+                                    "/api/auth/callback/**",
+                                    "/api/auth/refresh",
+                                    "/api/auth/check-nickname",
+                                    "/actuator/health"
+                            ).permitAll()
+                            .requestMatchers(HttpMethod.GET, "/api/artists/following").hasAnyRole("USER", "ADMIN")
+                            .requestMatchers(HttpMethod.GET, "/api/concerts/following").hasAnyRole("USER", "ADMIN")
+                            .requestMatchers(HttpMethod.GET,
+                                    "/api/artists/**",
+                                    "/api/concerts/**",
+                                    "/api/releases/**",
+                                    "/api/calendar"
+                            ).permitAll()
+                            .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                            .requestMatchers("/api/auth/register").hasRole("PENDING")
+                            .requestMatchers(HttpMethod.GET, "/api/auth/me").hasAnyRole("USER", "ADMIN", "PENDING")
+                            .requestMatchers("/api/auth/logout", "/api/auth/withdraw").hasAnyRole("USER", "ADMIN", "PENDING")
+                            .anyRequest().hasAnyRole("USER", "ADMIN");
+                })
                 .oauth2Login(oauth2 -> oauth2
                         .redirectionEndpoint(endpoint -> endpoint.baseUri("/api/auth/callback/*"))
                         .userInfoEndpoint(userInfo -> userInfo.userService(oAuth2UserService))
