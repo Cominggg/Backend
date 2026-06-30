@@ -6,6 +6,7 @@ import com.Coming.Backend.artist.dto.ArtistLinkDto;
 import com.Coming.Backend.artist.dto.ArtistSummaryResponse;
 import com.Coming.Backend.artist.dto.FollowingArtistResponse;
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistUrl;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.exception.AlreadyFollowingException;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
@@ -27,7 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
 import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
@@ -71,13 +74,19 @@ public class ArtistService {
         boolean hasName = name != null && !name.isBlank();
         Page<Artist> page = fetchArtists(hasName, isComing, filterIds, name, pageable);
 
+        List<Long> artistIds = page.getContent().stream().map(Artist::getId).toList();
+        Map<Long, String> spotifyUrlMap = artistUrlRepository.findByArtistIdInAndType(artistIds, "spotify")
+                .stream()
+                .collect(Collectors.toMap(ArtistUrl::getArtistId, ArtistUrl::getUrl));
+
         Set<Long> followingIdSet = new HashSet<>(followingIds);
         return PageResponse.from(page.map(artist -> new ArtistSummaryResponse(
                 artist.getId(),
                 artist.getName(),
                 artist.getImageUrl(),
                 artist.isComing(),
-                followingIdSet.contains(artist.getId())
+                followingIdSet.contains(artist.getId()),
+                spotifyUrlMap.get(artist.getId())
         )));
     }
 

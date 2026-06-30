@@ -73,7 +73,7 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_artist_list_when_no_name_filter() throws Exception {
         // given
-        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false);
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false, null);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
         given(artistService.getArtists(isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
@@ -93,7 +93,7 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_filtered_artist_list_when_name_given() throws Exception {
         // given
-        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false);
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false, null);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
         given(artistService.getArtists(eq("yoa"), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
