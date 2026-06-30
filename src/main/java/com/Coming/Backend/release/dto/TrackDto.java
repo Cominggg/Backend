@@ -7,7 +7,8 @@ public record TrackDto(
         String title,
         Integer lengthMs,
         Integer discNumber,
-        Boolean explicit
+        Boolean explicit,
+        String spotifyId
 ) {
     public static TrackDto from(Track track) {
         return new TrackDto(
@@ -15,7 +16,8 @@ public record TrackDto(
                 track.getTitle(),
                 track.getLengthMs(),
                 track.getDiscNumber(),
-                track.getExplicit()
+                track.getExplicit(),
+                track.getSpotifyId()
         );
     }
 }

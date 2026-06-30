@@ -11,6 +11,7 @@ public record ArtistReleaseItemResponse(
         String type,
         LocalDate releaseDate,
         String coverUrl,
+        String spotifyId,
         List<TrackDto> tracks
 ) {
     public static ArtistReleaseItemResponse of(ReleaseGroup release, List<TrackDto> tracks) {
@@ -20,6 +21,7 @@ public record ArtistReleaseItemResponse(
                 release.getType(),
                 release.getFirstReleaseDate(),
                 release.getCoverUrl(),
+                release.getSpotifyId(),
                 tracks
         );
     }
