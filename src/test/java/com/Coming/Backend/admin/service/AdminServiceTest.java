@@ -536,7 +536,7 @@ class AdminServiceTest {
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
         Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
         ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
-                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).build();
 
         given(concertRepository.findByStatus(ConcertStatus.PENDING, PAGEABLE)).willReturn(page);
         given(concertArtistCandidateRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of(candidate));
@@ -552,7 +552,6 @@ class AdminServiceTest {
         assertThat(response.content().get(0).candidates()).hasSize(1);
         assertThat(response.content().get(0).candidates().get(0).artistId()).isEqualTo(ARTIST_ID);
         assertThat(response.content().get(0).candidates().get(0).name()).isEqualTo("YOASOBI");
-        assertThat(response.content().get(0).candidates().get(0).matchedBy()).isEqualTo("kopis");
         assertThat(response.content().get(0).bookingLinks()).isEmpty();
     }
 
@@ -624,7 +623,7 @@ class AdminServiceTest {
         ReflectionTestUtils.setField(concert, "endDate", LocalDate.now().plusDays(12));
         Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
         ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
-                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
         given(concertArtistCandidateRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(candidate));
@@ -648,7 +647,7 @@ class AdminServiceTest {
         ReflectionTestUtils.setField(concert, "startDate", LocalDate.now().minusDays(5));
         ReflectionTestUtils.setField(concert, "endDate", LocalDate.now().minusDays(3));
         ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
-                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).build();
         Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
@@ -684,7 +683,7 @@ class AdminServiceTest {
         LocalDateTime ticketOpenAt = LocalDateTime.of(2026, 7, 1, 10, 0);
         AdminConcertApproveRequest request = new AdminConcertApproveRequest(ticketOpenAt, null);
         ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
-                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).build();
         Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
@@ -710,7 +709,7 @@ class AdminServiceTest {
                 List.of(new BookingLinkRequest("인터파크", "https://interpark.com"))
         );
         ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
-                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).build();
         Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
@@ -732,7 +731,7 @@ class AdminServiceTest {
         ReflectionTestUtils.setField(concert, "startDate", LocalDate.now().plusDays(10));
         ReflectionTestUtils.setField(concert, "endDate", LocalDate.now().plusDays(12));
         ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
-                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).matchedBy("kopis").build();
+                .id(1L).concertId(CONCERT_ID).artistId(ARTIST_ID).build();
         Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("YOASOBI").isComing(false).build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
