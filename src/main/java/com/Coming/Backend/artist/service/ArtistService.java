@@ -75,7 +75,7 @@ public class ArtistService {
         Page<Artist> page = fetchArtists(hasName, isComing, filterIds, name, pageable);
 
         List<Long> artistIds = page.getContent().stream().map(Artist::getId).toList();
-        Map<Long, String> spotifyUrlMap = artistUrlRepository.findByArtistIdInAndType(artistIds, "spotify")
+        Map<Long, String> spotifyUrlMap = artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(artistIds, "spotify")
                 .stream()
                 .collect(Collectors.toMap(ArtistUrl::getArtistId, ArtistUrl::getUrl));
 

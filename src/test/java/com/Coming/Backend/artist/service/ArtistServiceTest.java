@@ -98,7 +98,7 @@ class ArtistServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
         Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
         given(artistRepository.findAll(PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, null, PAGEABLE, null);
@@ -116,7 +116,7 @@ class ArtistServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
         Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
         given(artistRepository.findByNameOrAliasContainingIgnoreCase("yoa", PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists("yoa", null, null, PAGEABLE, null);
@@ -132,7 +132,7 @@ class ArtistServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "아이유");
         Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
         given(artistRepository.findByNameOrAliasContainingIgnoreCase("IU", PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", null, null, PAGEABLE, null);
@@ -153,7 +153,7 @@ class ArtistServiceTest {
                 .build();
         given(artistRepository.findAll(PAGEABLE)).willReturn(page);
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, null, PAGEABLE, USER_ID);
@@ -168,7 +168,7 @@ class ArtistServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
         given(artistRepository.findByIsComing(true, PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, true, null, PAGEABLE, null);
@@ -185,7 +185,7 @@ class ArtistServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "Unknown Artist");
         Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
         given(artistRepository.findByIsComing(false, PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, false, null, PAGEABLE, null);
@@ -203,7 +203,7 @@ class ArtistServiceTest {
         UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
         given(artistRepository.findAllByIdIn(List.of(ARTIST_ID), PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, true, PAGEABLE, USER_ID);
@@ -245,7 +245,7 @@ class ArtistServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
         given(artistRepository.findByIsComingAndNameOrAliasContainingIgnoreCase(true, "IU", PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", true, null, PAGEABLE, null);
@@ -263,7 +263,7 @@ class ArtistServiceTest {
         UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
         given(artistRepository.findByIdInAndNameOrAliasContainingIgnoreCase(List.of(ARTIST_ID), "IU", PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", null, true, PAGEABLE, USER_ID);
@@ -281,7 +281,7 @@ class ArtistServiceTest {
         UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
         given(artistRepository.findByIsComingAndIdIn(true, List.of(ARTIST_ID), PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, true, true, PAGEABLE, USER_ID);
@@ -299,7 +299,7 @@ class ArtistServiceTest {
         UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
         given(artistRepository.findByIsComingAndIdInAndNameOrAliasContainingIgnoreCase(true, List.of(ARTIST_ID), "IU", PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(anyList(), anyString())).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(anyList(), anyString())).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists("IU", true, true, PAGEABLE, USER_ID);
@@ -320,7 +320,7 @@ class ArtistServiceTest {
                 .url("https://open.spotify.com/artist/xyz")
                 .build();
         given(artistRepository.findAll(PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(List.of(ARTIST_ID), "spotify")).willReturn(List.of(spotifyUrl));
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(List.of(ARTIST_ID), "spotify")).willReturn(List.of(spotifyUrl));
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, null, PAGEABLE, null);
@@ -335,7 +335,7 @@ class ArtistServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
         Page<Artist> page = new PageImpl<>(List.of(artist), PAGEABLE, 1);
         given(artistRepository.findAll(PAGEABLE)).willReturn(page);
-        given(artistUrlRepository.findByArtistIdInAndType(List.of(ARTIST_ID), "spotify")).willReturn(List.of());
+        given(artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(List.of(ARTIST_ID), "spotify")).willReturn(List.of());
 
         // when
         PageResponse<ArtistSummaryResponse> response = artistService.getArtists(null, null, null, PAGEABLE, null);
