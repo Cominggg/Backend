@@ -300,6 +300,7 @@ public class AdminService {
                 concert.update(null, null, null, null, null, null, null, request.ticketOpenAt());
             }
             if (request.bookingLinks() != null && !request.bookingLinks().isEmpty()) {
+                concertBookingLinkRepository.deleteByConcertId(concertId);
                 List<ConcertBookingLink> links = request.bookingLinks().stream()
                         .map(link -> ConcertBookingLink.builder()
                                 .concertId(concertId)
