@@ -61,7 +61,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU",
-                "LILAC", "Album", LocalDate.of(2021, 3, 25)
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -87,7 +87,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU",
-                "LILAC", "Album", LocalDate.of(2021, 3, 25)
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -109,7 +109,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU",
-                "LILAC", "Album", LocalDate.of(2021, 3, 25)
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -148,7 +148,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU",
-                "LILAC", "Single", LocalDate.of(2021, 3, 25)
+                "LILAC", "Single", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -173,7 +173,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU",
-                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25)
+                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -198,7 +198,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU",
-                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25)
+                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -220,7 +220,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU",
-                "Live at Seoul", "LIVE", LocalDate.of(2023, 8, 1)
+                "Live at Seoul", "LIVE", LocalDate.of(2023, 8, 1), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -242,7 +242,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU",
-                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25)
+                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -267,12 +267,12 @@ class ReleaseControllerTest {
     @Test
     void should_return_200_with_release_detail_when_release_exists() throws Exception {
         // given
-        TrackDto track1 = new TrackDto(1, "Coin", 196000, 1, false);
-        TrackDto track2 = new TrackDto(2, "Celebrity", 197000, 1, false);
+        TrackDto track1 = new TrackDto(1, "Coin", 196000, 1, false, null);
+        TrackDto track2 = new TrackDto(2, "Celebrity", 197000, 1, false, null);
         ReleaseDetailResponse detail = new ReleaseDetailResponse(
                 RELEASE_ID, "LILAC", "Album", LocalDate.of(2021, 3, 25),
                 "https://cover.example.com/10", "KAKAO M", 2,
-                ARTIST_ID, "IU", List.of(track1, track2)
+                ARTIST_ID, "IU", null, List.of(track1, track2)
         );
         given(releaseService.getReleaseDetail(eq(RELEASE_ID))).willReturn(detail);
 

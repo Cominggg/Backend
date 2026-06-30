@@ -73,7 +73,7 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_artist_list_when_no_name_filter() throws Exception {
         // given
-        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false);
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false, null);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
         given(artistService.getArtists(isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
@@ -93,7 +93,7 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_filtered_artist_list_when_name_given() throws Exception {
         // given
-        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false);
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false, null);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
         given(artistService.getArtists(eq("yoa"), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
@@ -269,10 +269,10 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_artist_releases_when_no_type_filter() throws Exception {
         // given
-        TrackDto track = new TrackDto(1, "Idol", 210000, 1, false);
+        TrackDto track = new TrackDto(1, "Idol", 210000, 1, false, null);
         ArtistReleaseItemResponse item = new ArtistReleaseItemResponse(
                 1L, "LILAC", "ALBUM", LocalDate.of(2021, 3, 25),
-                "https://cover.example.com/1", List.of(track)
+                "https://cover.example.com/1", null, List.of(track)
         );
         PageResponse<ArtistReleaseItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 10, 1, 1);

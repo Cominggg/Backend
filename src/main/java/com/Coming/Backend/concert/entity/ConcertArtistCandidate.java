@@ -32,7 +32,4 @@ public class ConcertArtistCandidate {
 
     @Column(name = "artist_id", nullable = false)
     private Long artistId;
-
-    @Column(name = "matched_by", nullable = false)
-    private String matchedBy;
 }

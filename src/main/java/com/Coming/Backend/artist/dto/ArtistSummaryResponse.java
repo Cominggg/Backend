@@ -5,6 +5,7 @@ public record ArtistSummaryResponse(
         String name,
         String imageUrl,
         boolean hasUpcomingConcert,
-        boolean isFollowing
+        boolean isFollowing,
+        String spotifyUrl
 ) {
 }

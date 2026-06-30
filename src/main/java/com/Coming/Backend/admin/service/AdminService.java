@@ -250,8 +250,7 @@ public class AdminService {
                             .getOrDefault(concert.getId(), List.of()).stream()
                             .map(c -> new AdminCandidateArtistResponse(
                                     c.getArtistId(),
-                                    artistNameById.get(c.getArtistId()),
-                                    c.getMatchedBy()))
+                                    artistNameById.get(c.getArtistId())))
                             .toList();
                     List<ConcertBookingLink> links = linksByConcertId.getOrDefault(concert.getId(), List.of());
                     return AdminPendingConcertResponse.of(concert, links, candidates);

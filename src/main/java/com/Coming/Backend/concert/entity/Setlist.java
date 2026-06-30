@@ -34,4 +34,7 @@ public class Setlist {
 
     @Column(name = "collected_at", nullable = false)
     private LocalDateTime collectedAt;
+
+    @Column(name = "attribution_url", columnDefinition = "text")
+    private String attributionUrl;
 }

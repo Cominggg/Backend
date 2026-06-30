@@ -8,4 +8,6 @@ import java.util.List;
 public interface ArtistUrlRepository extends JpaRepository<ArtistUrl, Long> {
 
     List<ArtistUrl> findByArtistId(Long artistId);
+
+    List<ArtistUrl> findByArtistIdInAndTypeIgnoreCase(List<Long> artistIds, String type);
 }

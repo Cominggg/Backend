@@ -10,7 +10,8 @@ public record ReleaseListItemResponse(
         String artistName,
         String title,
         String type,
-        LocalDate releaseDate
+        LocalDate releaseDate,
+        String spotifyId
 ) {
     public static ReleaseListItemResponse of(ReleaseGroup release, String artistName) {
         return new ReleaseListItemResponse(
@@ -19,7 +20,8 @@ public record ReleaseListItemResponse(
                 artistName,
                 release.getTitle(),
                 release.getType(),
-                release.getFirstReleaseDate()
+                release.getFirstReleaseDate(),
+                release.getSpotifyId()
         );
     }
 }

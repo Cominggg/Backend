@@ -104,13 +104,14 @@ public class ConcertService {
         }
         List<Setlist> setlists = setlistRepository.findByConcertIdOrderByCollectedAtDesc(concertId);
         if (setlists.isEmpty()) {
-            return new SetlistResponse(List.of());
+            return new SetlistResponse(List.of(), null);
         }
+        Setlist setlist = setlists.getFirst();
         List<SetlistTrackDto> tracks = setlistTrackRepository
-                .findBySetlistIdOrderByPosition(setlists.get(0).getId()).stream()
+                .findBySetlistIdOrderByPosition(setlist.getId()).stream()
                 .map(t -> new SetlistTrackDto(t.getPosition(), t.getSongName()))
                 .toList();
-        return new SetlistResponse(tracks);
+        return new SetlistResponse(tracks, setlist.getAttributionUrl());
     }
 
     /**
