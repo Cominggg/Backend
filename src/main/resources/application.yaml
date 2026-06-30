@@ -1,3 +1,6 @@
+server:
+  forward-headers-strategy: framework
+
 spring:
   application:
     name: Coming
@@ -67,6 +70,12 @@ app:
 data-pipeline:
   base-url: ${DATA_PIPELINE_BASE_URL:http://localhost:8000}
   secret: ${DATA_PIPELINE_SECRET:}
+
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
 
 management:
   endpoints:
