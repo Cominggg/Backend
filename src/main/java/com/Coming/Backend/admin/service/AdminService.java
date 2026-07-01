@@ -56,6 +56,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -83,7 +84,7 @@ public class AdminService {
     }
 
     /**
-     * 아티스트 정보를 수정한다. aliases가 전달된 경우 ja/en/ko locale alias를 교체한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
+     * 아티스트 정보를 수정한다. aliases가 전달된 경우 기존 alias와 diff를 계산해 추가·삭제한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
      */
     @Transactional
     public void updateArtist(Long id, AdminArtistUpdateRequest request) {
@@ -92,25 +93,46 @@ public class AdminService {
         artist.update(request.name(), request.sortName());
 
         if (request.aliases() != null) {
-            artistAliasRepository.deleteByArtistIdAndLocaleIn(id, List.of("ja", "en", "ko"));
-            artistAliasRepository.saveAll(buildAliasEntities(id, request.aliases()));
+            applyAliasesDiff(id, request.aliases());
         }
     }
 
-    private List<ArtistAlias> buildAliasEntities(Long artistId, AdminArtistUpdateRequest.AliasesRequest aliases) {
-        List<ArtistAlias> result = new ArrayList<>();
-        appendAliases(result, artistId, "ja", aliases.ja());
-        appendAliases(result, artistId, "en", aliases.en());
-        appendAliases(result, artistId, "ko", aliases.ko());
-        return result;
+    private void applyAliasesDiff(Long artistId, AdminArtistUpdateRequest.AliasesRequest aliases) {
+        Map<String, List<ArtistAlias>> existingByLocale = artistAliasRepository.findByArtistId(artistId)
+                .stream()
+                .filter(a -> a.getLocale() != null)
+                .collect(Collectors.groupingBy(ArtistAlias::getLocale));
+
+        List<ArtistAlias> toDelete = new ArrayList<>();
+        List<ArtistAlias> toInsert = new ArrayList<>();
+
+        collectLocaleDiff(artistId, "ja", aliases.ja(), existingByLocale.getOrDefault("ja", List.of()), toDelete, toInsert);
+        collectLocaleDiff(artistId, "en", aliases.en(), existingByLocale.getOrDefault("en", List.of()), toDelete, toInsert);
+        collectLocaleDiff(artistId, "ko", aliases.ko(), existingByLocale.getOrDefault("ko", List.of()), toDelete, toInsert);
+
+        if (!toDelete.isEmpty()) artistAliasRepository.deleteAll(toDelete);
+        if (!toInsert.isEmpty()) artistAliasRepository.saveAll(toInsert);
     }
 
-    private void appendAliases(List<ArtistAlias> result, Long artistId, String locale, List<String> names) {
-        if (names == null) return;
-        names.stream()
-                .filter(name -> name != null && !name.isBlank())
+    private void collectLocaleDiff(Long artistId, String locale, List<String> requested,
+            List<ArtistAlias> existing, List<ArtistAlias> toDelete, List<ArtistAlias> toInsert) {
+        if (requested == null) return;
+
+        Set<String> requestedNames = requested.stream()
+                .filter(n -> n != null && !n.isBlank())
+                .collect(Collectors.toSet());
+        Set<String> existingNames = existing.stream()
+                .map(ArtistAlias::getName)
+                .collect(Collectors.toSet());
+
+        existing.stream()
+                .filter(a -> !requestedNames.contains(a.getName()))
+                .forEach(toDelete::add);
+
+        requestedNames.stream()
+                .filter(name -> !existingNames.contains(name))
                 .map(name -> ArtistAlias.builder().artistId(artistId).name(name).locale(locale).build())
-                .forEach(result::add);
+                .forEach(toInsert::add);
     }
 
     /**

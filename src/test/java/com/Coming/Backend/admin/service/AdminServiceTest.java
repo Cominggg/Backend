@@ -191,45 +191,70 @@ class AdminServiceTest {
     }
 
     @Test
-    void should_upsert_multiple_aliases_per_locale_when_aliases_given() {
-        // given
+    void should_only_insert_new_aliases_and_not_reinsert_existing_ones() {
+        // given - DB: ja=["ヨアソビ"], 요청: ja=["ヨアソビ", "よあそび"] → "よあそび"만 추가
         Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        ArtistAlias existingJa = ArtistAlias.builder().artistId(1L).name("ヨアソビ").locale("ja").build();
         AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(
-                List.of("ヨアソビ", "よあそび"), List.of("YOASOBI"), null);
+                List.of("ヨアソビ", "よあそび"), List.of(), List.of());
         AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+        given(artistAliasRepository.findByArtistId(1L)).willReturn(List.of(existingJa));
 
         // when
         adminService.updateArtist(1L, request);
 
-        // then
-        verify(artistAliasRepository).deleteByArtistIdAndLocaleIn(eq(1L), any());
+        // then - 기존 "ヨアソビ"는 건드리지 않고, "よあそび"만 신규 저장
+        verify(artistAliasRepository, never()).deleteAll(any(List.class));
         ArgumentCaptor<List<ArtistAlias>> captor = ArgumentCaptor.forClass(List.class);
         verify(artistAliasRepository).saveAll(captor.capture());
-        assertThat(captor.getValue()).hasSize(3);
-        assertThat(captor.getValue()).anyMatch(a -> a.getLocale().equals("ja") && a.getName().equals("ヨアソビ"));
-        assertThat(captor.getValue()).anyMatch(a -> a.getLocale().equals("ja") && a.getName().equals("よあそび"));
-        assertThat(captor.getValue()).anyMatch(a -> a.getLocale().equals("en") && a.getName().equals("YOASOBI"));
-        assertThat(captor.getValue()).noneMatch(a -> a.getLocale().equals("ko"));
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue().get(0).getName()).isEqualTo("よあそび");
+        assertThat(captor.getValue().get(0).getLocale()).isEqualTo("ja");
     }
 
     @Test
-    void should_delete_all_locale_aliases_when_empty_lists_given() {
-        // given
+    void should_only_delete_removed_aliases_when_alias_removed_from_list() {
+        // given - DB: ja=["ヨアソビ", "よあそび"], 요청: ja=["ヨアソビ"] → "よあそび"만 삭제
         Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        ArtistAlias alias1 = ArtistAlias.builder().artistId(1L).name("ヨアソビ").locale("ja").build();
+        ArtistAlias alias2 = ArtistAlias.builder().artistId(1L).name("よあそび").locale("ja").build();
+        AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(
+                List.of("ヨアソビ"), List.of(), List.of());
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+        given(artistAliasRepository.findByArtistId(1L)).willReturn(List.of(alias1, alias2));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then - "よあそび"만 삭제, "ヨアソビ"는 그대로 유지
+        ArgumentCaptor<List<ArtistAlias>> deleteCaptor = ArgumentCaptor.forClass(List.class);
+        verify(artistAliasRepository).deleteAll(deleteCaptor.capture());
+        assertThat(deleteCaptor.getValue()).hasSize(1);
+        assertThat(deleteCaptor.getValue().get(0).getName()).isEqualTo("よあそび");
+        verify(artistAliasRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void should_delete_all_locale_aliases_when_empty_list_given() {
+        // given - DB: ja=["ヨアソビ"], 요청: ja=[] → 전체 삭제
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        ArtistAlias existing = ArtistAlias.builder().artistId(1L).name("ヨアソビ").locale("ja").build();
         AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(
                 List.of(), List.of(), List.of());
         AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+        given(artistAliasRepository.findByArtistId(1L)).willReturn(List.of(existing));
 
         // when
         adminService.updateArtist(1L, request);
 
         // then
-        verify(artistAliasRepository).deleteByArtistIdAndLocaleIn(eq(1L), any());
         ArgumentCaptor<List<ArtistAlias>> captor = ArgumentCaptor.forClass(List.class);
-        verify(artistAliasRepository).saveAll(captor.capture());
-        assertThat(captor.getValue()).isEmpty();
+        verify(artistAliasRepository).deleteAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        verify(artistAliasRepository, never()).saveAll(any());
     }
 
     @Test
@@ -243,7 +268,8 @@ class AdminServiceTest {
         adminService.updateArtist(1L, request);
 
         // then
-        verify(artistAliasRepository, never()).deleteByArtistIdAndLocaleIn(any(), any());
+        verify(artistAliasRepository, never()).findByArtistId(any());
+        verify(artistAliasRepository, never()).deleteAll(any(List.class));
         verify(artistAliasRepository, never()).saveAll(any());
     }
 
