@@ -12,19 +12,22 @@ public record AdminArtistDetailResponse(
         String name,
         AliasesDto aliases
 ) {
-    public record AliasesDto(String ja, String en, String ko) {}
+    public record AliasesDto(List<String> ja, List<String> en, List<String> ko) {}
 
     public static AdminArtistDetailResponse of(Artist artist, List<ArtistAlias> aliases) {
-        Map<String, String> aliasMap = aliases.stream()
+        Map<String, List<String>> aliasMap = aliases.stream()
                 .filter(a -> a.getLocale() != null)
-                .collect(Collectors.toMap(ArtistAlias::getLocale, ArtistAlias::getName));
+                .collect(Collectors.groupingBy(
+                        ArtistAlias::getLocale,
+                        Collectors.mapping(ArtistAlias::getName, Collectors.toList())
+                ));
         return new AdminArtistDetailResponse(
                 artist.getId(),
                 artist.getName(),
                 new AliasesDto(
-                        aliasMap.get("ja"),
-                        aliasMap.get("en"),
-                        aliasMap.get("ko")
+                        aliasMap.getOrDefault("ja", List.of()),
+                        aliasMap.getOrDefault("en", List.of()),
+                        aliasMap.getOrDefault("ko", List.of())
                 )
         );
     }

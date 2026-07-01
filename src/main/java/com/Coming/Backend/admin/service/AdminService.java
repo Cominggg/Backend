@@ -99,10 +99,18 @@ public class AdminService {
 
     private List<ArtistAlias> buildAliasEntities(Long artistId, AdminArtistUpdateRequest.AliasesRequest aliases) {
         List<ArtistAlias> result = new ArrayList<>();
-        if (aliases.ja() != null) result.add(ArtistAlias.builder().artistId(artistId).name(aliases.ja()).locale("ja").build());
-        if (aliases.en() != null) result.add(ArtistAlias.builder().artistId(artistId).name(aliases.en()).locale("en").build());
-        if (aliases.ko() != null) result.add(ArtistAlias.builder().artistId(artistId).name(aliases.ko()).locale("ko").build());
+        appendAliases(result, artistId, "ja", aliases.ja());
+        appendAliases(result, artistId, "en", aliases.en());
+        appendAliases(result, artistId, "ko", aliases.ko());
         return result;
+    }
+
+    private void appendAliases(List<ArtistAlias> result, Long artistId, String locale, List<String> names) {
+        if (names == null) return;
+        names.stream()
+                .filter(name -> name != null && !name.isBlank())
+                .map(name -> ArtistAlias.builder().artistId(artistId).name(name).locale(locale).build())
+                .forEach(result::add);
     }
 
     /**

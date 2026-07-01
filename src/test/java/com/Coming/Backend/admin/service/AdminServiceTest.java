@@ -191,10 +191,11 @@ class AdminServiceTest {
     }
 
     @Test
-    void should_upsert_aliases_when_aliases_given() {
+    void should_upsert_multiple_aliases_per_locale_when_aliases_given() {
         // given
         Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
-        AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest("ヨアソビ", "YOASOBI", null);
+        AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(
+                List.of("ヨアソビ", "よあそび"), List.of("YOASOBI"), null);
         AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
 
@@ -205,17 +206,19 @@ class AdminServiceTest {
         verify(artistAliasRepository).deleteByArtistIdAndLocaleIn(eq(1L), any());
         ArgumentCaptor<List<ArtistAlias>> captor = ArgumentCaptor.forClass(List.class);
         verify(artistAliasRepository).saveAll(captor.capture());
-        assertThat(captor.getValue()).hasSize(2);
+        assertThat(captor.getValue()).hasSize(3);
         assertThat(captor.getValue()).anyMatch(a -> a.getLocale().equals("ja") && a.getName().equals("ヨアソビ"));
+        assertThat(captor.getValue()).anyMatch(a -> a.getLocale().equals("ja") && a.getName().equals("よあそび"));
         assertThat(captor.getValue()).anyMatch(a -> a.getLocale().equals("en") && a.getName().equals("YOASOBI"));
         assertThat(captor.getValue()).noneMatch(a -> a.getLocale().equals("ko"));
     }
 
     @Test
-    void should_delete_all_locale_aliases_when_all_null_given() {
+    void should_delete_all_locale_aliases_when_empty_lists_given() {
         // given
         Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
-        AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(null, null, null);
+        AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(
+                List.of(), List.of(), List.of());
         AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
 
@@ -249,12 +252,13 @@ class AdminServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_return_artist_with_aliases_when_valid_id_given() {
+    void should_return_artist_with_grouped_aliases_when_valid_id_given() {
         // given
         Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(true).build();
         ReflectionTestUtils.setField(artist, "id", ARTIST_ID);
         List<ArtistAlias> aliases = List.of(
                 ArtistAlias.builder().artistId(ARTIST_ID).name("ヨアソビ").locale("ja").build(),
+                ArtistAlias.builder().artistId(ARTIST_ID).name("よあそび").locale("ja").build(),
                 ArtistAlias.builder().artistId(ARTIST_ID).name("YOASOBI").locale("en").build()
         );
         given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
@@ -266,13 +270,13 @@ class AdminServiceTest {
         // then
         assertThat(response.id()).isEqualTo(ARTIST_ID);
         assertThat(response.name()).isEqualTo("YOASOBI");
-        assertThat(response.aliases().ja()).isEqualTo("ヨアソビ");
-        assertThat(response.aliases().en()).isEqualTo("YOASOBI");
-        assertThat(response.aliases().ko()).isNull();
+        assertThat(response.aliases().ja()).containsExactlyInAnyOrder("ヨアソビ", "よあそび");
+        assertThat(response.aliases().en()).containsExactly("YOASOBI");
+        assertThat(response.aliases().ko()).isEmpty();
     }
 
     @Test
-    void should_return_null_aliases_when_no_aliases_exist() {
+    void should_return_empty_alias_lists_when_no_aliases_exist() {
         // given
         Artist artist = Artist.builder().mbid("mbid-1").name("IU").isComing(true).build();
         ReflectionTestUtils.setField(artist, "id", ARTIST_ID);
@@ -283,9 +287,9 @@ class AdminServiceTest {
         AdminArtistDetailResponse response = adminService.getAdminArtist(ARTIST_ID);
 
         // then
-        assertThat(response.aliases().ja()).isNull();
-        assertThat(response.aliases().en()).isNull();
-        assertThat(response.aliases().ko()).isNull();
+        assertThat(response.aliases().ja()).isEmpty();
+        assertThat(response.aliases().en()).isEmpty();
+        assertThat(response.aliases().ko()).isEmpty();
     }
 
     @Test
