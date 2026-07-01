@@ -47,7 +47,19 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query("SELECT c FROM Concert c WHERE c.id IN (SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :userId) AND c.status NOT IN :hidden")
     Page<Concert> findByUserCalendar(@Param("userId") Long userId, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);
 
-    List<Concert> findTop10ByStatusNotInOrderByViewCountDesc(Collection<ConcertStatus> hidden);
+    @Query("""
+            SELECT c FROM Concert c
+            WHERE c.status NOT IN :hidden
+            ORDER BY
+                CASE WHEN c.status = com.Coming.Backend.concert.entity.ConcertStatus.UPCOMING THEN 0
+                     WHEN c.status = com.Coming.Backend.concert.entity.ConcertStatus.ONGOING  THEN 0
+                     WHEN c.status = com.Coming.Backend.concert.entity.ConcertStatus.ENDED    THEN 1
+                     ELSE 2
+                END ASC,
+                c.viewCount DESC
+            LIMIT 10
+            """)
+    List<Concert> findTop10Popular(@Param("hidden") Collection<ConcertStatus> hidden);
 
     @Query("SELECT COUNT(c) FROM Concert c WHERE YEAR(c.startDate) = :year AND MONTH(c.startDate) = :month")
     int countByYearAndMonth(@Param("year") int year, @Param("month") int month);

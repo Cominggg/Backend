@@ -60,12 +60,12 @@ public class ConcertService {
     private final SetlistTrackRepository setlistTrackRepository;
 
     /**
-     * 조회수 기준 상위 10건의 인기 공연 목록을 반환한다.
+     * 예정·진행 중 공연을 우선 노출하고 이후 조회수 순으로 상위 10건의 인기 공연 목록을 반환한다.
      *
      * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
     public List<ConcertSummaryResponse> getPopularConcerts(Long userId) {
-        List<Concert> concerts = concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(HIDDEN_STATUSES);
+        List<Concert> concerts = concertRepository.findTop10Popular(HIDDEN_STATUSES);
         return toConcertSummaryList(concerts, userId);
     }
 
