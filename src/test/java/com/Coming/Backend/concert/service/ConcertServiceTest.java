@@ -131,7 +131,7 @@ class ConcertServiceTest {
         ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
 
-        given(concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(anyList())).willReturn(List.of(concert));
+        given(concertRepository.findTop10Popular(anyList())).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
         given(artistRepository.findAllById(any())).willReturn(List.of(artist));
@@ -142,13 +142,34 @@ class ConcertServiceTest {
         // then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
-        verify(concertRepository).findTop10ByStatusNotInOrderByViewCountDesc(anyList());
+        verify(concertRepository).findTop10Popular(anyList());
+    }
+
+    @Test
+    void should_return_upcoming_and_ongoing_before_ended_in_popular_list() {
+        // given
+        Concert upcoming = buildConcert(1L, ConcertStatus.UPCOMING);
+        Concert ongoing = buildConcert(2L, ConcertStatus.ONGOING);
+        Concert ended = buildConcert(3L, ConcertStatus.ENDED);
+
+        given(concertRepository.findTop10Popular(anyList()))
+                .willReturn(List.of(upcoming, ongoing, ended));
+        given(concertArtistRepository.findByConcertIdIn(any())).willReturn(List.of());
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
+
+        // then
+        assertThat(result).hasSize(3);
+        assertThat(result.get(0).status()).isEqualTo(ConcertStatus.UPCOMING);
+        assertThat(result.get(1).status()).isEqualTo(ConcertStatus.ONGOING);
+        assertThat(result.get(2).status()).isEqualTo(ConcertStatus.ENDED);
     }
 
     @Test
     void should_return_empty_list_when_no_popular_concerts_exist() {
         // given
-        given(concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(anyList())).willReturn(List.of());
+        given(concertRepository.findTop10Popular(anyList())).willReturn(List.of());
 
         // when
         List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
@@ -162,7 +183,7 @@ class ConcertServiceTest {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
-        given(concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(anyList())).willReturn(List.of(concert));
+        given(concertRepository.findTop10Popular(anyList())).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
 
@@ -182,7 +203,7 @@ class ConcertServiceTest {
                 .concertId(CONCERT_ID)
                 .build();
 
-        given(concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(anyList())).willReturn(List.of(concert));
+        given(concertRepository.findTop10Popular(anyList())).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
@@ -710,7 +731,7 @@ class ConcertServiceTest {
     void should_not_include_excluded_concerts_in_popular_list() {
         // given
         Concert upcomingConcert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
-        given(concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(anyList()))
+        given(concertRepository.findTop10Popular(anyList()))
                 .willReturn(List.of(upcomingConcert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
@@ -718,7 +739,7 @@ class ConcertServiceTest {
         List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
 
         // then
-        verify(concertRepository).findTop10ByStatusNotInOrderByViewCountDesc(anyList());
+        verify(concertRepository).findTop10Popular(anyList());
         assertThat(result).hasSize(1);
         assertThat(result.get(0).status()).isEqualTo(ConcertStatus.UPCOMING);
     }
@@ -886,7 +907,7 @@ class ConcertServiceTest {
                 .kopisUpdateDate(LocalDate.now())
                 .ticketOpenAt(ticketOpenAt)
                 .build();
-        given(concertRepository.findTop10ByStatusNotInOrderByViewCountDesc(anyList())).willReturn(List.of(concert));
+        given(concertRepository.findTop10Popular(anyList())).willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
         // when

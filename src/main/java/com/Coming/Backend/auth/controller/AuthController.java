@@ -1,5 +1,6 @@
 package com.Coming.Backend.auth.controller;
 
+import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.NicknameCheckResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -99,6 +101,15 @@ public class AuthController {
             @AuthenticationPrincipal Long userId,
             @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.register(userId, request));
+    }
+
+    @Operation(summary = "마케팅 수신 동의 변경")
+    @PatchMapping("/me/marketing")
+    public ResponseEntity<Void> updateMarketing(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody MarketingUpdateRequest request) {
+        authService.updateMarketing(userId, request);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "닉네임 중복 검사")

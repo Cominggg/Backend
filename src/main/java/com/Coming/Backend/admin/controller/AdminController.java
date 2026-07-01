@@ -1,6 +1,7 @@
 package com.Coming.Backend.admin.controller;
 
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
+import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertArtistAssignRequest;
 import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
@@ -55,6 +56,13 @@ public class AdminController {
             @RequestParam String name,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(adminService.searchLocalArtists(name, pageable));
+    }
+
+    @Operation(summary = "어드민 아티스트 단건 조회")
+    @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND")
+    @GetMapping("/artists/{id}")
+    public ResponseEntity<AdminArtistDetailResponse> getAdminArtist(@PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getAdminArtist(id));
     }
 
     @Operation(summary = "아티스트 정보 수정")

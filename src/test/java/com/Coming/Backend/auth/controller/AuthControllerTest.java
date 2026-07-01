@@ -3,11 +3,15 @@ package com.Coming.Backend.auth.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willDoNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
+import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.NicknameCheckResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
 import com.Coming.Backend.auth.dto.TokenResponse;
@@ -66,6 +70,38 @@ class AuthControllerTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/auth/me
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_agreed_marketing_field_when_get_me() throws Exception {
+        // given
+        given(authService.getMe(USER_ID)).willReturn(new MeResponse(USER_ID, "테스터", 1993, "USER", true));
+
+        // when & then
+        mockMvc.perform(get("/api/auth/me").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(USER_ID))
+                .andExpect(jsonPath("$.agreedMarketing").value(true));
+    }
+
+    // -------------------------------------------------------------------------
+    // PATCH /api/auth/me/marketing
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_204_when_update_marketing() throws Exception {
+        // given
+        willDoNothing().given(authService).updateMarketing(eq(USER_ID), any(MarketingUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(patch("/api/auth/me/marketing")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new MarketingUpdateRequest(true))))
+                .andExpect(status().isNoContent());
     }
 
     // -------------------------------------------------------------------------

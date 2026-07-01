@@ -2,6 +2,7 @@ package com.Coming.Backend.admin.service;
 
 import com.Coming.Backend.admin.client.DataPipelineClient;
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
+import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
@@ -19,7 +20,9 @@ import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.repository.UserRepository;
@@ -50,8 +53,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -60,6 +65,7 @@ import java.util.stream.Collectors;
 public class AdminService {
 
     private final ArtistRepository artistRepository;
+    private final ArtistAliasRepository artistAliasRepository;
     private final InquiryRepository inquiryRepository;
     private final UserRepository userRepository;
     private final ConcertRepository concertRepository;
@@ -69,13 +75,64 @@ public class AdminService {
     private final DataPipelineClient dataPipelineClient;
 
     /**
-     * 아티스트 정보를 수정한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
+     * 어드민 아티스트 단건을 조회한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
+     */
+    public AdminArtistDetailResponse getAdminArtist(Long id) {
+        Artist artist = artistRepository.findById(id)
+                .orElseThrow(ArtistNotFoundException::new);
+        return AdminArtistDetailResponse.of(artist, artistAliasRepository.findByArtistId(id));
+    }
+
+    /**
+     * 아티스트 정보를 수정한다. aliases가 전달된 경우 기존 alias와 diff를 계산해 추가·삭제한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
      */
     @Transactional
     public void updateArtist(Long id, AdminArtistUpdateRequest request) {
         Artist artist = artistRepository.findById(id)
                 .orElseThrow(ArtistNotFoundException::new);
         artist.update(request.name(), request.sortName());
+
+        if (request.aliases() != null) {
+            applyAliasesDiff(id, request.aliases());
+        }
+    }
+
+    private void applyAliasesDiff(Long artistId, AdminArtistUpdateRequest.AliasesRequest aliases) {
+        Map<String, List<ArtistAlias>> existingByLocale = artistAliasRepository.findByArtistId(artistId)
+                .stream()
+                .filter(a -> a.getLocale() != null)
+                .collect(Collectors.groupingBy(ArtistAlias::getLocale));
+
+        List<ArtistAlias> toDelete = new ArrayList<>();
+        List<ArtistAlias> toInsert = new ArrayList<>();
+
+        collectLocaleDiff(artistId, "ja", aliases.ja(), existingByLocale.getOrDefault("ja", List.of()), toDelete, toInsert);
+        collectLocaleDiff(artistId, "en", aliases.en(), existingByLocale.getOrDefault("en", List.of()), toDelete, toInsert);
+        collectLocaleDiff(artistId, "ko", aliases.ko(), existingByLocale.getOrDefault("ko", List.of()), toDelete, toInsert);
+
+        if (!toDelete.isEmpty()) artistAliasRepository.deleteAll(toDelete);
+        if (!toInsert.isEmpty()) artistAliasRepository.saveAll(toInsert);
+    }
+
+    private void collectLocaleDiff(Long artistId, String locale, List<String> requested,
+            List<ArtistAlias> existing, List<ArtistAlias> toDelete, List<ArtistAlias> toInsert) {
+        if (requested == null) return;
+
+        Set<String> requestedNames = requested.stream()
+                .filter(n -> n != null && !n.isBlank())
+                .collect(Collectors.toSet());
+        Set<String> existingNames = existing.stream()
+                .map(ArtistAlias::getName)
+                .collect(Collectors.toSet());
+
+        existing.stream()
+                .filter(a -> !requestedNames.contains(a.getName()))
+                .forEach(toDelete::add);
+
+        requestedNames.stream()
+                .filter(name -> !existingNames.contains(name))
+                .map(name -> ArtistAlias.builder().artistId(artistId).name(name).locale(locale).build())
+                .forEach(toInsert::add);
     }
 
     /**
