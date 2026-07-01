@@ -109,7 +109,7 @@ public class AuthController {
             @AuthenticationPrincipal Long userId,
             @RequestBody MarketingUpdateRequest request) {
         authService.updateMarketing(userId, request);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "닉네임 중복 검사")

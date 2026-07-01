@@ -93,7 +93,7 @@ class AuthControllerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_return_200_when_update_marketing() throws Exception {
+    void should_return_204_when_update_marketing() throws Exception {
         // given
         willDoNothing().given(authService).updateMarketing(eq(USER_ID), any(MarketingUpdateRequest.class));
 
@@ -101,7 +101,7 @@ class AuthControllerTest {
         mockMvc.perform(patch("/api/auth/me/marketing")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new MarketingUpdateRequest(true))))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent());
     }
 
     // -------------------------------------------------------------------------
