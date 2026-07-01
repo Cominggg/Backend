@@ -16,8 +16,11 @@ import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
+import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
@@ -75,6 +78,9 @@ class AdminServiceTest {
 
     @Mock
     private ArtistRepository artistRepository;
+
+    @Mock
+    private ArtistAliasRepository artistAliasRepository;
 
     @Mock
     private InquiryRepository inquiryRepository;
@@ -141,7 +147,8 @@ class AdminServiceTest {
                 .build();
         AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(
                 "아이유",
-                "Iu, Lee Ji Eun"
+                "Iu, Lee Ji Eun",
+                null
         );
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
 
@@ -162,7 +169,7 @@ class AdminServiceTest {
                 .sortName("IU")
                 .isComing(false)
                 .build();
-        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest("아이유", null);
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest("아이유", null, null);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
 
         // when
@@ -179,7 +186,115 @@ class AdminServiceTest {
         given(artistRepository.findById(999L)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> adminService.updateArtist(999L, new AdminArtistUpdateRequest("IU", null)))
+        assertThatThrownBy(() -> adminService.updateArtist(999L, new AdminArtistUpdateRequest("IU", null, null)))
+                .isInstanceOf(ArtistNotFoundException.class);
+    }
+
+    @Test
+    void should_upsert_aliases_when_aliases_given() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest("ヨアソビ", "YOASOBI", null);
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then
+        verify(artistAliasRepository).deleteByArtistIdAndLocaleIn(eq(1L), any());
+        ArgumentCaptor<List<ArtistAlias>> captor = ArgumentCaptor.forClass(List.class);
+        verify(artistAliasRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2);
+        assertThat(captor.getValue()).anyMatch(a -> a.getLocale().equals("ja") && a.getName().equals("ヨアソビ"));
+        assertThat(captor.getValue()).anyMatch(a -> a.getLocale().equals("en") && a.getName().equals("YOASOBI"));
+        assertThat(captor.getValue()).noneMatch(a -> a.getLocale().equals("ko"));
+    }
+
+    @Test
+    void should_delete_all_locale_aliases_when_all_null_given() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(null, null, null);
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then
+        verify(artistAliasRepository).deleteByArtistIdAndLocaleIn(eq(1L), any());
+        ArgumentCaptor<List<ArtistAlias>> captor = ArgumentCaptor.forClass(List.class);
+        verify(artistAliasRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).isEmpty();
+    }
+
+    @Test
+    void should_not_touch_aliases_when_aliases_field_is_null() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest("요아소비", null, null);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then
+        verify(artistAliasRepository, never()).deleteByArtistIdAndLocaleIn(any(), any());
+        verify(artistAliasRepository, never()).saveAll(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // getAdminArtist
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_artist_with_aliases_when_valid_id_given() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(true).build();
+        ReflectionTestUtils.setField(artist, "id", ARTIST_ID);
+        List<ArtistAlias> aliases = List.of(
+                ArtistAlias.builder().artistId(ARTIST_ID).name("ヨアソビ").locale("ja").build(),
+                ArtistAlias.builder().artistId(ARTIST_ID).name("YOASOBI").locale("en").build()
+        );
+        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(artistAliasRepository.findByArtistId(ARTIST_ID)).willReturn(aliases);
+
+        // when
+        AdminArtistDetailResponse response = adminService.getAdminArtist(ARTIST_ID);
+
+        // then
+        assertThat(response.id()).isEqualTo(ARTIST_ID);
+        assertThat(response.name()).isEqualTo("YOASOBI");
+        assertThat(response.aliases().ja()).isEqualTo("ヨアソビ");
+        assertThat(response.aliases().en()).isEqualTo("YOASOBI");
+        assertThat(response.aliases().ko()).isNull();
+    }
+
+    @Test
+    void should_return_null_aliases_when_no_aliases_exist() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("IU").isComing(true).build();
+        ReflectionTestUtils.setField(artist, "id", ARTIST_ID);
+        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(artistAliasRepository.findByArtistId(ARTIST_ID)).willReturn(List.of());
+
+        // when
+        AdminArtistDetailResponse response = adminService.getAdminArtist(ARTIST_ID);
+
+        // then
+        assertThat(response.aliases().ja()).isNull();
+        assertThat(response.aliases().en()).isNull();
+        assertThat(response.aliases().ko()).isNull();
+    }
+
+    @Test
+    void should_throw_artist_not_found_when_get_admin_artist_with_invalid_id() {
+        // given
+        given(artistRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> adminService.getAdminArtist(999L))
                 .isInstanceOf(ArtistNotFoundException.class);
     }
 
