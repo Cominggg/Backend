@@ -1,5 +1,6 @@
 package com.Coming.Backend.auth.service;
 
+import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.NicknameCheckResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
@@ -156,6 +157,15 @@ public class AuthService {
     }
 
     /**
+     * 마케팅 수신 동의 여부를 변경한다.
+     */
+    @Transactional
+    public void updateMarketing(Long userId, MarketingUpdateRequest request) {
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        user.updateMarketing(request.agreedMarketing());
+    }
+
+    /**
      * 닉네임 중복 여부를 확인한다.
      */
     public NicknameCheckResponse checkNickname(String nickname) {
@@ -186,7 +196,8 @@ public class AuthService {
                 user.getId(),
                 user.getNickname(),
                 user.getBirthYear(),
-                user.getRole().name()
+                user.getRole().name(),
+                Boolean.TRUE.equals(user.getAgreedMarketing())
         );
     }
 }

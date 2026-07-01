@@ -75,6 +75,10 @@ public class User extends BaseTimeEntity {
         this.nickname = nickname;
     }
 
+    public void updateMarketing(boolean agreedMarketing) {
+        this.agreedMarketing = agreedMarketing;
+    }
+
     public void withdraw() {
         this.status = UserStatus.INACTIVE;
         this.nickname = null;

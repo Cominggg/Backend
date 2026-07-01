@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
+import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
 import com.Coming.Backend.auth.dto.TokenResponse;
@@ -220,6 +221,80 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.getMe(USER_ID))
                 .isInstanceOf(UserNotFoundException.class)
                 .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // getMe
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_agreed_marketing_true_when_user_agreed_marketing() {
+        // given
+        User user = User.builder()
+                .id(USER_ID).nickname("테스터").role(UserRole.USER).status(UserStatus.ACTIVE)
+                .provider("google").providerId("google-123").agreedMarketing(true).build();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when
+        MeResponse response = authService.getMe(USER_ID);
+
+        // then
+        assertThat(response.agreedMarketing()).isTrue();
+    }
+
+    @Test
+    void should_return_agreed_marketing_false_when_user_has_null_agreed_marketing() {
+        // given
+        User user = buildUser();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when
+        MeResponse response = authService.getMe(USER_ID);
+
+        // then
+        assertThat(response.agreedMarketing()).isFalse();
+    }
+
+    // -------------------------------------------------------------------------
+    // updateMarketing
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_set_agreed_marketing_true_when_update_marketing_with_true() {
+        // given
+        User user = buildUser();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when
+        authService.updateMarketing(USER_ID, new MarketingUpdateRequest(true));
+
+        // then
+        assertThat(user.getAgreedMarketing()).isTrue();
+    }
+
+    @Test
+    void should_set_agreed_marketing_false_when_update_marketing_with_false() {
+        // given
+        User user = User.builder()
+                .id(USER_ID).nickname("테스터").role(UserRole.USER).status(UserStatus.ACTIVE)
+                .provider("google").providerId("google-123").agreedMarketing(true).build();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when
+        authService.updateMarketing(USER_ID, new MarketingUpdateRequest(false));
+
+        // then
+        assertThat(user.getAgreedMarketing()).isFalse();
+    }
+
+    @Test
+    void should_throw_user_not_found_when_update_marketing_with_invalid_user() {
+        // given
+        given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> authService.updateMarketing(USER_ID, new MarketingUpdateRequest(true)))
+                .isInstanceOf(UserNotFoundException.class);
     }
 
     // -------------------------------------------------------------------------
