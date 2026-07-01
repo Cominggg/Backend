@@ -2,6 +2,7 @@ package com.Coming.Backend.admin.service;
 
 import com.Coming.Backend.admin.client.DataPipelineClient;
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
+import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
@@ -19,7 +20,9 @@ import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.repository.UserRepository;
@@ -50,6 +53,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -60,6 +64,7 @@ import java.util.stream.Collectors;
 public class AdminService {
 
     private final ArtistRepository artistRepository;
+    private final ArtistAliasRepository artistAliasRepository;
     private final InquiryRepository inquiryRepository;
     private final UserRepository userRepository;
     private final ConcertRepository concertRepository;
@@ -69,13 +74,35 @@ public class AdminService {
     private final DataPipelineClient dataPipelineClient;
 
     /**
-     * 아티스트 정보를 수정한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
+     * 어드민 아티스트 단건을 조회한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
+     */
+    public AdminArtistDetailResponse getAdminArtist(Long id) {
+        Artist artist = artistRepository.findById(id)
+                .orElseThrow(ArtistNotFoundException::new);
+        return AdminArtistDetailResponse.of(artist, artistAliasRepository.findByArtistId(id));
+    }
+
+    /**
+     * 아티스트 정보를 수정한다. aliases가 전달된 경우 ja/en/ko locale alias를 교체한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
      */
     @Transactional
     public void updateArtist(Long id, AdminArtistUpdateRequest request) {
         Artist artist = artistRepository.findById(id)
                 .orElseThrow(ArtistNotFoundException::new);
         artist.update(request.name(), request.sortName());
+
+        if (request.aliases() != null) {
+            artistAliasRepository.deleteByArtistIdAndLocaleIn(id, List.of("ja", "en", "ko"));
+            artistAliasRepository.saveAll(buildAliasEntities(id, request.aliases()));
+        }
+    }
+
+    private List<ArtistAlias> buildAliasEntities(Long artistId, AdminArtistUpdateRequest.AliasesRequest aliases) {
+        List<ArtistAlias> result = new ArrayList<>();
+        if (aliases.ja() != null) result.add(ArtistAlias.builder().artistId(artistId).name(aliases.ja()).locale("ja").build());
+        if (aliases.en() != null) result.add(ArtistAlias.builder().artistId(artistId).name(aliases.en()).locale("en").build());
+        if (aliases.ko() != null) result.add(ArtistAlias.builder().artistId(artistId).name(aliases.ko()).locale("ko").build());
+        return result;
     }
 
     /**
