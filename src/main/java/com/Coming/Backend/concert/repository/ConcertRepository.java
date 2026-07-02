@@ -90,7 +90,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
                 OR c.id IN (
                     SELECT ca.concertId FROM ConcertArtist ca
                     WHERE ca.artistId IN (
-                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
                     )
                     OR ca.artistId IN (
                         SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
@@ -107,7 +107,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
                 OR c.id IN (
                     SELECT ca.concertId FROM ConcertArtist ca
                     WHERE ca.artistId IN (
-                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
                     )
                     OR ca.artistId IN (
                         SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
@@ -125,7 +125,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
                 OR c.id IN (
                     SELECT ca.concertId FROM ConcertArtist ca
                     WHERE ca.artistId IN (
-                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
                     )
                     OR ca.artistId IN (
                         SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
@@ -142,7 +142,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
                 OR c.id IN (
                     SELECT ca.concertId FROM ConcertArtist ca
                     WHERE ca.artistId IN (
-                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
                     )
                     OR ca.artistId IN (
                         SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
