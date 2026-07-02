@@ -2,12 +2,18 @@ package com.Coming.Backend.admin.client;
 
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
+import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
+import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
+import com.Coming.Backend.admin.dto.PipelineSetlistCollectResult;
+import com.Coming.Backend.admin.exception.PipelineConflictException;
+import com.Coming.Backend.admin.exception.PipelineNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
@@ -53,32 +59,42 @@ public class DataPipelineClient {
     }
 
     /**
-     * MBID 기반으로 아티스트 초기 수집(정보·릴리즈·이미지)을 트리거한다.
+     * MBID 기반으로 아티스트를 동기 수집한다. 수집 결과를 반환한다.
+     *
+     * @throws PipelineNotFoundException MusicBrainz에 해당 MBID가 없는 경우
+     * @throws PipelineConflictException 동일 MBID에 대한 수집이 이미 처리 중인 경우
      */
-    public void triggerArtistCollect(String mbid) {
-        webClient.post()
+    public PipelineArtistCollectResult collectArtist(String mbid) {
+        return webClient.post()
                 .uri("/collect/artist")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of("mbid", mbid))
                 .retrieve()
-                .toBodilessEntity()
-                .doOnSuccess(r -> log.info("Data pipeline artist collect triggered: mbid={}", mbid))
-                .doOnError(e -> log.warn("Data pipeline artist collect failed: mbid={}, error={}", mbid, e.getMessage()))
+                .onStatus(status -> status.value() == 404, r -> Mono.error(new PipelineNotFoundException()))
+                .onStatus(status -> status.value() == 409, r -> Mono.error(new PipelineConflictException()))
+                .bodyToMono(PipelineArtistCollectResult.class)
+                .doOnSuccess(r -> log.info("Artist collect completed: mbid={}, success={}", mbid, r.success()))
+                .doOnError(e -> log.warn("Artist collect failed: mbid={}, error={}", mbid, e.getMessage()))
                 .block();
     }
 
     /**
-     * KOPIS ID 기반으로 공연 수집을 트리거한다.
+     * KOPIS ID 기반으로 공연을 동기 수집한다. 수집 결과를 반환한다.
+     *
+     * @throws PipelineNotFoundException KOPIS에 해당 ID가 없는 경우
+     * @throws PipelineConflictException 동일 KOPIS ID에 대한 수집이 이미 처리 중인 경우
      */
-    public void triggerConcertCollectByKopisId(String kopisId) {
-        webClient.post()
+    public PipelineConcertCollectResult collectConcert(String kopisId) {
+        return webClient.post()
                 .uri("/collect/concert")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of("kopis_id", kopisId))
                 .retrieve()
-                .toBodilessEntity()
-                .doOnSuccess(r -> log.info("Data pipeline concert collect triggered: kopisId={}", kopisId))
-                .doOnError(e -> log.warn("Data pipeline concert collect failed: kopisId={}, error={}", kopisId, e.getMessage()))
+                .onStatus(status -> status.value() == 404, r -> Mono.error(new PipelineNotFoundException()))
+                .onStatus(status -> status.value() == 409, r -> Mono.error(new PipelineConflictException()))
+                .bodyToMono(PipelineConcertCollectResult.class)
+                .doOnSuccess(r -> log.info("Concert collect completed: kopisId={}, success={}", kopisId, r.success()))
+                .doOnError(e -> log.warn("Concert collect failed: kopisId={}, error={}", kopisId, e.getMessage()))
                 .block();
     }
 
@@ -96,15 +112,20 @@ public class DataPipelineClient {
     }
 
     /**
-     * Data 파이프라인에 특정 공연의 셋리스트 수집을 트리거한다.
+     * 특정 공연의 셋리스트를 동기 수집한다. 수집 결과를 반환한다.
+     *
+     * @throws PipelineNotFoundException setlist.fm에 해당 공연의 셋리스트가 없는 경우
+     * @throws PipelineConflictException 동일 공연에 대한 수집이 이미 처리 중인 경우
      */
-    public void triggerConcertSetlist(Long concertId) {
-        webClient.post()
+    public PipelineSetlistCollectResult collectConcertSetlist(Long concertId) {
+        return webClient.post()
                 .uri("/collect/concert/{id}/setlist", concertId)
                 .retrieve()
-                .toBodilessEntity()
-                .doOnSuccess(r -> log.info("Data pipeline setlist collect triggered: concertId={}", concertId))
-                .doOnError(e -> log.warn("Data pipeline setlist collect failed: concertId={}, error={}", concertId, e.getMessage()))
+                .onStatus(status -> status.value() == 404, r -> Mono.error(new PipelineNotFoundException()))
+                .onStatus(status -> status.value() == 409, r -> Mono.error(new PipelineConflictException()))
+                .bodyToMono(PipelineSetlistCollectResult.class)
+                .doOnSuccess(r -> log.info("Setlist collect completed: concertId={}, success={}", concertId, r.success()))
+                .doOnError(e -> log.warn("Setlist collect failed: concertId={}, error={}", concertId, e.getMessage()))
                 .block();
     }
 }

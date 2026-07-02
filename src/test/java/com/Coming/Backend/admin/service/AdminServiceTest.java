@@ -16,6 +16,8 @@ import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
+import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
+import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
 import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistAlias;
@@ -1059,12 +1061,15 @@ class AdminServiceTest {
     void should_trigger_artist_collect_when_mbid_given() {
         // given
         AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
+        PipelineArtistCollectResult result = new PipelineArtistCollectResult(true, 1L, "some-mbid-123", "IU", null, List.of(), null);
+        given(dataPipelineClient.collectArtist("some-mbid-123")).willReturn(result);
 
         // when
-        adminService.collectArtist(request);
+        PipelineArtistCollectResult actual = adminService.collectArtist(request);
 
         // then
-        verify(dataPipelineClient).triggerArtistCollect("some-mbid-123");
+        verify(dataPipelineClient).collectArtist("some-mbid-123");
+        assertThat(actual.success()).isTrue();
     }
 
     // -------------------------------------------------------------------------
@@ -1075,12 +1080,15 @@ class AdminServiceTest {
     void should_trigger_concert_collect_when_kopis_id_given() {
         // given
         AdminConcertCollectRequest request = new AdminConcertCollectRequest("PF123456");
+        PipelineConcertCollectResult result = new PipelineConcertCollectResult(true, 10L, "YOASOBI Live", List.of(), null);
+        given(dataPipelineClient.collectConcert("PF123456")).willReturn(result);
 
         // when
-        adminService.collectConcert(request);
+        PipelineConcertCollectResult actual = adminService.collectConcert(request);
 
         // then
-        verify(dataPipelineClient).triggerConcertCollectByKopisId("PF123456");
+        verify(dataPipelineClient).collectConcert("PF123456");
+        assertThat(actual.success()).isTrue();
     }
 
     // -------------------------------------------------------------------------

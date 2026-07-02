@@ -10,6 +10,9 @@ import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
+import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
+import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
+import com.Coming.Backend.admin.dto.PipelineSetlistCollectResult;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertApproveRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
@@ -195,20 +198,20 @@ public class AdminController {
         return ResponseEntity.ok(adminService.searchConcerts(title));
     }
 
-    @Operation(summary = "MBID 기반 아티스트 수집 트리거")
-    @ApiResponse(responseCode = "202", description = "Accepted")
+    @Operation(summary = "MBID 기반 아티스트 동기 수집")
+    @ApiResponse(responseCode = "404", description = "PIPELINE_NOT_FOUND")
+    @ApiResponse(responseCode = "409", description = "PIPELINE_CONFLICT")
     @PostMapping("/data/collect/artists")
-    public ResponseEntity<Void> collectArtist(@RequestBody @Valid AdminArtistCollectRequest request) {
-        adminService.collectArtist(request);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<PipelineArtistCollectResult> collectArtist(@RequestBody @Valid AdminArtistCollectRequest request) {
+        return ResponseEntity.ok(adminService.collectArtist(request));
     }
 
-    @Operation(summary = "KOPIS ID 기반 공연 수집 트리거")
-    @ApiResponse(responseCode = "202", description = "Accepted")
+    @Operation(summary = "KOPIS ID 기반 공연 동기 수집")
+    @ApiResponse(responseCode = "404", description = "PIPELINE_NOT_FOUND")
+    @ApiResponse(responseCode = "409", description = "PIPELINE_CONFLICT")
     @PostMapping("/data/collect/concerts")
-    public ResponseEntity<Void> collectConcert(@RequestBody @Valid AdminConcertCollectRequest request) {
-        adminService.collectConcert(request);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<PipelineConcertCollectResult> collectConcert(@RequestBody @Valid AdminConcertCollectRequest request) {
+        return ResponseEntity.ok(adminService.collectConcert(request));
     }
 
     @Operation(summary = "Data 파이프라인 아티스트 릴리즈 수집 트리거")
@@ -219,11 +222,11 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "Data 파이프라인 셋리스트 수집 트리거")
-    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND (Data 파이프라인 측)")
+    @Operation(summary = "공연 셋리스트 동기 수집")
+    @ApiResponse(responseCode = "404", description = "PIPELINE_NOT_FOUND")
+    @ApiResponse(responseCode = "409", description = "PIPELINE_CONFLICT")
     @PostMapping("/data/collect/concerts/{id}/setlist")
-    public ResponseEntity<Void> triggerConcertSetlist(@PathVariable Long id) {
-        adminService.triggerConcertSetlist(id);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<PipelineSetlistCollectResult> triggerConcertSetlist(@PathVariable Long id) {
+        return ResponseEntity.ok(adminService.triggerConcertSetlist(id));
     }
 }
