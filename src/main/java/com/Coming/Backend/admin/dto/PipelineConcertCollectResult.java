@@ -1,14 +1,14 @@
 package com.Coming.Backend.admin.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 import java.util.List;
 
 public record PipelineConcertCollectResult(
         boolean success,
-        @JsonProperty("concert_id") Long concertId,
+        @JsonAlias("concert_id") Long concertId,
         String title,
-        @JsonProperty("matched_artists") List<PipelineMatchedArtistResult> matchedArtists,
+        @JsonAlias("matched_artists") List<PipelineMatchedArtistResult> matchedArtists,
         String reason
 ) {
 }

@@ -1,10 +1,10 @@
 package com.Coming.Backend.admin.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 public record PipelineTrackResult(
         Integer position,
-        @JsonProperty("song_name") String songName,
+        @JsonAlias("song_name") String songName,
         String info
 ) {
 }

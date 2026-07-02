@@ -1,9 +1,9 @@
 package com.Coming.Backend.admin.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 public record PipelineMatchedArtistResult(
-        @JsonProperty("artist_id") Long artistId,
+        @JsonAlias("artist_id") Long artistId,
         String name
 ) {
 }
