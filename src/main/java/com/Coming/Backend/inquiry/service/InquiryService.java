@@ -84,9 +84,13 @@ public class InquiryService {
     }
 
     private void validateTargetExists(InquiryType type, Long targetId) {
+        if (type == InquiryType.DATA_REQUEST || type == InquiryType.FEEDBACK) {
+            return;
+        }
         boolean exists = switch (type) {
             case CONCERT, SETLIST -> concertRepository.existsById(targetId);
             case ARTIST -> artistRepository.existsById(targetId);
+            default -> false;
         };
         if (!exists) {
             throw new TargetNotFoundException();

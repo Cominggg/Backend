@@ -1,0 +1,1 @@
+ALTER TABLE inquiry ALTER COLUMN target_id DROP NOT NULL;
