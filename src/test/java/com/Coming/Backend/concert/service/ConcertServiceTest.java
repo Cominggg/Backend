@@ -17,6 +17,7 @@ import com.Coming.Backend.calendar.entity.UserConcertCalendar;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
 import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
@@ -141,7 +142,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
+        assertThat(result.get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI"));
         verify(concertRepository).findTop10Popular(anyList());
     }
 
@@ -267,7 +268,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).artistName()).isEqualTo("YOASOBI");
+        assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI"));
         assertThat(response.content().get(0).venue()).isEqualTo("올림픽공원");
         assertThat(response.content().get(0).status()).isEqualTo(ConcertStatus.UPCOMING);
     }
@@ -287,7 +288,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).artistName()).isNull();
+        assertThat(response.content().get(0).artists()).isEmpty();
     }
 
     @Test
@@ -336,9 +337,8 @@ class ConcertServiceTest {
                 .build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID))
-                .willReturn(Optional.of(concertArtist));
-        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(concertArtist));
+        given(artistRepository.findAllById(any())).willReturn(List.of(artist));
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(bookingLink));
         given(userConcertCalendarRepository.existsByUserIdAndConcertId(USER_ID, CONCERT_ID)).willReturn(false);
 
@@ -347,8 +347,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(response.id()).isEqualTo(CONCERT_ID);
-        assertThat(response.artistName()).isEqualTo("YOASOBI");
-        assertThat(response.artistId()).isEqualTo(ARTIST_ID);
+        assertThat(response.artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI"));
         assertThat(response.posterUrl()).isEqualTo("https://example.com/poster.jpg");
         assertThat(response.ticketLinks()).hasSize(1);
         assertThat(response.ticketLinks().get(0).label()).isEqualTo("인터파크");
@@ -362,8 +361,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID))
-                .willReturn(Optional.empty());
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
         given(userConcertCalendarRepository.existsByUserIdAndConcertId(USER_ID, CONCERT_ID)).willReturn(true);
 
@@ -380,8 +378,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID))
-                .willReturn(Optional.empty());
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
 
         // when
@@ -408,8 +405,7 @@ class ConcertServiceTest {
                 .build();
 
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID))
-                .willReturn(Optional.empty());
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
 
         // when
@@ -457,7 +453,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
+        assertThat(result.get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI"));
         assertThat(result.get(0).status()).isEqualTo(ConcertStatus.UPCOMING);
     }
 
@@ -479,7 +475,7 @@ class ConcertServiceTest {
     }
 
     @Test
-    void should_return_null_artist_name_when_no_artist_mapped_in_following_concerts() {
+    void should_return_empty_artists_when_no_artist_mapped_in_following_concerts() {
         // given
         UserFollowArtist follow = UserFollowArtist.builder().userId(USER_ID).artistId(ARTIST_ID).build();
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
@@ -496,7 +492,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).artistName()).isNull();
+        assertThat(result.get(0).artists()).isEmpty();
     }
 
     // -------------------------------------------------------------------------
@@ -769,7 +765,7 @@ class ConcertServiceTest {
         // then
         verify(concertRepository).findByUserCalendar(eq(USER_ID), anyList(), eq(PAGEABLE));
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).artistName()).isEqualTo("IU");
+        assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "IU"));
     }
 
     @Test
@@ -811,7 +807,7 @@ class ConcertServiceTest {
         // then
         verify(concertRepository).searchConcerts(eq("%iu%"), anyList(), eq(PAGEABLE));
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).artistName()).isEqualTo("IU");
+        assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "IU"));
         assertThat(response.page()).isZero();
         assertThat(response.totalElements()).isEqualTo(1L);
     }
@@ -934,7 +930,7 @@ class ConcertServiceTest {
                 .ticketOpenAt(ticketOpenAt)
                 .build();
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(concertArtistRepository.findFirstByConcertIdOrderByIdAsc(CONCERT_ID)).willReturn(Optional.empty());
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
         given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
 
         // when
