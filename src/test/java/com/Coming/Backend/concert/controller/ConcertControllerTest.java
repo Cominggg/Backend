@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
@@ -55,10 +56,13 @@ class ConcertControllerTest {
     }
 
     private ConcertSummaryResponse buildSummary(Long id, String title, String artistName) {
+        List<ArtistSummary> artists = artistName != null
+                ? List.of(new ArtistSummary(1L, artistName))
+                : List.of();
         return new ConcertSummaryResponse(
                 id,
                 "https://example.com/poster.jpg",
-                artistName,
+                artists,
                 title,
                 LocalDate.of(2025, 8, 1),
                 LocalDate.of(2025, 8, 3),
@@ -90,7 +94,7 @@ class ConcertControllerTest {
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].id").value(CONCERT_ID))
                 .andExpect(jsonPath("$.content[0].title").value("IU CONCERT"))
-                .andExpect(jsonPath("$.content[0].artistName").value("IU"))
+                .andExpect(jsonPath("$.content[0].artists[0].name").value("IU"))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(1));

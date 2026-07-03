@@ -165,6 +165,38 @@ class InquiryServiceTest {
                 .hasMessage(ErrorCode.INQUIRY_ALREADY_PENDING.getMessage());
     }
 
+    @Test
+    void should_save_inquiry_when_data_request_type_without_target_validation() {
+        // given
+        InquiryCreateRequest request = new InquiryCreateRequest(
+                InquiryType.DATA_REQUEST, null, "아티스트 추가 요청", "홍길동 아티스트를 추가해주세요.");
+
+        // when
+        inquiryService.createInquiry(USER_ID, request);
+
+        // then
+        verify(concertRepository, org.mockito.Mockito.never()).existsById(any());
+        verify(artistRepository, org.mockito.Mockito.never()).existsById(any());
+        verify(inquiryRepository, org.mockito.Mockito.never()).existsByUserIdAndTargetIdAndTypeAndStatus(any(), any(), any(), any());
+        verify(inquiryRepository).save(any(Inquiry.class));
+    }
+
+    @Test
+    void should_save_inquiry_when_feedback_type_without_target_validation() {
+        // given
+        InquiryCreateRequest request = new InquiryCreateRequest(
+                InquiryType.FEEDBACK, null, "서비스 피드백", "앱 사용이 불편합니다.");
+
+        // when
+        inquiryService.createInquiry(USER_ID, request);
+
+        // then
+        verify(concertRepository, org.mockito.Mockito.never()).existsById(any());
+        verify(artistRepository, org.mockito.Mockito.never()).existsById(any());
+        verify(inquiryRepository, org.mockito.Mockito.never()).existsByUserIdAndTargetIdAndTypeAndStatus(any(), any(), any(), any());
+        verify(inquiryRepository).save(any(Inquiry.class));
+    }
+
     // -------------------------------------------------------------------------
     // getMyInquiries
     // -------------------------------------------------------------------------
@@ -297,5 +329,25 @@ class InquiryServiceTest {
 
         // then
         assertThat(response.exists()).isFalse();
+    }
+
+    @Test
+    void should_return_exists_false_for_data_request_type_without_repo_call() {
+        // when
+        InquiryExistsResponse response = inquiryService.existsPendingInquiry(USER_ID, InquiryType.DATA_REQUEST, null);
+
+        // then
+        assertThat(response.exists()).isFalse();
+        verify(inquiryRepository, org.mockito.Mockito.never()).existsByUserIdAndTargetIdAndTypeAndStatus(any(), any(), any(), any());
+    }
+
+    @Test
+    void should_return_exists_false_for_feedback_type_without_repo_call() {
+        // when
+        InquiryExistsResponse response = inquiryService.existsPendingInquiry(USER_ID, InquiryType.FEEDBACK, null);
+
+        // then
+        assertThat(response.exists()).isFalse();
+        verify(inquiryRepository, org.mockito.Mockito.never()).existsByUserIdAndTargetIdAndTypeAndStatus(any(), any(), any(), any());
     }
 }

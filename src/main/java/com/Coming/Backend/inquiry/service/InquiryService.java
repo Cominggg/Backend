@@ -30,15 +30,19 @@ public class InquiryService {
     private final ArtistRepository artistRepository;
 
     /**
-     * 데이터 문의를 등록한다. 동일 targetId·type으로 PENDING 문의가 존재하면 예외를 던진다.
+     * 문의를 등록한다. CONCERT·ARTIST·SETLIST 타입은 동일 targetId·type으로 PENDING 문의가 존재하면 예외를 던진다.
+     * DATA_REQUEST·FEEDBACK 타입은 대상 컨텐츠가 없으므로 targetId 검증 및 중복 체크를 수행하지 않는다.
      */
     @Transactional
     public void createInquiry(Long userId, InquiryCreateRequest request) {
-        validateTargetExists(request.type(), request.targetId());
+        boolean isTargetless = isTargetlessType(request.type());
 
-        if (inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(
-                userId, request.targetId(), request.type(), InquiryStatus.PENDING)) {
-            throw new InquiryAlreadyPendingException();
+        if (!isTargetless) {
+            validateTargetExists(request.type(), request.targetId());
+            if (inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(
+                    userId, request.targetId(), request.type(), InquiryStatus.PENDING)) {
+                throw new InquiryAlreadyPendingException();
+            }
         }
 
         Inquiry inquiry = Inquiry.builder()
@@ -76,17 +80,26 @@ public class InquiryService {
 
     /**
      * 해당 type·targetId 조합으로 PENDING 상태 문의가 존재하는지 조회한다.
+     * DATA_REQUEST·FEEDBACK 타입은 중복 개념이 없으므로 항상 false를 반환한다.
      */
     public InquiryExistsResponse existsPendingInquiry(Long userId, InquiryType type, Long targetId) {
+        if (isTargetlessType(type)) {
+            return new InquiryExistsResponse(false);
+        }
         boolean exists = inquiryRepository.existsByUserIdAndTargetIdAndTypeAndStatus(
                 userId, targetId, type, InquiryStatus.PENDING);
         return new InquiryExistsResponse(exists);
+    }
+
+    private boolean isTargetlessType(InquiryType type) {
+        return type == InquiryType.DATA_REQUEST || type == InquiryType.FEEDBACK;
     }
 
     private void validateTargetExists(InquiryType type, Long targetId) {
         boolean exists = switch (type) {
             case CONCERT, SETLIST -> concertRepository.existsById(targetId);
             case ARTIST -> artistRepository.existsById(targetId);
+            default -> false;
         };
         if (!exists) {
             throw new TargetNotFoundException();

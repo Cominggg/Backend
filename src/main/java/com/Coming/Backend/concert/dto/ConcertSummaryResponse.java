@@ -4,11 +4,12 @@ import com.Coming.Backend.concert.entity.ConcertStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record ConcertSummaryResponse(
         Long id,
         String posterUrl,
-        String artistName,
+        List<ArtistSummary> artists,
         String title,
         LocalDate startDate,
         LocalDate endDate,

@@ -7,6 +7,9 @@ import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
+import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
+import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
+import com.Coming.Backend.admin.dto.PipelineSetlistCollectResult;
 import com.Coming.Backend.admin.dto.AdminCandidateArtistResponse;
 import com.Coming.Backend.admin.dto.AdminConcertDetailResponse;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
@@ -463,17 +466,17 @@ public class AdminService {
     }
 
     /**
-     * MBID 기반으로 Data 파이프라인에 아티스트 초기 수집을 트리거한다.
+     * MBID 기반으로 아티스트를 동기 수집한다. 수집 결과를 반환한다.
      */
-    public void collectArtist(AdminArtistCollectRequest request) {
-        dataPipelineClient.triggerArtistCollect(request.mbid());
+    public PipelineArtistCollectResult collectArtist(AdminArtistCollectRequest request) {
+        return dataPipelineClient.collectArtist(request.mbid());
     }
 
     /**
-     * KOPIS ID 기반으로 Data 파이프라인에 공연 수집을 트리거한다.
+     * KOPIS ID 기반으로 공연을 동기 수집한다. 수집 결과를 반환한다.
      */
-    public void collectConcert(AdminConcertCollectRequest request) {
-        dataPipelineClient.triggerConcertCollectByKopisId(request.kopisId());
+    public PipelineConcertCollectResult collectConcert(AdminConcertCollectRequest request) {
+        return dataPipelineClient.collectConcert(request.kopisId());
     }
 
     /**
@@ -484,10 +487,10 @@ public class AdminService {
     }
 
     /**
-     * Data 파이프라인에 특정 공연의 셋리스트 수집을 트리거한다.
+     * 특정 공연의 셋리스트를 동기 수집한다. 수집 결과를 반환한다.
      */
-    public void triggerConcertSetlist(Long concertId) {
-        dataPipelineClient.triggerConcertSetlist(concertId);
+    public PipelineSetlistCollectResult triggerConcertSetlist(Long concertId) {
+        return dataPipelineClient.collectConcertSetlist(concertId);
     }
 
     private ConcertStatus computeStatusFromDates(LocalDate startDate, LocalDate endDate) {

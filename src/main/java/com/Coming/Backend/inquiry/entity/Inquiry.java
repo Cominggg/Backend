@@ -34,7 +34,7 @@ public class Inquiry extends BaseTimeEntity {
     @Column(name = "type", nullable = false, length = 20)
     private InquiryType type;
 
-    @Column(name = "target_id", nullable = false)
+    @Column(name = "target_id")
     private Long targetId;
 
     @Column(name = "title", nullable = false, length = 255)

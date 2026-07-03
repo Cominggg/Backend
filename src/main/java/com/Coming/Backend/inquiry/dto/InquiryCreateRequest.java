@@ -9,7 +9,6 @@ public record InquiryCreateRequest(
         @NotNull
         InquiryType type,
 
-        @NotNull
         Long targetId,
 
         @NotBlank

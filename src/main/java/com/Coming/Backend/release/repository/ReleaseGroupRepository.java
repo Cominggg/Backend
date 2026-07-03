@@ -46,7 +46,7 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
                     SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
                 )
                 OR r.artistId IN (
-                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
                 )
                 OR r.artistId IN (
                     SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
@@ -62,7 +62,7 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
                     SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
                 )
                 OR r.artistId IN (
-                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
                 )
                 OR r.artistId IN (
                     SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
@@ -81,7 +81,7 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
                     SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
                 )
                 OR r.artistId IN (
-                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
                 )
                 OR r.artistId IN (
                     SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
@@ -98,7 +98,7 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
                     SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
                 )
                 OR r.artistId IN (
-                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
                 )
                 OR r.artistId IN (
                     SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q

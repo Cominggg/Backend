@@ -25,6 +25,8 @@ import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
+import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
+import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
@@ -405,7 +407,8 @@ class AdminControllerTest {
                     "mbid": "some-mbid-123"
                 }
                 """;
-        willDoNothing().given(adminService).collectArtist(any(AdminArtistCollectRequest.class));
+        given(adminService.collectArtist(any(AdminArtistCollectRequest.class)))
+                .willReturn(new PipelineArtistCollectResult(true, 1L, "some-mbid-123", "IU", null, List.of(), null));
 
         // when & then
         mockMvc.perform(post("/api/admin/data/collect/artists")
@@ -442,7 +445,8 @@ class AdminControllerTest {
                     "kopisId": "PF123456"
                 }
                 """;
-        willDoNothing().given(adminService).collectConcert(any(AdminConcertCollectRequest.class));
+        given(adminService.collectConcert(any(AdminConcertCollectRequest.class)))
+                .willReturn(new PipelineConcertCollectResult(true, 10L, "YOASOBI Live", List.of(), null));
 
         // when & then
         mockMvc.perform(post("/api/admin/data/collect/concerts")
