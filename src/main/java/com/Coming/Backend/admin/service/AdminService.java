@@ -24,6 +24,7 @@ import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistAlias;
+import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
@@ -197,7 +198,13 @@ public class AdminService {
     public AdminConcertDetailResponse getAdminConcert(Long id) {
         Concert concert = concertRepository.findById(id)
                 .orElseThrow(ConcertNotFoundException::new);
-        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id));
+        List<Long> artistIds = concertArtistRepository.findByConcertId(id).stream()
+                .map(ConcertArtist::getArtistId)
+                .toList();
+        List<ArtistSummary> artists = artistRepository.findAllById(artistIds).stream()
+                .map(a -> new ArtistSummary(a.getId(), a.getName(), null))
+                .toList();
+        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id), artists);
     }
 
     /**
