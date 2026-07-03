@@ -1,5 +1,6 @@
 package com.Coming.Backend.admin.dto;
 
+import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
@@ -19,11 +20,12 @@ public record AdminConcertDetailResponse(
         String price,
         ConcertStatus status,
         LocalDateTime ticketOpenAt,
-        List<BookingLinkDto> bookingLinks
+        List<BookingLinkDto> bookingLinks,
+        List<ArtistSummary> artists
 ) {
     public record BookingLinkDto(String name, String url) {}
 
-    public static AdminConcertDetailResponse of(Concert concert, List<ConcertBookingLink> links) {
+    public static AdminConcertDetailResponse of(Concert concert, List<ConcertBookingLink> links, List<ArtistSummary> artists) {
         return new AdminConcertDetailResponse(
                 concert.getId(),
                 concert.getTitle(),
@@ -35,7 +37,8 @@ public record AdminConcertDetailResponse(
                 concert.getPrice(),
                 concert.getStatus(),
                 concert.getTicketOpenAt(),
-                links.stream().map(l -> new BookingLinkDto(l.getName(), l.getUrl())).toList()
+                links.stream().map(l -> new BookingLinkDto(l.getName(), l.getUrl())).toList(),
+                artists
         );
     }
 }
