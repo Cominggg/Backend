@@ -8,4 +8,6 @@ import java.util.List;
 public interface ArtistAliasRepository extends JpaRepository<ArtistAlias, Long> {
 
     List<ArtistAlias> findByArtistId(Long artistId);
+
+    List<ArtistAlias> findByArtistIdInAndLocale(List<Long> artistIds, String locale);
 }
