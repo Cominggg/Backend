@@ -134,7 +134,9 @@ public class ArtistService {
         List<ArtistLinkDto> links = artistUrlRepository.findByArtistId(id).stream()
                 .map(url -> new ArtistLinkDto(url.getType(), toLabel(url.getType()), url.getUrl()))
                 .toList();
-        String koreanName = buildKoreanNameMap(List.of(id)).get(id);
+        String koreanName = artistAliasRepository.findFirstByArtistIdAndLocaleOrderByIdAsc(id, "ko")
+                .map(ArtistAlias::getName)
+                .orElse(null);
 
         return new ArtistDetailResponse(
                 artist.getId(),
