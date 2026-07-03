@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.calendar.entity.UserConcertCalendar;
@@ -71,6 +72,9 @@ class ConcertServiceTest {
 
     @Mock
     private ArtistRepository artistRepository;
+
+    @Mock
+    private ArtistAliasRepository artistAliasRepository;
 
     @Mock
     private UserConcertCalendarRepository userConcertCalendarRepository;
@@ -142,7 +146,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI"));
+        assertThat(result.get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI", null));
         verify(concertRepository).findTop10Popular(anyList());
     }
 
@@ -268,7 +272,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI"));
+        assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI", null));
         assertThat(response.content().get(0).venue()).isEqualTo("올림픽공원");
         assertThat(response.content().get(0).status()).isEqualTo(ConcertStatus.UPCOMING);
     }
@@ -347,7 +351,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(response.id()).isEqualTo(CONCERT_ID);
-        assertThat(response.artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI"));
+        assertThat(response.artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI", null));
         assertThat(response.posterUrl()).isEqualTo("https://example.com/poster.jpg");
         assertThat(response.ticketLinks()).hasSize(1);
         assertThat(response.ticketLinks().get(0).label()).isEqualTo("인터파크");
@@ -453,7 +457,7 @@ class ConcertServiceTest {
 
         // then
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI"));
+        assertThat(result.get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI", null));
         assertThat(result.get(0).status()).isEqualTo(ConcertStatus.UPCOMING);
     }
 
@@ -765,7 +769,7 @@ class ConcertServiceTest {
         // then
         verify(concertRepository).findByUserCalendar(eq(USER_ID), anyList(), eq(PAGEABLE));
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "IU"));
+        assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "IU", null));
     }
 
     @Test
@@ -807,7 +811,7 @@ class ConcertServiceTest {
         // then
         verify(concertRepository).searchConcerts(eq("%iu%"), anyList(), eq(PAGEABLE));
         assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "IU"));
+        assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "IU", null));
         assertThat(response.page()).isZero();
         assertThat(response.totalElements()).isEqualTo(1L);
     }

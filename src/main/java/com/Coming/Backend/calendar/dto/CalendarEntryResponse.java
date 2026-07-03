@@ -7,6 +7,7 @@ public record CalendarEntryResponse(
         Long concertId,
         String type,
         String artistName,
+        String artistKoreanName,
         String title,
         LocalDate startDate,
         LocalDate endDate,

@@ -1,6 +1,8 @@
 package com.Coming.Backend.user.service;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,7 @@ public class UserService {
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ArtistRepository artistRepository;
+    private final ArtistAliasRepository artistAliasRepository;
 
     /**
      * 내 캘린더에 저장한 공연 중 이미 종료된 공연 목록을 페이지네이션으로 조회한다.
@@ -51,13 +55,17 @@ public class UserService {
         }
         List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
         Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        Set<Long> artistIds = new HashSet<>(concertToArtistId.values());
+        Map<Long, String> artistNameMap = buildArtistNameMap(artistIds);
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
         return concerts.stream().map(concert -> {
             Long artistId = concertToArtistId.get(concert.getId());
             String artistName = artistId != null ? artistNameMap.get(artistId) : null;
+            String artistKoreanName = artistId != null ? koreanNameMap.get(artistId) : null;
             return new ConcertHistoryResponse(
                     concert.getId(),
                     artistName,
+                    artistKoreanName,
                     concert.getTitle(),
                     concert.getStartDate(),
                     concert.getEndDate(),
@@ -78,5 +86,14 @@ public class UserService {
         }
         return artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
+    }
+
+    private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {
+        if (artistIds.isEmpty()) {
+            return Map.of();
+        }
+        return artistAliasRepository.findByArtistIdInAndLocale(artistIds, "ko").stream()
+                .sorted(Comparator.comparingLong(ArtistAlias::getId))
+                .collect(Collectors.toMap(ArtistAlias::getArtistId, ArtistAlias::getName, (existing, replacement) -> existing));
     }
 }

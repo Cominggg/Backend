@@ -9,6 +9,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.calendar.dto.CalendarEntryResponse;
 import com.Coming.Backend.calendar.entity.UserConcertCalendar;
@@ -53,6 +54,9 @@ class CalendarServiceTest {
 
     @Mock
     private ArtistRepository artistRepository;
+
+    @Mock
+    private ArtistAliasRepository artistAliasRepository;
 
     @Mock
     private UserConcertCalendarRepository userConcertCalendarRepository;

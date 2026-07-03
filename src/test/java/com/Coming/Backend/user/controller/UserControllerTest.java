@@ -72,7 +72,7 @@ class UserControllerTest {
     void should_return_200_with_upcoming_concerts() throws Exception {
         // given
         CalendarEntryResponse entry = new CalendarEntryResponse(
-                CONCERT_ID, "CONCERT", "YOASOBI", "YOASOBI LIVE",
+                CONCERT_ID, "CONCERT", "YOASOBI", null, "YOASOBI LIVE",
                 LocalDate.of(2025, 8, 15), LocalDate.of(2025, 8, 15),
                 "UPCOMING", "poster.jpg", "올림픽홀", true, null
         );
@@ -96,7 +96,7 @@ class UserControllerTest {
     void should_return_200_with_concert_history() throws Exception {
         // given
         ConcertHistoryResponse history = new ConcertHistoryResponse(
-                CONCERT_ID, "YOASOBI", "YOASOBI LIVE",
+                CONCERT_ID, "YOASOBI", null, "YOASOBI LIVE",
                 LocalDate.of(2024, 5, 1), LocalDate.of(2024, 5, 1),
                 "올림픽홀", "ENDED"
         );

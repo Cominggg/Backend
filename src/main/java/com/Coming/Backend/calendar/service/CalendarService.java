@@ -1,6 +1,8 @@
 package com.Coming.Backend.calendar.service;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.calendar.dto.CalendarEntryResponse;
 import com.Coming.Backend.calendar.entity.UserConcertCalendar;
@@ -43,6 +45,7 @@ public class CalendarService {
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ArtistRepository artistRepository;
+    private final ArtistAliasRepository artistAliasRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
 
     /**
@@ -61,15 +64,17 @@ public class CalendarService {
         List<Long> allConcertIds = Stream.concat(concertList.stream(), ticketingList.stream())
                 .map(Concert::getId).distinct().toList();
         Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(allConcertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        Set<Long> artistIds = new HashSet<>(concertToArtistId.values());
+        Map<Long, String> artistNameMap = buildArtistNameMap(artistIds);
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
         Set<Long> userCalendarIds = resolveUserCalendarIdsById(userId, allConcertIds);
 
         List<CalendarEntryResponse> result = new ArrayList<>();
         for (Concert concert : concertList) {
-            result.add(buildCalendarEntry(concert, "CONCERT", concertToArtistId, artistNameMap, userCalendarIds));
+            result.add(buildCalendarEntry(concert, "CONCERT", concertToArtistId, artistNameMap, koreanNameMap, userCalendarIds));
         }
         for (Concert concert : ticketingList) {
-            result.add(buildCalendarEntry(concert, "TICKETING", concertToArtistId, artistNameMap, userCalendarIds));
+            result.add(buildCalendarEntry(concert, "TICKETING", concertToArtistId, artistNameMap, koreanNameMap, userCalendarIds));
         }
         result.sort(Comparator.comparing(e -> "TICKETING".equals(e.type())
                 ? e.ticketOpenAt().toLocalDate()
@@ -85,10 +90,12 @@ public class CalendarService {
         Page<Concert> page = concertRepository.findUpcomingByUserCalendar(userId, today, HIDDEN_STATUSES, pageable);
         List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
         Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        Set<Long> artistIds = new HashSet<>(concertToArtistId.values());
+        Map<Long, String> artistNameMap = buildArtistNameMap(artistIds);
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
         Set<Long> calendarIds = new HashSet<>(concertIds);
         List<CalendarEntryResponse> content = page.getContent().stream()
-                .map(c -> buildCalendarEntry(c, "CONCERT", concertToArtistId, artistNameMap, calendarIds))
+                .map(c -> buildCalendarEntry(c, "CONCERT", concertToArtistId, artistNameMap, koreanNameMap, calendarIds))
                 .toList();
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
@@ -140,13 +147,16 @@ public class CalendarService {
     private CalendarEntryResponse buildCalendarEntry(Concert concert, String type,
                                                       Map<Long, Long> concertToArtistId,
                                                       Map<Long, String> artistNameMap,
+                                                      Map<Long, String> koreanNameMap,
                                                       Set<Long> userCalendarIds) {
         Long artistId = concertToArtistId.get(concert.getId());
         String artistName = artistId != null ? artistNameMap.get(artistId) : null;
+        String artistKoreanName = artistId != null ? koreanNameMap.get(artistId) : null;
         return new CalendarEntryResponse(
                 concert.getId(),
                 type,
                 artistName,
+                artistKoreanName,
                 concert.getTitle(),
                 concert.getStartDate(),
                 concert.getEndDate(),
@@ -172,5 +182,14 @@ public class CalendarService {
         }
         return artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
+    }
+
+    private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {
+        if (artistIds.isEmpty()) {
+            return Map.of();
+        }
+        return artistAliasRepository.findByArtistIdInAndLocale(artistIds, "ko").stream()
+                .sorted(Comparator.comparingLong(ArtistAlias::getId))
+                .collect(Collectors.toMap(ArtistAlias::getArtistId, ArtistAlias::getName, (existing, replacement) -> existing));
     }
 }
