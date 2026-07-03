@@ -15,10 +15,11 @@ public record ReleaseDetailResponse(
         Integer totalTracks,
         Long artistId,
         String artistName,
+        String artistKoreanName,
         String spotifyId,
         List<TrackDto> tracks
 ) {
-    public static ReleaseDetailResponse of(ReleaseGroup release, String artistName, List<TrackDto> tracks) {
+    public static ReleaseDetailResponse of(ReleaseGroup release, String artistName, String artistKoreanName, List<TrackDto> tracks) {
         return new ReleaseDetailResponse(
                 release.getId(),
                 release.getTitle(),
@@ -29,6 +30,7 @@ public record ReleaseDetailResponse(
                 release.getTotalTracks(),
                 release.getArtistId(),
                 artistName,
+                artistKoreanName,
                 release.getSpotifyId(),
                 tracks
         );

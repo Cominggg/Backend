@@ -142,11 +142,12 @@ public class ReleaseService {
 
         String artistName = artistRepository.findById(release.getArtistId())
                 .map(Artist::getName).orElse("");
+        String artistKoreanName = buildKoreanNameMap(List.of(release.getArtistId())).get(release.getArtistId());
 
         List<TrackDto> tracks = trackRepository.findByReleaseGroupIdOrderByPosition(release.getId())
                 .stream().map(TrackDto::from).toList();
 
-        return ReleaseDetailResponse.of(release, artistName, tracks);
+        return ReleaseDetailResponse.of(release, artistName, artistKoreanName, tracks);
     }
 
     private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {

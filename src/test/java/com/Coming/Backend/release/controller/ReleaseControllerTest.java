@@ -272,7 +272,7 @@ class ReleaseControllerTest {
         ReleaseDetailResponse detail = new ReleaseDetailResponse(
                 RELEASE_ID, "LILAC", "Album", LocalDate.of(2021, 3, 25),
                 "https://cover.example.com/10", "KAKAO M", 2,
-                ARTIST_ID, "IU", null, List.of(track1, track2)
+                ARTIST_ID, "IU", null, null, List.of(track1, track2)
         );
         given(releaseService.getReleaseDetail(eq(RELEASE_ID))).willReturn(detail);
 
