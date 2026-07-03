@@ -478,7 +478,7 @@ class AdminControllerTest {
     @Test
     void should_return_200_with_excluded_concert_list_when_excluded_concerts_exist() throws Exception {
         // given
-        AdminExcludedArtistResponse artist = new AdminExcludedArtistResponse(1L, "IU");
+        AdminExcludedArtistResponse artist = new AdminExcludedArtistResponse(1L, "IU", null);
         AdminExcludedConcertResponse concert = new AdminExcludedConcertResponse(
                 1L, "아이유 콘서트", LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 2),
                 "올림픽공원 체조경기장", "https://example.com/poster.jpg", List.of(artist)
