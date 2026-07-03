@@ -1,11 +1,13 @@
 package com.Coming.Backend.user.dto;
 
+import com.Coming.Backend.concert.dto.ConcertArtistDto;
+
 import java.time.LocalDate;
+import java.util.List;
 
 public record ConcertHistoryResponse(
         Long id,
-        String artistName,
-        String artistKoreanName,
+        List<ConcertArtistDto> artists,
         String title,
         LocalDate startDate,
         LocalDate endDate,

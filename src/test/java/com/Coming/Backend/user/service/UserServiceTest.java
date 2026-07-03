@@ -109,7 +109,8 @@ class UserServiceTest {
         // then
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0).id()).isEqualTo(CONCERT_ID);
-        assertThat(result.content().get(0).artistName()).isEqualTo("YOASOBI");
+        assertThat(result.content().get(0).artists()).hasSize(1);
+        assertThat(result.content().get(0).artists().get(0).name()).isEqualTo("YOASOBI");
         assertThat(result.content().get(0).title()).isEqualTo("공연 1");
         assertThat(result.content().get(0).venue()).isEqualTo("KSPO DOME, 서울");
         assertThat(result.content().get(0).status()).isEqualTo("ENDED");
@@ -150,6 +151,6 @@ class UserServiceTest {
 
         // then
         assertThat(result.content()).hasSize(1);
-        assertThat(result.content().get(0).artistName()).isNull();
+        assertThat(result.content().get(0).artists()).isEmpty();
     }
 }
