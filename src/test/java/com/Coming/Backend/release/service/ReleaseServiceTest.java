@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
@@ -54,6 +55,9 @@ class ReleaseServiceTest {
 
     @Mock
     private ArtistRepository artistRepository;
+
+    @Mock
+    private ArtistAliasRepository artistAliasRepository;
 
     @Mock
     private UserFollowArtistRepository userFollowArtistRepository;

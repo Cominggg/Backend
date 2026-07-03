@@ -1,8 +1,10 @@
 package com.Coming.Backend.release.service;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.InvalidInputException;
@@ -24,6 +26,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +42,7 @@ public class ReleaseService {
     private final ReleaseGroupRepository releaseGroupRepository;
     private final TrackRepository trackRepository;
     private final ArtistRepository artistRepository;
+    private final ArtistAliasRepository artistAliasRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
 
     /**
@@ -82,9 +86,10 @@ public class ReleaseService {
         Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
         Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
 
         return PageResponse.from(page.map(release ->
-                ReleaseListItemResponse.of(release, artistNameMap.getOrDefault(release.getArtistId(), ""))
+                ReleaseListItemResponse.of(release, artistNameMap.getOrDefault(release.getArtistId(), ""), koreanNameMap.get(release.getArtistId()))
         ));
     }
 
@@ -121,9 +126,10 @@ public class ReleaseService {
         Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
         Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
 
         return PageResponse.from(page.map(release ->
-                ReleaseListItemResponse.of(release, artistNameMap.getOrDefault(release.getArtistId(), ""))
+                ReleaseListItemResponse.of(release, artistNameMap.getOrDefault(release.getArtistId(), ""), koreanNameMap.get(release.getArtistId()))
         ));
     }
 
@@ -136,11 +142,21 @@ public class ReleaseService {
 
         String artistName = artistRepository.findById(release.getArtistId())
                 .map(Artist::getName).orElse("");
+        String artistKoreanName = buildKoreanNameMap(List.of(release.getArtistId())).get(release.getArtistId());
 
         List<TrackDto> tracks = trackRepository.findByReleaseGroupIdOrderByPosition(release.getId())
                 .stream().map(TrackDto::from).toList();
 
-        return ReleaseDetailResponse.of(release, artistName, tracks);
+        return ReleaseDetailResponse.of(release, artistName, artistKoreanName, tracks);
+    }
+
+    private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {
+        if (artistIds.isEmpty()) {
+            return Map.of();
+        }
+        return artistAliasRepository.findByArtistIdInAndLocale(artistIds, "ko").stream()
+                .sorted(Comparator.comparingLong(ArtistAlias::getId))
+                .collect(Collectors.toMap(ArtistAlias::getArtistId, ArtistAlias::getName, (existing, replacement) -> existing));
     }
 
     private Pageable releasesSorted(Pageable pageable) {

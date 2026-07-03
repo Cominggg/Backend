@@ -24,6 +24,7 @@ import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistAlias;
+import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
@@ -197,7 +198,14 @@ public class AdminService {
     public AdminConcertDetailResponse getAdminConcert(Long id) {
         Concert concert = concertRepository.findById(id)
                 .orElseThrow(ConcertNotFoundException::new);
-        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id));
+        List<Long> artistIds = concertArtistRepository.findByConcertId(id).stream()
+                .map(ConcertArtist::getArtistId)
+                .toList();
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(artistIds);
+        List<ArtistSummary> artists = artistRepository.findAllById(artistIds).stream()
+                .map(a -> new ArtistSummary(a.getId(), a.getName(), koreanNameMap.get(a.getId())))
+                .toList();
+        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id), artists);
     }
 
     /**
@@ -264,6 +272,7 @@ public class AdminService {
                 .toList();
         Map<Long, String> artistNameById = artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(artistIds);
 
         List<AdminExcludedConcertResponse> content = page.getContent().stream()
                 .map(concert -> {
@@ -271,7 +280,8 @@ public class AdminService {
                             .getOrDefault(concert.getId(), List.of()).stream()
                             .map(ca -> new AdminExcludedArtistResponse(
                                     ca.getArtistId(),
-                                    artistNameById.get(ca.getArtistId())))
+                                    artistNameById.get(ca.getArtistId()),
+                                    koreanNameMap.get(ca.getArtistId())))
                             .toList();
                     return AdminExcludedConcertResponse.of(concert, artists);
                 })
@@ -299,6 +309,7 @@ public class AdminService {
                 .toList();
         Map<Long, String> artistNameById = artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(artistIds);
 
         Map<Long, List<ConcertBookingLink>> linksByConcertId = concertBookingLinkRepository
                 .findByConcertIdIn(concertIds).stream()
@@ -310,7 +321,8 @@ public class AdminService {
                             .getOrDefault(concert.getId(), List.of()).stream()
                             .map(c -> new AdminCandidateArtistResponse(
                                     c.getArtistId(),
-                                    artistNameById.get(c.getArtistId())))
+                                    artistNameById.get(c.getArtistId()),
+                                    koreanNameMap.get(c.getArtistId())))
                             .toList();
                     List<ConcertBookingLink> links = linksByConcertId.getOrDefault(concert.getId(), List.of());
                     return AdminPendingConcertResponse.of(concert, links, candidates);
@@ -491,6 +503,15 @@ public class AdminService {
      */
     public PipelineSetlistCollectResult triggerConcertSetlist(Long concertId) {
         return dataPipelineClient.collectConcertSetlist(concertId);
+    }
+
+    private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {
+        if (artistIds.isEmpty()) {
+            return Map.of();
+        }
+        return artistAliasRepository.findByArtistIdInAndLocale(artistIds, "ko").stream()
+                .sorted(java.util.Comparator.comparingLong(ArtistAlias::getId))
+                .collect(Collectors.toMap(ArtistAlias::getArtistId, ArtistAlias::getName, (existing, replacement) -> existing));
     }
 
     private ConcertStatus computeStatusFromDates(LocalDate startDate, LocalDate endDate) {

@@ -1,7 +1,9 @@
 package com.Coming.Backend.concert.service;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.calendar.entity.UserConcertCalendar;
@@ -34,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +58,7 @@ public class ConcertService {
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
     private final ConcertImageRepository concertImageRepository;
     private final ArtistRepository artistRepository;
+    private final ArtistAliasRepository artistAliasRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
     private final SetlistRepository setlistRepository;
@@ -210,8 +214,9 @@ public class ConcertService {
                 .map(ConcertArtist::getArtistId)
                 .toList();
         Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(artistIds));
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(artistIds);
         List<ArtistSummary> artists = artistIds.stream()
-                .map(artistId -> new ArtistSummary(artistId, artistNameMap.get(artistId)))
+                .map(artistId -> new ArtistSummary(artistId, artistNameMap.get(artistId), koreanNameMap.get(artistId)))
                 .toList();
 
         boolean isInCalendar = userId != null &&
@@ -244,10 +249,11 @@ public class ConcertService {
                 .flatMap(List::stream)
                 .collect(Collectors.toSet());
         Map<Long, String> artistNameMap = buildArtistNameMap(allArtistIds);
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(allArtistIds));
         Set<Long> calendarConcertIds = buildCalendarConcertIds(userId, concertIds);
         return concerts.stream().map(concert -> {
             List<ArtistSummary> artists = concertToArtistIds.getOrDefault(concert.getId(), List.of()).stream()
-                    .map(artistId -> new ArtistSummary(artistId, artistNameMap.get(artistId)))
+                    .map(artistId -> new ArtistSummary(artistId, artistNameMap.get(artistId), koreanNameMap.get(artistId)))
                     .toList();
             return new ConcertSummaryResponse(
                     concert.getId(),
@@ -302,5 +308,14 @@ public class ConcertService {
         }
         return artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
+    }
+
+    private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {
+        if (artistIds.isEmpty()) {
+            return Map.of();
+        }
+        return artistAliasRepository.findByArtistIdInAndLocale(artistIds, "ko").stream()
+                .sorted(Comparator.comparingLong(ArtistAlias::getId))
+                .collect(Collectors.toMap(ArtistAlias::getArtistId, ArtistAlias::getName, (existing, replacement) -> existing));
     }
 }

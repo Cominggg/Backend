@@ -1,9 +1,12 @@
 package com.Coming.Backend.user.service;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
+import com.Coming.Backend.concert.dto.ConcertArtistDto;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
@@ -16,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +38,7 @@ public class UserService {
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ArtistRepository artistRepository;
+    private final ArtistAliasRepository artistAliasRepository;
 
     /**
      * 내 캘린더에 저장한 공연 중 이미 종료된 공연 목록을 페이지네이션으로 조회한다.
@@ -50,14 +54,17 @@ public class UserService {
             return List.of();
         }
         List<Long> concertIds = concerts.stream().map(Concert::getId).toList();
-        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        Map<Long, List<Long>> concertToArtistIds = buildConcertToArtistIdsMap(concertIds);
+        Set<Long> artistIds = concertToArtistIds.values().stream().flatMap(List::stream).collect(Collectors.toSet());
+        Map<Long, String> artistNameMap = buildArtistNameMap(artistIds);
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
         return concerts.stream().map(concert -> {
-            Long artistId = concertToArtistId.get(concert.getId());
-            String artistName = artistId != null ? artistNameMap.get(artistId) : null;
+            List<ConcertArtistDto> artists = concertToArtistIds.getOrDefault(concert.getId(), List.of()).stream()
+                    .map(id -> new ConcertArtistDto(id, artistNameMap.get(id), koreanNameMap.get(id)))
+                    .toList();
             return new ConcertHistoryResponse(
                     concert.getId(),
-                    artistName,
+                    artists,
                     concert.getTitle(),
                     concert.getStartDate(),
                     concert.getEndDate(),
@@ -67,9 +74,12 @@ public class UserService {
         }).toList();
     }
 
-    private Map<Long, Long> buildConcertArtistIdMap(List<Long> concertIds) {
+    private Map<Long, List<Long>> buildConcertToArtistIdsMap(List<Long> concertIds) {
         return concertArtistRepository.findByConcertIdIn(concertIds).stream()
-                .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId));
+                .collect(Collectors.groupingBy(
+                        ConcertArtist::getConcertId,
+                        Collectors.mapping(ConcertArtist::getArtistId, Collectors.toList())
+                ));
     }
 
     private Map<Long, String> buildArtistNameMap(Set<Long> artistIds) {
@@ -78,5 +88,14 @@ public class UserService {
         }
         return artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
+    }
+
+    private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {
+        if (artistIds.isEmpty()) {
+            return Map.of();
+        }
+        return artistAliasRepository.findByArtistIdInAndLocale(artistIds, "ko").stream()
+                .sorted(Comparator.comparingLong(ArtistAlias::getId))
+                .collect(Collectors.toMap(ArtistAlias::getArtistId, ArtistAlias::getName, (existing, replacement) -> existing));
     }
 }

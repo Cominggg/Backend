@@ -73,7 +73,7 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_artist_list_when_no_name_filter() throws Exception {
         // given
-        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false, null);
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, null, true, false, null);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
         given(artistService.getArtists(isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
@@ -93,7 +93,7 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_filtered_artist_list_when_name_given() throws Exception {
         // given
-        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, true, false, null);
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, null, true, false, null);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
         given(artistService.getArtists(eq("yoa"), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
@@ -114,7 +114,7 @@ class ArtistControllerTest {
     void should_return_200_with_artist_detail_when_artist_exists() throws Exception {
         // given
         ArtistDetailResponse detail = new ArtistDetailResponse(
-                ARTIST_ID, "YOASOBI", null, true, false, 500L,
+                ARTIST_ID, "YOASOBI", null, null, true, false, 500L,
                 List.of(new ArtistLinkDto("spotify", "Spotify", "https://spotify.com"))
         );
         given(artistService.getArtist(eq(ARTIST_ID), isNull())).willReturn(detail);
@@ -313,7 +313,7 @@ class ArtistControllerTest {
     void should_return_200_with_following_artist_list() throws Exception {
         // given
         List<FollowingArtistResponse> following = List.of(
-                new FollowingArtistResponse(ARTIST_ID, "IU", null, true, true)
+                new FollowingArtistResponse(ARTIST_ID, "IU", null, null, true, true)
         );
         given(artistService.getFollowingArtists(isNull())).willReturn(following);
 

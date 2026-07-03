@@ -21,6 +21,7 @@ import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistUrl;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.ArtistUrlRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
@@ -51,6 +52,9 @@ class ArtistServiceTest {
 
     @Mock
     private ArtistRepository artistRepository;
+
+    @Mock
+    private ArtistAliasRepository artistAliasRepository;
 
     @Mock
     private ArtistUrlRepository artistUrlRepository;

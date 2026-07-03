@@ -1,8 +1,11 @@
 package com.Coming.Backend.calendar.service;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.calendar.dto.CalendarEntryResponse;
+import com.Coming.Backend.concert.dto.ConcertArtistDto;
 import com.Coming.Backend.calendar.entity.UserConcertCalendar;
 import com.Coming.Backend.calendar.exception.AlreadyInCalendarException;
 import com.Coming.Backend.calendar.exception.NotInCalendarException;
@@ -43,6 +46,7 @@ public class CalendarService {
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ArtistRepository artistRepository;
+    private final ArtistAliasRepository artistAliasRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
 
     /**
@@ -60,16 +64,18 @@ public class CalendarService {
 
         List<Long> allConcertIds = Stream.concat(concertList.stream(), ticketingList.stream())
                 .map(Concert::getId).distinct().toList();
-        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(allConcertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        Map<Long, List<Long>> concertToArtistIds = buildConcertToArtistIdsMap(allConcertIds);
+        Set<Long> artistIds = concertToArtistIds.values().stream().flatMap(List::stream).collect(Collectors.toSet());
+        Map<Long, String> artistNameMap = buildArtistNameMap(artistIds);
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
         Set<Long> userCalendarIds = resolveUserCalendarIdsById(userId, allConcertIds);
 
         List<CalendarEntryResponse> result = new ArrayList<>();
         for (Concert concert : concertList) {
-            result.add(buildCalendarEntry(concert, "CONCERT", concertToArtistId, artistNameMap, userCalendarIds));
+            result.add(buildCalendarEntry(concert, "CONCERT", concertToArtistIds, artistNameMap, koreanNameMap, userCalendarIds));
         }
         for (Concert concert : ticketingList) {
-            result.add(buildCalendarEntry(concert, "TICKETING", concertToArtistId, artistNameMap, userCalendarIds));
+            result.add(buildCalendarEntry(concert, "TICKETING", concertToArtistIds, artistNameMap, koreanNameMap, userCalendarIds));
         }
         result.sort(Comparator.comparing(e -> "TICKETING".equals(e.type())
                 ? e.ticketOpenAt().toLocalDate()
@@ -84,11 +90,13 @@ public class CalendarService {
         LocalDate today = LocalDate.now();
         Page<Concert> page = concertRepository.findUpcomingByUserCalendar(userId, today, HIDDEN_STATUSES, pageable);
         List<Long> concertIds = page.getContent().stream().map(Concert::getId).toList();
-        Map<Long, Long> concertToArtistId = buildConcertArtistIdMap(concertIds);
-        Map<Long, String> artistNameMap = buildArtistNameMap(new HashSet<>(concertToArtistId.values()));
+        Map<Long, List<Long>> concertToArtistIds = buildConcertToArtistIdsMap(concertIds);
+        Set<Long> artistIds = concertToArtistIds.values().stream().flatMap(List::stream).collect(Collectors.toSet());
+        Map<Long, String> artistNameMap = buildArtistNameMap(artistIds);
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
         Set<Long> calendarIds = new HashSet<>(concertIds);
         List<CalendarEntryResponse> content = page.getContent().stream()
-                .map(c -> buildCalendarEntry(c, "CONCERT", concertToArtistId, artistNameMap, calendarIds))
+                .map(c -> buildCalendarEntry(c, "CONCERT", concertToArtistIds, artistNameMap, koreanNameMap, calendarIds))
                 .toList();
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
@@ -138,15 +146,17 @@ public class CalendarService {
     }
 
     private CalendarEntryResponse buildCalendarEntry(Concert concert, String type,
-                                                      Map<Long, Long> concertToArtistId,
+                                                      Map<Long, List<Long>> concertToArtistIds,
                                                       Map<Long, String> artistNameMap,
+                                                      Map<Long, String> koreanNameMap,
                                                       Set<Long> userCalendarIds) {
-        Long artistId = concertToArtistId.get(concert.getId());
-        String artistName = artistId != null ? artistNameMap.get(artistId) : null;
+        List<ConcertArtistDto> artists = concertToArtistIds.getOrDefault(concert.getId(), List.of()).stream()
+                .map(id -> new ConcertArtistDto(id, artistNameMap.get(id), koreanNameMap.get(id)))
+                .toList();
         return new CalendarEntryResponse(
                 concert.getId(),
                 type,
-                artistName,
+                artists,
                 concert.getTitle(),
                 concert.getStartDate(),
                 concert.getEndDate(),
@@ -158,12 +168,15 @@ public class CalendarService {
         );
     }
 
-    private Map<Long, Long> buildConcertArtistIdMap(List<Long> concertIds) {
+    private Map<Long, List<Long>> buildConcertToArtistIdsMap(List<Long> concertIds) {
         if (concertIds.isEmpty()) {
             return Map.of();
         }
         return concertArtistRepository.findByConcertIdIn(concertIds).stream()
-                .collect(Collectors.toMap(ConcertArtist::getConcertId, ConcertArtist::getArtistId));
+                .collect(Collectors.groupingBy(
+                        ConcertArtist::getConcertId,
+                        Collectors.mapping(ConcertArtist::getArtistId, Collectors.toList())
+                ));
     }
 
     private Map<Long, String> buildArtistNameMap(Set<Long> artistIds) {
@@ -172,5 +185,14 @@ public class CalendarService {
         }
         return artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
+    }
+
+    private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {
+        if (artistIds.isEmpty()) {
+            return Map.of();
+        }
+        return artistAliasRepository.findByArtistIdInAndLocale(artistIds, "ko").stream()
+                .sorted(Comparator.comparingLong(ArtistAlias::getId))
+                .collect(Collectors.toMap(ArtistAlias::getArtistId, ArtistAlias::getName, (existing, replacement) -> existing));
     }
 }

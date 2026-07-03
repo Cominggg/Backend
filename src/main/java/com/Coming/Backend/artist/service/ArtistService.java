@@ -6,11 +6,13 @@ import com.Coming.Backend.artist.dto.ArtistLinkDto;
 import com.Coming.Backend.artist.dto.ArtistSummaryResponse;
 import com.Coming.Backend.artist.dto.FollowingArtistResponse;
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.entity.ArtistAlias;
 import com.Coming.Backend.artist.entity.ArtistUrl;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
 import com.Coming.Backend.artist.exception.AlreadyFollowingException;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.exception.NotFollowingException;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.ArtistUrlRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
@@ -26,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +47,7 @@ public class ArtistService {
     private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
 
     private final ArtistRepository artistRepository;
+    private final ArtistAliasRepository artistAliasRepository;
     private final ArtistUrlRepository artistUrlRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
     private final ConcertRepository concertRepository;
@@ -78,11 +82,13 @@ public class ArtistService {
         Map<Long, String> spotifyUrlMap = artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(artistIds, "spotify")
                 .stream()
                 .collect(Collectors.toMap(ArtistUrl::getArtistId, ArtistUrl::getUrl));
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(artistIds);
 
         Set<Long> followingIdSet = new HashSet<>(followingIds);
         return PageResponse.from(page.map(artist -> new ArtistSummaryResponse(
                 artist.getId(),
                 artist.getName(),
+                koreanNameMap.get(artist.getId()),
                 artist.getImageUrl(),
                 artist.isComing(),
                 followingIdSet.contains(artist.getId()),
@@ -128,10 +134,14 @@ public class ArtistService {
         List<ArtistLinkDto> links = artistUrlRepository.findByArtistId(id).stream()
                 .map(url -> new ArtistLinkDto(url.getType(), toLabel(url.getType()), url.getUrl()))
                 .toList();
+        String koreanName = artistAliasRepository.findFirstByArtistIdAndLocaleOrderByIdAsc(id, "ko")
+                .map(ArtistAlias::getName)
+                .orElse(null);
 
         return new ArtistDetailResponse(
                 artist.getId(),
                 artist.getName(),
+                koreanName,
                 artist.getImageUrl(),
                 artist.isComing(),
                 isFollowing,
@@ -200,10 +210,12 @@ public class ArtistService {
         List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
                 .map(UserFollowArtist::getArtistId)
                 .toList();
+        Map<Long, String> koreanNameMap = buildKoreanNameMap(artistIds);
         return artistRepository.findAllById(artistIds).stream()
                 .map(artist -> new FollowingArtistResponse(
                         artist.getId(),
                         artist.getName(),
+                        koreanNameMap.get(artist.getId()),
                         artist.getImageUrl(),
                         artist.isComing(),
                         true
@@ -218,6 +230,15 @@ public class ArtistService {
             case "past" -> List.of(ConcertStatus.ENDED, ConcertStatus.CANCELLED);
             default -> throw new InvalidInputException();
         };
+    }
+
+    private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {
+        if (artistIds.isEmpty()) {
+            return Map.of();
+        }
+        return artistAliasRepository.findByArtistIdInAndLocale(artistIds, "ko").stream()
+                .sorted(Comparator.comparingLong(ArtistAlias::getId))
+                .collect(Collectors.toMap(ArtistAlias::getArtistId, ArtistAlias::getName, (existing, replacement) -> existing));
     }
 
     private static String toLabel(String type) {

@@ -9,6 +9,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
+import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.calendar.dto.CalendarEntryResponse;
 import com.Coming.Backend.calendar.entity.UserConcertCalendar;
@@ -53,6 +54,9 @@ class CalendarServiceTest {
 
     @Mock
     private ArtistRepository artistRepository;
+
+    @Mock
+    private ArtistAliasRepository artistAliasRepository;
 
     @Mock
     private UserConcertCalendarRepository userConcertCalendarRepository;
@@ -123,7 +127,8 @@ class CalendarServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).concertId()).isEqualTo(CONCERT_ID);
         assertThat(result.get(0).type()).isEqualTo("CONCERT");
-        assertThat(result.get(0).artistName()).isEqualTo("YOASOBI");
+        assertThat(result.get(0).artists()).hasSize(1);
+        assertThat(result.get(0).artists().get(0).name()).isEqualTo("YOASOBI");
         assertThat(result.get(0).status()).isEqualTo("UPCOMING");
         assertThat(result.get(0).venue()).isEqualTo("KSPO DOME, 서울");
         assertThat(result.get(0).isInCalendar()).isFalse();
@@ -294,7 +299,8 @@ class CalendarServiceTest {
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0).concertId()).isEqualTo(CONCERT_ID);
         assertThat(result.content().get(0).type()).isEqualTo("CONCERT");
-        assertThat(result.content().get(0).artistName()).isEqualTo("YOASOBI");
+        assertThat(result.content().get(0).artists()).hasSize(1);
+        assertThat(result.content().get(0).artists().get(0).name()).isEqualTo("YOASOBI");
         assertThat(result.content().get(0).isInCalendar()).isTrue();
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.page()).isZero();

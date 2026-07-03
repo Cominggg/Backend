@@ -60,7 +60,7 @@ class ReleaseControllerTest {
     void should_return_200_with_search_results_when_query_matches() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU",
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
                 "LILAC", "Album", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
@@ -86,7 +86,7 @@ class ReleaseControllerTest {
     void should_return_200_with_search_results_filtered_by_type() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU",
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
                 "LILAC", "Album", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
@@ -108,7 +108,7 @@ class ReleaseControllerTest {
     void should_return_200_with_following_search_results_when_following_is_true() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU",
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
                 "LILAC", "Album", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
@@ -147,7 +147,7 @@ class ReleaseControllerTest {
     void should_return_200_with_type_filtered_results_when_q_is_absent() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU",
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
                 "LILAC", "Single", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
@@ -172,7 +172,7 @@ class ReleaseControllerTest {
     void should_return_200_with_all_releases_when_no_filters() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU",
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
                 "LILAC", "ALBUM", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
@@ -197,7 +197,7 @@ class ReleaseControllerTest {
     void should_return_200_with_releases_filtered_by_type() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU",
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
                 "LILAC", "ALBUM", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
@@ -219,7 +219,7 @@ class ReleaseControllerTest {
     void should_return_200_with_releases_filtered_by_type_other() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU",
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
                 "Live at Seoul", "LIVE", LocalDate.of(2023, 8, 1), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
@@ -241,7 +241,7 @@ class ReleaseControllerTest {
     void should_return_200_with_following_releases_when_following_is_true() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU",
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
                 "LILAC", "ALBUM", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
@@ -272,7 +272,7 @@ class ReleaseControllerTest {
         ReleaseDetailResponse detail = new ReleaseDetailResponse(
                 RELEASE_ID, "LILAC", "Album", LocalDate.of(2021, 3, 25),
                 "https://cover.example.com/10", "KAKAO M", 2,
-                ARTIST_ID, "IU", null, List.of(track1, track2)
+                ARTIST_ID, "IU", null, null, List.of(track1, track2)
         );
         given(releaseService.getReleaseDetail(eq(RELEASE_ID))).willReturn(detail);
 

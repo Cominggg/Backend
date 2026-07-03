@@ -7,6 +7,7 @@ import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
 import com.Coming.Backend.admin.dto.PipelineSetlistCollectResult;
 import com.Coming.Backend.admin.exception.PipelineConflictException;
 import com.Coming.Backend.admin.exception.PipelineNotFoundException;
+import com.Coming.Backend.admin.exception.PipelineServerException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -72,6 +73,7 @@ public class DataPipelineClient {
                 .retrieve()
                 .onStatus(status -> status.value() == 404, r -> Mono.error(new PipelineNotFoundException()))
                 .onStatus(status -> status.value() == 409, r -> Mono.error(new PipelineConflictException()))
+                .onStatus(status -> status.is5xxServerError(), r -> Mono.error(new PipelineServerException()))
                 .bodyToMono(PipelineArtistCollectResult.class)
                 .doOnSuccess(r -> log.info("Artist collect completed: mbid={}, success={}", mbid, r.success()))
                 .doOnError(e -> log.warn("Artist collect failed: mbid={}, error={}", mbid, e.getMessage()))
@@ -92,6 +94,7 @@ public class DataPipelineClient {
                 .retrieve()
                 .onStatus(status -> status.value() == 404, r -> Mono.error(new PipelineNotFoundException()))
                 .onStatus(status -> status.value() == 409, r -> Mono.error(new PipelineConflictException()))
+                .onStatus(status -> status.is5xxServerError(), r -> Mono.error(new PipelineServerException()))
                 .bodyToMono(PipelineConcertCollectResult.class)
                 .doOnSuccess(r -> log.info("Concert collect completed: kopisId={}, success={}", kopisId, r.success()))
                 .doOnError(e -> log.warn("Concert collect failed: kopisId={}, error={}", kopisId, e.getMessage()))
@@ -123,6 +126,7 @@ public class DataPipelineClient {
                 .retrieve()
                 .onStatus(status -> status.value() == 404, r -> Mono.error(new PipelineNotFoundException()))
                 .onStatus(status -> status.value() == 409, r -> Mono.error(new PipelineConflictException()))
+                .onStatus(status -> status.is5xxServerError(), r -> Mono.error(new PipelineServerException()))
                 .bodyToMono(PipelineSetlistCollectResult.class)
                 .doOnSuccess(r -> log.info("Setlist collect completed: concertId={}, success={}", concertId, r.success()))
                 .doOnError(e -> log.warn("Setlist collect failed: concertId={}, error={}", concertId, e.getMessage()))

@@ -57,7 +57,7 @@ class ConcertControllerTest {
 
     private ConcertSummaryResponse buildSummary(Long id, String title, String artistName) {
         List<ArtistSummary> artists = artistName != null
-                ? List.of(new ArtistSummary(1L, artistName))
+                ? List.of(new ArtistSummary(1L, artistName, null))
                 : List.of();
         return new ConcertSummaryResponse(
                 id,
