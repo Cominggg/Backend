@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -32,7 +33,10 @@ import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
+import com.Coming.Backend.concert.exception.ConcertIsPendingException;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
+import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
@@ -501,6 +505,105 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/admin/concerts/{id}/candidates
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_201_when_candidate_assigned_to_pending_concert() throws Exception {
+        // given
+        String requestBody = """
+                { "artistId": 20 }
+                """;
+        willDoNothing().given(adminService).assignCandidateToConcert(CONCERT_ID, 20L);
+
+        // when & then
+        mockMvc.perform(post("/api/admin/concerts/{id}/candidates", CONCERT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void should_return_400_when_assign_candidate_to_non_pending_concert() throws Exception {
+        // given
+        String requestBody = """
+                { "artistId": 20 }
+                """;
+        willThrow(new ConcertNotPendingException())
+                .given(adminService).assignCandidateToConcert(CONCERT_ID, 20L);
+
+        // when & then
+        mockMvc.perform(post("/api/admin/concerts/{id}/candidates", CONCERT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_NOT_PENDING.name()));
+    }
+
+    // -------------------------------------------------------------------------
+    // DELETE /api/admin/concerts/{id}/candidates/{artistId}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_204_when_candidate_removed_from_pending_concert() throws Exception {
+        // given
+        willDoNothing().given(adminService).removeCandidateFromConcert(CONCERT_ID, 20L);
+
+        // when & then
+        mockMvc.perform(delete("/api/admin/concerts/{id}/candidates/{artistId}", CONCERT_ID, 20L))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void should_return_404_when_candidate_not_found_on_remove() throws Exception {
+        // given
+        willThrow(new ConcertArtistNotFoundException())
+                .given(adminService).removeCandidateFromConcert(CONCERT_ID, 20L);
+
+        // when & then
+        mockMvc.perform(delete("/api/admin/concerts/{id}/candidates/{artistId}", CONCERT_ID, 20L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_ARTIST_NOT_FOUND.name()));
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/admin/concerts/{id}/artists
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_400_when_assign_artist_to_pending_concert() throws Exception {
+        // given
+        String requestBody = """
+                { "artistId": 20 }
+                """;
+        willThrow(new ConcertIsPendingException())
+                .given(adminService).assignArtistToConcert(CONCERT_ID, 20L);
+
+        // when & then
+        mockMvc.perform(post("/api/admin/concerts/{id}/artists", CONCERT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_IS_PENDING.name()));
+    }
+
+    // -------------------------------------------------------------------------
+    // DELETE /api/admin/concerts/{id}/artists/{artistId}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_400_when_remove_artist_from_pending_concert() throws Exception {
+        // given
+        willThrow(new ConcertIsPendingException())
+                .given(adminService).removeArtistFromConcert(CONCERT_ID, 20L);
+
+        // when & then
+        mockMvc.perform(delete("/api/admin/concerts/{id}/artists/{artistId}", CONCERT_ID, 20L))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CONCERT_IS_PENDING.name()));
     }
 
     // -------------------------------------------------------------------------
