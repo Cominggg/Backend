@@ -35,6 +35,8 @@ import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertArtistAlreadyExistsException;
+import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
+import com.Coming.Backend.concert.exception.ConcertIsPendingException;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
@@ -925,6 +927,126 @@ class AdminServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // assignCandidateToConcert
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_save_candidate_when_concert_is_pending() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
+        given(concertArtistCandidateRepository.existsByConcertIdAndArtistId(CONCERT_ID, ARTIST_ID)).willReturn(false);
+
+        // when
+        adminService.assignCandidateToConcert(CONCERT_ID, ARTIST_ID);
+
+        // then
+        verify(concertArtistCandidateRepository).save(any());
+    }
+
+    @Test
+    void should_throw_concert_not_pending_when_assign_candidate_to_non_pending_concert() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.assignCandidateToConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ConcertNotPendingException.class);
+        verify(concertArtistCandidateRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_artist_not_found_when_assign_candidate_with_invalid_artist() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> adminService.assignCandidateToConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ArtistNotFoundException.class);
+        verify(concertArtistCandidateRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_concert_artist_already_exists_when_candidate_already_mapped() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
+        given(concertArtistCandidateRepository.existsByConcertIdAndArtistId(CONCERT_ID, ARTIST_ID)).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> adminService.assignCandidateToConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ConcertArtistAlreadyExistsException.class);
+        verify(concertArtistCandidateRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // removeCandidateFromConcert
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_delete_candidate_when_concert_is_pending() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        ConcertArtistCandidate candidate = ConcertArtistCandidate.builder()
+                .concertId(CONCERT_ID).artistId(ARTIST_ID).build();
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
+        given(concertArtistCandidateRepository.findByConcertIdAndArtistId(CONCERT_ID, ARTIST_ID))
+                .willReturn(Optional.of(candidate));
+
+        // when
+        adminService.removeCandidateFromConcert(CONCERT_ID, ARTIST_ID);
+
+        // then
+        verify(concertArtistCandidateRepository).delete(candidate);
+    }
+
+    @Test
+    void should_throw_concert_not_pending_when_remove_candidate_from_non_pending_concert() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.removeCandidateFromConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ConcertNotPendingException.class);
+        verify(concertArtistCandidateRepository, never()).delete(any());
+    }
+
+    @Test
+    void should_throw_artist_not_found_when_remove_candidate_with_invalid_artist() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> adminService.removeCandidateFromConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ArtistNotFoundException.class);
+        verify(concertArtistCandidateRepository, never()).delete(any());
+    }
+
+    @Test
+    void should_throw_concert_artist_not_found_when_candidate_not_mapped() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
+        given(concertArtistCandidateRepository.findByConcertIdAndArtistId(CONCERT_ID, ARTIST_ID))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> adminService.removeCandidateFromConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ConcertArtistNotFoundException.class);
+        verify(concertArtistCandidateRepository, never()).delete(any());
+    }
+
+    // -------------------------------------------------------------------------
     // assignArtistToConcert
     // -------------------------------------------------------------------------
 
@@ -978,6 +1100,30 @@ class AdminServiceTest {
         assertThatThrownBy(() -> adminService.assignArtistToConcert(CONCERT_ID, ARTIST_ID))
                 .isInstanceOf(ConcertArtistAlreadyExistsException.class);
         verify(concertArtistRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_concert_is_pending_when_assign_artist_to_pending_concert() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.assignArtistToConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ConcertIsPendingException.class);
+        verify(concertArtistRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_concert_is_pending_when_remove_artist_from_pending_concert() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.removeArtistFromConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ConcertIsPendingException.class);
+        verify(concertArtistRepository, never()).delete(any());
     }
 
     // -------------------------------------------------------------------------

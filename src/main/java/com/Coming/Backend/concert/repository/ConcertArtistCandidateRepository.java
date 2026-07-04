@@ -7,10 +7,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ConcertArtistCandidateRepository extends JpaRepository<ConcertArtistCandidate, Long> {
 
     List<ConcertArtistCandidate> findByConcertId(Long concertId);
+
+    boolean existsByConcertIdAndArtistId(Long concertId, Long artistId);
+
+    Optional<ConcertArtistCandidate> findByConcertIdAndArtistId(Long concertId, Long artistId);
 
     List<ConcertArtistCandidate> findByConcertIdIn(List<Long> concertIds);
 

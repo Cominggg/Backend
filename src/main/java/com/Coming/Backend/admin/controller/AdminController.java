@@ -165,7 +165,31 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "공연 아티스트 직접 지정")
+    @Operation(summary = "PENDING 공연 후보 아티스트 추가")
+    @ApiResponse(responseCode = "400", description = "CONCERT_NOT_PENDING")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND / ARTIST_NOT_FOUND")
+    @ApiResponse(responseCode = "409", description = "CONCERT_ARTIST_ALREADY_EXISTS")
+    @PostMapping("/concerts/{id}/candidates")
+    public ResponseEntity<Void> assignCandidateToConcert(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminConcertArtistAssignRequest request) {
+        adminService.assignCandidateToConcert(id, request.artistId());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @Operation(summary = "PENDING 공연 후보 아티스트 제거")
+    @ApiResponse(responseCode = "400", description = "CONCERT_NOT_PENDING")
+    @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND / ARTIST_NOT_FOUND / CONCERT_ARTIST_NOT_FOUND")
+    @DeleteMapping("/concerts/{id}/candidates/{artistId}")
+    public ResponseEntity<Void> removeCandidateFromConcert(
+            @PathVariable Long id,
+            @PathVariable Long artistId) {
+        adminService.removeCandidateFromConcert(id, artistId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "확정 공연 아티스트 직접 지정")
+    @ApiResponse(responseCode = "400", description = "CONCERT_IS_PENDING")
     @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND / ARTIST_NOT_FOUND")
     @ApiResponse(responseCode = "409", description = "CONCERT_ARTIST_ALREADY_EXISTS")
     @PostMapping("/concerts/{id}/artists")
@@ -176,7 +200,8 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    @Operation(summary = "공연 아티스트 매핑 제거")
+    @Operation(summary = "확정 공연 아티스트 매핑 제거")
+    @ApiResponse(responseCode = "400", description = "CONCERT_IS_PENDING")
     @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND / ARTIST_NOT_FOUND / CONCERT_ARTIST_NOT_FOUND")
     @DeleteMapping("/concerts/{id}/artists/{artistId}")
     public ResponseEntity<Void> removeArtistFromConcert(
