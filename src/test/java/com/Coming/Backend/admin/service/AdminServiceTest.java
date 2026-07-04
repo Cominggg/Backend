@@ -1019,6 +1019,19 @@ class AdminServiceTest {
     }
 
     @Test
+    void should_throw_artist_not_found_when_remove_candidate_with_invalid_artist() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> adminService.removeCandidateFromConcert(CONCERT_ID, ARTIST_ID))
+                .isInstanceOf(ArtistNotFoundException.class);
+        verify(concertArtistCandidateRepository, never()).delete(any());
+    }
+
+    @Test
     void should_throw_concert_artist_not_found_when_candidate_not_mapped() {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.PENDING);
