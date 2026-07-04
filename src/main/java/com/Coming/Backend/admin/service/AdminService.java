@@ -38,6 +38,7 @@ import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertArtistAlreadyExistsException;
 import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
+import com.Coming.Backend.concert.exception.ConcertIsPendingException;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
@@ -404,10 +405,62 @@ public class AdminService {
     }
 
     /**
-     * 공연에 아티스트를 직접 매핑한다. concert_artist_candidate를 거치지 않고 concert_artist에 바로 저장한다.
+     * PENDING 공연에 후보 아티스트를 추가한다. concert_artist_candidate에 저장한다.
+     *
+     * @throws ConcertNotFoundException            존재하지 않는 공연 ID
+     * @throws ConcertNotPendingException          공연이 PENDING 상태가 아닌 경우
+     * @throws ArtistNotFoundException             존재하지 않는 아티스트 ID
+     * @throws ConcertArtistAlreadyExistsException 이미 후보로 등록된 아티스트
+     */
+    @Transactional
+    public void assignCandidateToConcert(Long concertId, Long artistId) {
+        Concert concert = concertRepository.findById(concertId)
+                .orElseThrow(ConcertNotFoundException::new);
+        if (concert.getStatus() != ConcertStatus.PENDING) {
+            throw new ConcertNotPendingException();
+        }
+        if (!artistRepository.existsById(artistId)) {
+            throw new ArtistNotFoundException();
+        }
+        if (concertArtistCandidateRepository.existsByConcertIdAndArtistId(concertId, artistId)) {
+            throw new ConcertArtistAlreadyExistsException();
+        }
+        concertArtistCandidateRepository.save(ConcertArtistCandidate.builder()
+                .concertId(concertId)
+                .artistId(artistId)
+                .build());
+    }
+
+    /**
+     * PENDING 공연에서 후보 아티스트를 제거한다. concert_artist_candidate에서 삭제한다.
+     *
+     * @throws ConcertNotFoundException       존재하지 않는 공연 ID
+     * @throws ConcertNotPendingException     공연이 PENDING 상태가 아닌 경우
+     * @throws ArtistNotFoundException        존재하지 않는 아티스트 ID
+     * @throws ConcertArtistNotFoundException 해당 공연의 후보로 등록되지 않은 아티스트
+     */
+    @Transactional
+    public void removeCandidateFromConcert(Long concertId, Long artistId) {
+        Concert concert = concertRepository.findById(concertId)
+                .orElseThrow(ConcertNotFoundException::new);
+        if (concert.getStatus() != ConcertStatus.PENDING) {
+            throw new ConcertNotPendingException();
+        }
+        if (!artistRepository.existsById(artistId)) {
+            throw new ArtistNotFoundException();
+        }
+        ConcertArtistCandidate candidate = concertArtistCandidateRepository
+                .findByConcertIdAndArtistId(concertId, artistId)
+                .orElseThrow(ConcertArtistNotFoundException::new);
+        concertArtistCandidateRepository.delete(candidate);
+    }
+
+    /**
+     * 확정 공연(UPCOMING·ONGOING·ENDED)에 아티스트를 직접 매핑한다. concert_artist에 바로 저장한다.
      * 공연 상태가 UPCOMING 또는 ONGOING이면 해당 아티스트의 is_coming을 true로 갱신한다.
      *
      * @throws ConcertNotFoundException            존재하지 않는 공연 ID
+     * @throws ConcertIsPendingException           공연이 PENDING 상태인 경우 — /candidates 엔드포인트를 사용해야 함
      * @throws ArtistNotFoundException             존재하지 않는 아티스트 ID
      * @throws ConcertArtistAlreadyExistsException 이미 매핑된 아티스트
      */
@@ -415,6 +468,9 @@ public class AdminService {
     public void assignArtistToConcert(Long concertId, Long artistId) {
         Concert concert = concertRepository.findById(concertId)
                 .orElseThrow(ConcertNotFoundException::new);
+        if (concert.getStatus() == ConcertStatus.PENDING) {
+            throw new ConcertIsPendingException();
+        }
         Artist artist = artistRepository.findById(artistId)
                 .orElseThrow(ArtistNotFoundException::new);
         if (concertArtistRepository.existsByConcertIdAndArtistId(concertId, artistId)) {
@@ -431,16 +487,21 @@ public class AdminService {
     }
 
     /**
-     * 공연에서 아티스트 매핑을 제거한다. 공연이 UPCOMING 또는 ONGOING이면 해당 아티스트의 다른 활성 공연 존재 여부로 is_coming을 재계산한다.
+     * 확정 공연(UPCOMING·ONGOING·ENDED)에서 아티스트 매핑을 제거한다.
+     * 공연이 UPCOMING 또는 ONGOING이면 해당 아티스트의 다른 활성 공연 존재 여부로 is_coming을 재계산한다.
      *
-     * @throws ConcertNotFoundException        존재하지 않는 공연 ID
-     * @throws ArtistNotFoundException         존재하지 않는 아티스트 ID
-     * @throws ConcertArtistNotFoundException  해당 공연에 매핑되지 않은 아티스트
+     * @throws ConcertNotFoundException       존재하지 않는 공연 ID
+     * @throws ConcertIsPendingException      공연이 PENDING 상태인 경우 — /candidates 엔드포인트를 사용해야 함
+     * @throws ArtistNotFoundException        존재하지 않는 아티스트 ID
+     * @throws ConcertArtistNotFoundException 해당 공연에 매핑되지 않은 아티스트
      */
     @Transactional
     public void removeArtistFromConcert(Long concertId, Long artistId) {
         Concert concert = concertRepository.findById(concertId)
                 .orElseThrow(ConcertNotFoundException::new);
+        if (concert.getStatus() == ConcertStatus.PENDING) {
+            throw new ConcertIsPendingException();
+        }
         Artist artist = artistRepository.findById(artistId)
                 .orElseThrow(ArtistNotFoundException::new);
         ConcertArtist concertArtist = concertArtistRepository.findByConcertIdAndArtistId(concertId, artistId)
