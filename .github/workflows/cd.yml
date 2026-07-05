@@ -60,11 +60,12 @@ jobs:
           V_KAKAO_REDIRECT_URI: ${{ secrets.KAKAO_REDIRECT_URI }}
           V_DATA_PIPELINE_SECRET: ${{ secrets.DATA_PIPELINE_SECRET }}
           V_DATA_PIPELINE_BASE_URL: ${{ secrets.DATA_PIPELINE_BASE_URL }}
+          V_REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: V_DB_URL,V_DB_USERNAME,V_DB_PASSWORD,V_JWT_SECRET,V_GOOGLE_CLIENT_ID,V_GOOGLE_CLIENT_SECRET,V_KAKAO_CLIENT_ID,V_KAKAO_CLIENT_SECRET,V_CORS_ALLOWED_ORIGINS,V_OAUTH2_REDIRECT_BASE_URI,V_GOOGLE_REDIRECT_URI,V_KAKAO_REDIRECT_URI,V_DATA_PIPELINE_SECRET,V_DATA_PIPELINE_BASE_URL
+          envs: V_DB_URL,V_DB_USERNAME,V_DB_PASSWORD,V_JWT_SECRET,V_GOOGLE_CLIENT_ID,V_GOOGLE_CLIENT_SECRET,V_KAKAO_CLIENT_ID,V_KAKAO_CLIENT_SECRET,V_CORS_ALLOWED_ORIGINS,V_OAUTH2_REDIRECT_BASE_URI,V_GOOGLE_REDIRECT_URI,V_KAKAO_REDIRECT_URI,V_DATA_PIPELINE_SECRET,V_DATA_PIPELINE_BASE_URL,V_REDIS_PASSWORD
           script: |
             printf 'DB_URL=%s\n'                  "$V_DB_URL"                  >  ~/compose/be.env
             printf 'DB_USERNAME=%s\n'             "$V_DB_USERNAME"             >> ~/compose/be.env
@@ -72,6 +73,7 @@ jobs:
             printf 'JWT_SECRET=%s\n'              "$V_JWT_SECRET"              >> ~/compose/be.env
             printf 'REDIS_HOST=redis\n'                                        >> ~/compose/be.env
             printf 'REDIS_PORT=6379\n'                                         >> ~/compose/be.env
+            printf 'REDIS_PASSWORD=%s\n'              "$V_REDIS_PASSWORD"      >> ~/compose/be.env
             printf 'GOOGLE_CLIENT_ID=%s\n'        "$V_GOOGLE_CLIENT_ID"        >> ~/compose/be.env
             printf 'GOOGLE_CLIENT_SECRET=%s\n'    "$V_GOOGLE_CLIENT_SECRET"    >> ~/compose/be.env
             printf 'KAKAO_CLIENT_ID=%s\n'         "$V_KAKAO_CLIENT_ID"         >> ~/compose/be.env
