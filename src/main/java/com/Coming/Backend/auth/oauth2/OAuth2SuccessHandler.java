@@ -19,8 +19,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    private static final int REFRESH_TOKEN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
-
     private final JwtProvider jwtProvider;
     private final TokenRepository tokenRepository;
 
@@ -59,7 +57,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .path("/")
-                .maxAge(REFRESH_TOKEN_COOKIE_MAX_AGE)
+                .maxAge(refreshTokenExpiry / 1000)
                 .sameSite("Strict")
                 .build();
         response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());

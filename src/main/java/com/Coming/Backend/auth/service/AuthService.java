@@ -27,7 +27,6 @@ import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,9 +35,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-
-    @Value("${jwt.refresh-token-expiry}")
-    private long refreshTokenExpiry;
 
     private final JwtProvider jwtProvider;
     private final TokenRepository tokenRepository;
@@ -64,7 +60,7 @@ public class AuthService {
         }
         String newAccessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
         String newRefreshToken = jwtProvider.generateRefreshToken(userId);
-        tokenRepository.save(userId, newRefreshToken, refreshTokenExpiry);
+        tokenRepository.save(userId, newRefreshToken, jwtProvider.getRefreshTokenExpiry());
         return new TokenPair(newAccessToken, newRefreshToken);
     }
 

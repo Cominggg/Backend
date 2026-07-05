@@ -63,6 +63,10 @@ public class JwtProvider {
         return parseClaims(token).get("role", String.class);
     }
 
+    public long getRefreshTokenExpiry() {
+        return refreshTokenExpiry;
+    }
+
     public long getRemainingExpiry(String token) {
         Date expiration = parseClaims(token).getExpiration();
         return Math.max(0, expiration.getTime() - System.currentTimeMillis());

@@ -93,6 +93,7 @@ class AuthServiceTest {
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtProvider.generateAccessToken(USER_ID, UserRole.USER.name())).willReturn(NEW_ACCESS_TOKEN);
         given(jwtProvider.generateRefreshToken(USER_ID)).willReturn(NEW_REFRESH_TOKEN);
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(604800000L);
 
         // when
         TokenPair result = authService.refreshToken(REFRESH_TOKEN);
@@ -100,7 +101,7 @@ class AuthServiceTest {
         // then
         assertThat(result.accessToken()).isEqualTo(NEW_ACCESS_TOKEN);
         assertThat(result.refreshToken()).isEqualTo(NEW_REFRESH_TOKEN);
-        verify(tokenRepository).save(USER_ID, NEW_REFRESH_TOKEN, 0L);
+        verify(tokenRepository).save(USER_ID, NEW_REFRESH_TOKEN, 604800000L);
     }
 
     @Test

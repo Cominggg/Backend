@@ -8,6 +8,7 @@ import com.Coming.Backend.auth.dto.TokenPair;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.service.AuthService;
 import com.Coming.Backend.common.exception.InvalidInputException;
+import org.springframework.beans.factory.annotation.Value;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,6 +42,9 @@ public class AuthController {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final Set<String> ALLOWED_PROVIDERS = Set.of("google", "kakao");
+
+    @Value("${jwt.refresh-token-expiry}")
+    private long refreshTokenExpiry;
 
     private final AuthService authService;
 
@@ -129,14 +133,12 @@ public class AuthController {
         return ResponseEntity.ok(authService.checkNickname(nickname));
     }
 
-    private static final int REFRESH_TOKEN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
-
     private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
                 .secure(true)
                 .path("/")
-                .maxAge(REFRESH_TOKEN_COOKIE_MAX_AGE)
+                .maxAge(refreshTokenExpiry / 1000)
                 .sameSite("Strict")
                 .build();
         response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
