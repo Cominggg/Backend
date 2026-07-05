@@ -123,7 +123,7 @@ class OAuth2SuccessHandlerTest {
         // then
         String setCookie = response.getHeader("Set-Cookie");
         assertThat(setCookie).contains("HttpOnly");
-        assertThat(setCookie).contains("SameSite=Lax");
+        assertThat(setCookie).contains("SameSite=Strict");
         assertThat(setCookie).contains("refresh-token-value");
     }
 
