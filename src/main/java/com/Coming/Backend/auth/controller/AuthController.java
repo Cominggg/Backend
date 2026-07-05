@@ -4,6 +4,7 @@ import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.NicknameCheckResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
+import com.Coming.Backend.auth.dto.TokenPair;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.service.AuthService;
 import com.Coming.Backend.common.exception.InvalidInputException;
@@ -59,8 +60,11 @@ public class AuthController {
     @ApiResponse(responseCode = "401", description = "Refresh Token 만료 또는 유효하지 않음")
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refresh(
-            @CookieValue(name = "refreshToken", required = false) String refreshToken) {
-        return ResponseEntity.ok(authService.refreshToken(refreshToken));
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response) {
+        TokenPair tokenPair = authService.refreshToken(refreshToken);
+        addRefreshTokenCookie(response, tokenPair.refreshToken());
+        return ResponseEntity.ok(new TokenResponse(tokenPair.accessToken()));
     }
 
     @Operation(summary = "로그아웃")
@@ -123,6 +127,19 @@ public class AuthController {
     @GetMapping("/check-nickname")
     public ResponseEntity<NicknameCheckResponse> checkNickname(@RequestParam String nickname) {
         return ResponseEntity.ok(authService.checkNickname(nickname));
+    }
+
+    private static final int REFRESH_TOKEN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
+
+    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(REFRESH_TOKEN_COOKIE_MAX_AGE)
+                .sameSite("Strict")
+                .build();
+        response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private void deleteRefreshTokenCookie(HttpServletResponse response) {
