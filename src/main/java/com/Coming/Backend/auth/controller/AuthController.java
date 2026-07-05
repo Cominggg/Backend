@@ -6,11 +6,13 @@ import com.Coming.Backend.auth.dto.NicknameCheckResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.service.AuthService;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import java.net.URI;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -37,12 +39,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final Set<String> ALLOWED_PROVIDERS = Set.of("google", "kakao");
 
     private final AuthService authService;
 
     @Operation(summary = "소셜 로그인 페이지로 리다이렉트")
+    @ApiResponse(responseCode = "400", description = "지원하지 않는 provider")
     @GetMapping("/login/{provider}")
     public ResponseEntity<Void> login(@PathVariable String provider) {
+        if (!ALLOWED_PROVIDERS.contains(provider)) {
+            throw new InvalidInputException();
+        }
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create("/oauth2/authorization/" + provider))
                 .build();
