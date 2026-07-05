@@ -4,6 +4,7 @@ import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.NicknameCheckResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
+import com.Coming.Backend.auth.dto.TokenPair;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.exception.ExpiredTokenException;
@@ -44,11 +45,12 @@ public class AuthService {
     private final InquiryRepository inquiryRepository;
 
     /**
-     * Refresh Token을 검증하고 새 Access Token을 발급한다.
+     * Refresh Token을 검증하고 새 Access Token과 새 Refresh Token을 발급한다.
+     * 기존 Refresh Token은 즉시 교체되어 재사용이 불가능하다.
      *
      * @param refreshToken HttpOnly Cookie에서 추출한 Refresh Token
      */
-    public TokenResponse refreshToken(String refreshToken) {
+    public TokenPair refreshToken(String refreshToken) {
         Long userId = extractUserIdFromRefreshToken(refreshToken);
         validateStoredRefreshToken(userId, refreshToken);
 
@@ -57,7 +59,9 @@ public class AuthService {
             throw new RefreshTokenInvalidException();
         }
         String newAccessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
-        return new TokenResponse(newAccessToken);
+        String newRefreshToken = jwtProvider.generateRefreshToken(userId);
+        tokenRepository.save(userId, newRefreshToken, jwtProvider.getRefreshTokenExpiry());
+        return new TokenPair(newAccessToken, newRefreshToken);
     }
 
     /**

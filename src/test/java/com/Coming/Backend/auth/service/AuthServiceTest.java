@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
+import com.Coming.Backend.auth.dto.TokenPair;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
@@ -64,6 +65,7 @@ class AuthServiceTest {
 
     private static final Long USER_ID = 1L;
     private static final String REFRESH_TOKEN = "valid-refresh-token";
+    private static final String NEW_REFRESH_TOKEN = "new-refresh-token";
     private static final String ACCESS_TOKEN = "valid-access-token";
     private static final String NEW_ACCESS_TOKEN = "new-access-token";
 
@@ -83,19 +85,23 @@ class AuthServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_return_new_access_token_when_refresh_token_is_valid_and_matches_redis() {
+    void should_return_new_token_pair_and_rotate_refresh_token_when_valid() {
         // given
         User user = buildUser();
         given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
         given(tokenRepository.find(USER_ID)).willReturn(Optional.of(REFRESH_TOKEN));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtProvider.generateAccessToken(USER_ID, UserRole.USER.name())).willReturn(NEW_ACCESS_TOKEN);
+        given(jwtProvider.generateRefreshToken(USER_ID)).willReturn(NEW_REFRESH_TOKEN);
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(604800000L);
 
         // when
-        TokenResponse response = authService.refreshToken(REFRESH_TOKEN);
+        TokenPair result = authService.refreshToken(REFRESH_TOKEN);
 
         // then
-        assertThat(response.accessToken()).isEqualTo(NEW_ACCESS_TOKEN);
+        assertThat(result.accessToken()).isEqualTo(NEW_ACCESS_TOKEN);
+        assertThat(result.refreshToken()).isEqualTo(NEW_REFRESH_TOKEN);
+        verify(tokenRepository).save(USER_ID, NEW_REFRESH_TOKEN, 604800000L);
     }
 
     @Test
