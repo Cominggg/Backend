@@ -3,6 +3,7 @@ package com.Coming.Backend.common.config;
 import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
 import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
+import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
@@ -19,7 +20,10 @@ public class RateLimitConfig {
 
     @Bean
     public ProxyManager<String> rateLimitProxyManager(LettuceConnectionFactory connectionFactory) {
-        RedisClient redisClient = (RedisClient) connectionFactory.getNativeClient();
+        AbstractRedisClient nativeClient = connectionFactory.getNativeClient();
+        if (!(nativeClient instanceof RedisClient redisClient)) {
+            throw new IllegalStateException("Rate limiting requires standalone Redis. Cluster mode is not supported.");
+        }
         StatefulRedisConnection<String, byte[]> connection = redisClient.connect(
                 RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE)
         );
