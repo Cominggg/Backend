@@ -75,6 +75,8 @@ public class SecurityConfig {
                                 .maxAgeInSeconds(31536000))
                         .referrerPolicy(referrer -> referrer
                                 .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .contentTypeOptions(contentType -> {})
+                        .frameOptions(frame -> frame.deny())
                 )
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
