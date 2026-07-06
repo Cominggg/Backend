@@ -7,6 +7,8 @@ import com.Coming.Backend.auth.oauth2.OAuth2FailureHandler;
 import com.Coming.Backend.auth.oauth2.OAuth2SuccessHandler;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.common.filter.RateLimitFilter;
+import io.github.bucket4j.distributed.proxy.ProxyManager;
 import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
@@ -44,11 +46,12 @@ public class SecurityConfig {
     private final OAuth2FailureHandler oAuth2FailureHandler;
     private final ObjectMapper objectMapper;
     private final Environment environment;
+    private final ProxyManager<String> rateLimitProxyManager;
 
     public SecurityConfig(JwtProvider jwtProvider, BlacklistRepository blacklistRepository,
             CustomOAuth2UserService oAuth2UserService, OAuth2SuccessHandler oAuth2SuccessHandler,
             OAuth2FailureHandler oAuth2FailureHandler, ObjectMapper objectMapper,
-            Environment environment) {
+            Environment environment, ProxyManager<String> rateLimitProxyManager) {
         this.jwtProvider = jwtProvider;
         this.blacklistRepository = blacklistRepository;
         this.oAuth2UserService = oAuth2UserService;
@@ -56,6 +59,7 @@ public class SecurityConfig {
         this.oAuth2FailureHandler = oAuth2FailureHandler;
         this.objectMapper = objectMapper;
         this.environment = environment;
+        this.rateLimitProxyManager = rateLimitProxyManager;
     }
 
     @Bean
@@ -71,6 +75,8 @@ public class SecurityConfig {
                                 .maxAgeInSeconds(31536000))
                         .referrerPolicy(referrer -> referrer
                                 .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .contentTypeOptions(contentType -> {})
+                        .frameOptions(frame -> frame.deny())
                 )
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -115,6 +121,10 @@ public class SecurityConfig {
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtProvider, blacklistRepository),
                         UsernamePasswordAuthenticationFilter.class
+                )
+                .addFilterBefore(
+                        new RateLimitFilter(rateLimitProxyManager, objectMapper),
+                        JwtAuthenticationFilter.class
                 );
 
         return http.build();
