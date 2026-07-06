@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Aspect
@@ -20,23 +22,32 @@ public class LoggingAspect {
         String methodName = joinPoint.getSignature().getName();
         String target = className + "." + methodName;
 
+        String userId = resolveUserId();
         long start = System.currentTimeMillis();
         try {
             Object result = joinPoint.proceed();
             long elapsed = System.currentTimeMillis() - start;
 
             if (elapsed >= SLOW_THRESHOLD_MS) {
-                log.warn("{} - slow ({}ms)", target, elapsed);
+                log.warn("[{}] {} - slow ({}ms)", userId, target, elapsed);
             } else {
-                log.info("{} - {}ms", target, elapsed);
+                log.info("[{}] {} - {}ms", userId, target, elapsed);
             }
             return result;
         } catch (BusinessException e) {
-            log.warn("{} - business error: {}", target, e.getErrorCode().name());
+            log.warn("[{}] {} - business error: {}", userId, target, e.getErrorCode().name());
             throw e;
         } catch (Exception e) {
-            log.error("{} - unexpected error", target, e);
+            log.error("[{}] {} - unexpected error", userId, target, e);
             throw e;
         }
+    }
+
+    private String resolveUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof Long userId) {
+            return userId.toString();
+        }
+        return "anonymous";
     }
 }
