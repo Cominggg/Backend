@@ -1,0 +1,3 @@
+DELETE FROM "user";
+
+ALTER TABLE "user" ADD COLUMN email VARCHAR(255);
