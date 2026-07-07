@@ -157,4 +157,17 @@ class DiscordNotificationServiceTest {
         // then
         then(webClientBuilder).should(never()).build();
     }
+
+    @Test
+    void should_skip_send_when_4xx_url_is_blank() {
+        // given
+        ReflectionTestUtils.setField(service, "fourXxUrl", "");
+        given(valueOperations.setIfAbsent(anyString(), eq("1"), any(Duration.class))).willReturn(true);
+
+        // when
+        service.notifyFourXx(request, ErrorCode.FORBIDDEN);
+
+        // then
+        then(webClientBuilder).should(never()).build();
+    }
 }

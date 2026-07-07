@@ -1,12 +1,11 @@
 package com.Coming.Backend.common.aspect;
 
 import com.Coming.Backend.common.exception.BusinessException;
+import com.Coming.Backend.common.util.SecurityContextUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Aspect
@@ -22,7 +21,7 @@ public class LoggingAspect {
         String methodName = joinPoint.getSignature().getName();
         String target = className + "." + methodName;
 
-        String userId = resolveUserId();
+        String userId = SecurityContextUtils.resolveUserId();
         long start = System.currentTimeMillis();
         try {
             Object result = joinPoint.proceed();
@@ -43,11 +42,4 @@ public class LoggingAspect {
         }
     }
 
-    private String resolveUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof Long userId) {
-            return userId.toString();
-        }
-        return "anonymous";
-    }
 }

@@ -1,6 +1,7 @@
 package com.Coming.Backend.common.discord;
 
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.common.util.SecurityContextUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -8,8 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import tools.jackson.databind.ObjectMapper;
@@ -91,7 +90,7 @@ public class DiscordNotificationService implements DiscordNotifier {
                 List.of(
                         field("경로", request.getMethod() + " " + request.getRequestURI(), true),
                         field("traceId", resolveTraceId(), true),
-                        field("userId", resolveUserId(), true),
+                        field("userId", SecurityContextUtils.resolveUserId(), true),
                         field("원인", truncate(e.getClass().getSimpleName() + ": " + e.getMessage()), false),
                         field("스택", truncate(buildStackTrace(e)), false)
                 )
@@ -106,7 +105,7 @@ public class DiscordNotificationService implements DiscordNotifier {
                         field("경로", request.getMethod() + " " + request.getRequestURI(), true),
                         field("에러코드", errorCode.name(), true),
                         field("traceId", resolveTraceId(), true),
-                        field("userId", resolveUserId(), true)
+                        field("userId", SecurityContextUtils.resolveUserId(), true)
                 )
         );
     }
@@ -123,14 +122,6 @@ public class DiscordNotificationService implements DiscordNotifier {
     private String resolveTraceId() {
         String traceId = MDC.get("traceId");
         return traceId != null ? traceId : "-";
-    }
-
-    private String resolveUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof Long id) {
-            return id.toString();
-        }
-        return "anonymous";
     }
 
     private String buildStackTrace(Exception e) {
