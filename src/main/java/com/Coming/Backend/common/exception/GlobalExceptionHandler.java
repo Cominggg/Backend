@@ -1,6 +1,9 @@
 package com.Coming.Backend.common.exception;
 
+import com.Coming.Backend.common.discord.DiscordNotifier;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -9,14 +12,30 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
+import java.util.Set;
+
 @Slf4j
+@RequiredArgsConstructor
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Set<ErrorCode> ALERTABLE_4XX = Set.of(
+            ErrorCode.UNAUTHORIZED,
+            ErrorCode.INVALID_TOKEN,
+            ErrorCode.REFRESH_TOKEN_INVALID,
+            ErrorCode.FORBIDDEN,
+            ErrorCode.USER_SUSPENDED
+    );
+
+    private final DiscordNotifier discordNotifier;
+
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
+    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e, HttpServletRequest request) {
         ErrorCode errorCode = e.getErrorCode();
         log.warn("BusinessException — code: {}, message: {}", errorCode.name(), errorCode.getMessage());
+        if (ALERTABLE_4XX.contains(errorCode)) {
+            discordNotifier.notifyFourXx(request, errorCode);
+        }
         return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
     }
 
@@ -49,8 +68,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(Exception e) {
+    public ResponseEntity<ErrorResponse> handleException(Exception e, HttpServletRequest request) {
         log.error("Unhandled exception", e);
+        discordNotifier.notifyFiveXx(request, e);
         return ResponseEntity.internalServerError().body(ErrorResponse.of(ErrorCode.INTERNAL_ERROR));
     }
 }
