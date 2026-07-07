@@ -31,8 +31,13 @@ public class MdcLoggingFilter extends OncePerRequestFilter {
     private String resolveTraceId(HttpServletRequest request) {
         String header = request.getHeader(TRACE_ID_HEADER);
         if (header != null && !header.isBlank()) {
-            return header;
+            return sanitize(header);
         }
         return UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+    }
+
+    private String sanitize(String value) {
+        String cleaned = value.replaceAll("[\\r\\n\\t]", "");
+        return cleaned.length() > 64 ? cleaned.substring(0, 64) : cleaned;
     }
 }
