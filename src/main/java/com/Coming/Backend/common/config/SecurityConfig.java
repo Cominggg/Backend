@@ -11,9 +11,11 @@ import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.filter.MdcLoggingFilter;
 import com.Coming.Backend.common.filter.RateLimitFilter;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +35,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -91,6 +94,7 @@ public class SecurityConfig {
                     }
                     auth
                             .requestMatchers(
+                                    "/",
                                     "/api/auth/login/**",
                                     "/api/auth/callback/**",
                                     "/api/auth/refresh",
@@ -119,6 +123,8 @@ public class SecurityConfig {
                 )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, e) -> {
+                            log.warn("[{}] 401 UNAUTHORIZED — {} {}",
+                                    MDC.get("traceId"), request.getMethod(), request.getRequestURI());
                             discordNotifier.notifyFourXx(request, ErrorCode.UNAUTHORIZED);
                             writeErrorResponse(response, ErrorCode.UNAUTHORIZED);
                         })

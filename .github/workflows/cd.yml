@@ -64,12 +64,13 @@ jobs:
           V_REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
           V_DISCORD_WEBHOOK_5XX_URL: ${{ secrets.DISCORD_WEBHOOK_5XX_URL }}
           V_DISCORD_WEBHOOK_4XX_URL: ${{ secrets.DISCORD_WEBHOOK_4XX_URL }}
+          V_DISCORD_WEBHOOK_INQUIRY_URL: ${{ secrets.DISCORD_WEBHOOK_INQUIRY_URL }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 2222
-          envs: V_DB_URL,V_DB_USERNAME,V_DB_PASSWORD,V_JWT_SECRET,V_GOOGLE_CLIENT_ID,V_GOOGLE_CLIENT_SECRET,V_KAKAO_CLIENT_ID,V_KAKAO_CLIENT_SECRET,V_CORS_ALLOWED_ORIGINS,V_OAUTH2_REDIRECT_BASE_URI,V_GOOGLE_REDIRECT_URI,V_KAKAO_REDIRECT_URI,V_DATA_PIPELINE_SECRET,V_DATA_PIPELINE_BASE_URL,V_REDIS_PASSWORD,V_DISCORD_WEBHOOK_5XX_URL,V_DISCORD_WEBHOOK_4XX_URL
+          envs: V_DB_URL,V_DB_USERNAME,V_DB_PASSWORD,V_JWT_SECRET,V_GOOGLE_CLIENT_ID,V_GOOGLE_CLIENT_SECRET,V_KAKAO_CLIENT_ID,V_KAKAO_CLIENT_SECRET,V_CORS_ALLOWED_ORIGINS,V_OAUTH2_REDIRECT_BASE_URI,V_GOOGLE_REDIRECT_URI,V_KAKAO_REDIRECT_URI,V_DATA_PIPELINE_SECRET,V_DATA_PIPELINE_BASE_URL,V_REDIS_PASSWORD,V_DISCORD_WEBHOOK_5XX_URL,V_DISCORD_WEBHOOK_4XX_URL,V_DISCORD_WEBHOOK_INQUIRY_URL
           script: |
             printf 'DB_URL=%s\n'                  "$V_DB_URL"                  >  ~/compose/be.env
             printf 'DB_USERNAME=%s\n'             "$V_DB_USERNAME"             >> ~/compose/be.env
@@ -91,6 +92,7 @@ jobs:
             printf 'SPRING_PROFILES_ACTIVE=prod\n'                            >> ~/compose/be.env
             printf 'DISCORD_WEBHOOK_5XX_URL=%s\n' "$V_DISCORD_WEBHOOK_5XX_URL" >> ~/compose/be.env
             printf 'DISCORD_WEBHOOK_4XX_URL=%s\n' "$V_DISCORD_WEBHOOK_4XX_URL" >> ~/compose/be.env
+            printf 'DISCORD_WEBHOOK_INQUIRY_URL=%s\n' "$V_DISCORD_WEBHOOK_INQUIRY_URL" >> ~/compose/be.env
 
             chmod +x ~/scripts/deploy.sh
             bash ~/scripts/deploy.sh

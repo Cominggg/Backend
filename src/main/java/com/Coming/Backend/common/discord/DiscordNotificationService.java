@@ -2,6 +2,7 @@ package com.Coming.Backend.common.discord;
 
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.util.SecurityContextUtils;
+import com.Coming.Backend.inquiry.entity.Inquiry;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -35,11 +36,16 @@ public class DiscordNotificationService implements DiscordNotifier {
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
+    private static final int COLOR_INQUIRY = 0x3498DB;
+
     @Value("${discord.webhook.5xx-url:}")
     private String fiveXxUrl;
 
     @Value("${discord.webhook.4xx-url:}")
     private String fourXxUrl;
+
+    @Value("${discord.webhook.inquiry-url:}")
+    private String inquiryUrl;
 
     public DiscordNotificationService(WebClient.Builder webClientBuilder,
             RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper) {
@@ -60,6 +66,11 @@ public class DiscordNotificationService implements DiscordNotifier {
         String key = COOLDOWN_PREFIX_4XX + errorCode.name();
         if (!acquireCooldown(key, COOLDOWN_4XX)) return;
         sendAsync(fourXxUrl, buildFourXxPayload(request, errorCode));
+    }
+
+    @Override
+    public void notifyInquiry(Inquiry inquiry) {
+        sendAsync(inquiryUrl, buildInquiryPayload(inquiry));
     }
 
     private boolean acquireCooldown(String key, Duration ttl) {
@@ -106,6 +117,21 @@ public class DiscordNotificationService implements DiscordNotifier {
                         field("에러코드", errorCode.name(), true),
                         field("traceId", resolveTraceId(), true),
                         field("userId", SecurityContextUtils.resolveUserId(), true)
+                )
+        );
+    }
+
+    private Map<String, Object> buildInquiryPayload(Inquiry inquiry) {
+        String targetId = inquiry.getTargetId() != null ? String.valueOf(inquiry.getTargetId()) : "-";
+        return embedPayload(
+                "📬 새 문의 등록",
+                COLOR_INQUIRY,
+                List.of(
+                        field("유형", inquiry.getType().name(), true),
+                        field("userId", String.valueOf(inquiry.getUserId()), true),
+                        field("제목", inquiry.getTitle(), false),
+                        field("대상 ID", targetId, true),
+                        field("traceId", resolveTraceId(), true)
                 )
         );
     }

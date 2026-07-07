@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.inquiry.event.InquiryCreatedEvent;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.inquiry.dto.InquiryCreateRequest;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -49,6 +51,9 @@ class InquiryServiceTest {
 
     @Mock
     private ArtistRepository artistRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private static final Long USER_ID = 10L;
     private static final Long INQUIRY_ID = 1L;
@@ -89,6 +94,7 @@ class InquiryServiceTest {
 
         // then
         verify(inquiryRepository).save(any(Inquiry.class));
+        verify(eventPublisher).publishEvent(any(InquiryCreatedEvent.class));
     }
 
     @Test
@@ -105,6 +111,7 @@ class InquiryServiceTest {
 
         // then
         verify(inquiryRepository).save(any(Inquiry.class));
+        verify(eventPublisher).publishEvent(any(InquiryCreatedEvent.class));
     }
 
     @Test
@@ -122,6 +129,7 @@ class InquiryServiceTest {
         // then
         verify(concertRepository).existsById(TARGET_ID);
         verify(inquiryRepository).save(any(Inquiry.class));
+        verify(eventPublisher).publishEvent(any(InquiryCreatedEvent.class));
     }
 
     @Test
@@ -179,6 +187,7 @@ class InquiryServiceTest {
         verify(artistRepository, org.mockito.Mockito.never()).existsById(any());
         verify(inquiryRepository, org.mockito.Mockito.never()).existsByUserIdAndTargetIdAndTypeAndStatus(any(), any(), any(), any());
         verify(inquiryRepository).save(any(Inquiry.class));
+        verify(eventPublisher).publishEvent(any(InquiryCreatedEvent.class));
     }
 
     @Test
@@ -195,6 +204,7 @@ class InquiryServiceTest {
         verify(artistRepository, org.mockito.Mockito.never()).existsById(any());
         verify(inquiryRepository, org.mockito.Mockito.never()).existsByUserIdAndTargetIdAndTypeAndStatus(any(), any(), any(), any());
         verify(inquiryRepository).save(any(Inquiry.class));
+        verify(eventPublisher).publishEvent(any(InquiryCreatedEvent.class));
     }
 
     // -------------------------------------------------------------------------
