@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.common.discord.DiscordNotifier;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -49,6 +50,9 @@ class InquiryServiceTest {
 
     @Mock
     private ArtistRepository artistRepository;
+
+    @Mock
+    private DiscordNotifier discordNotifier;
 
     private static final Long USER_ID = 10L;
     private static final Long INQUIRY_ID = 1L;

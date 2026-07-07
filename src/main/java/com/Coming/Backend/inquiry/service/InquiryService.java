@@ -1,6 +1,7 @@
 package com.Coming.Backend.inquiry.service;
 
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.common.discord.DiscordNotifier;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.inquiry.dto.InquiryCreateRequest;
@@ -28,6 +29,7 @@ public class InquiryService {
     private final InquiryRepository inquiryRepository;
     private final ConcertRepository concertRepository;
     private final ArtistRepository artistRepository;
+    private final DiscordNotifier discordNotifier;
 
     /**
      * 문의를 등록한다. CONCERT·ARTIST·SETLIST 타입은 동일 targetId·type으로 PENDING 문의가 존재하면 예외를 던진다.
@@ -55,6 +57,7 @@ public class InquiryService {
                 .build();
 
         inquiryRepository.save(inquiry);
+        discordNotifier.notifyInquiry(inquiry);
     }
 
     /**
