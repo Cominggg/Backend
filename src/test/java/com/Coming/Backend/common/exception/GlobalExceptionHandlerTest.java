@@ -1,6 +1,9 @@
 package com.Coming.Backend.common.exception;
 
+import com.Coming.Backend.auth.exception.InvalidTokenException;
+import com.Coming.Backend.common.discord.DiscordNotifier;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,12 +19,20 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class GlobalExceptionHandlerTest {
 
     @InjectMocks
     private GlobalExceptionHandler handler;
+
+    @Mock
+    private DiscordNotifier discordNotifier;
+
+    @Mock
+    private HttpServletRequest request;
 
     @Mock
     private MethodArgumentNotValidException validationException;
@@ -35,13 +46,26 @@ class GlobalExceptionHandlerTest {
         BusinessException exception = new ConcertNotFoundException();
 
         // when
-        ResponseEntity<ErrorResponse> response = handler.handleBusinessException(exception);
+        ResponseEntity<ErrorResponse> response = handler.handleBusinessException(exception, request);
 
         // then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().code()).isEqualTo("CONCERT_NOT_FOUND");
         assertThat(response.getBody().message()).isEqualTo(ErrorCode.CONCERT_NOT_FOUND.getMessage());
+        then(discordNotifier).should(never()).notifyFourXx(request, ErrorCode.CONCERT_NOT_FOUND);
+    }
+
+    @Test
+    void should_notify_discord_when_alertable_business_exception_thrown() {
+        // given
+        BusinessException exception = new InvalidTokenException();
+
+        // when
+        handler.handleBusinessException(exception, request);
+
+        // then
+        then(discordNotifier).should().notifyFourXx(request, ErrorCode.INVALID_TOKEN);
     }
 
     @Test
@@ -78,17 +102,17 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void should_return_500_when_unhandled_exception_thrown() {
+    void should_return_500_and_notify_discord_when_unhandled_exception_thrown() {
         // given
         Exception exception = new RuntimeException("unexpected error");
 
         // when
-        ResponseEntity<ErrorResponse> response = handler.handleException(exception);
+        ResponseEntity<ErrorResponse> response = handler.handleException(exception, request);
 
         // then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().code()).isEqualTo("INTERNAL_ERROR");
-        assertThat(response.getBody().message()).isEqualTo(ErrorCode.INTERNAL_ERROR.getMessage());
+        then(discordNotifier).should().notifyFiveXx(request, exception);
     }
 }
