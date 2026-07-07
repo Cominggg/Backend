@@ -1,5 +1,6 @@
 package com.Coming.Backend.common.filter;
 
+import com.Coming.Backend.common.discord.DiscordNotifier;
 import com.Coming.Backend.common.exception.ErrorCode;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.BucketConfiguration;
@@ -9,7 +10,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.Map;
 
 @Slf4j
-@RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final String KEY_PREFIX = "RL:";
@@ -35,6 +34,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final ProxyManager<String> proxyManager;
     private final ObjectMapper objectMapper;
+    private final DiscordNotifier discordNotifier;
+
+    public RateLimitFilter(ProxyManager<String> proxyManager, ObjectMapper objectMapper,
+            DiscordNotifier discordNotifier) {
+        this.proxyManager = proxyManager;
+        this.objectMapper = objectMapper;
+        this.discordNotifier = discordNotifier;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -44,6 +51,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         if (!bucket.tryConsume(1)) {
             log.warn("Rate limit exceeded: ip={}", ip);
+            discordNotifier.notifyFourXx(request, ErrorCode.RATE_LIMIT_EXCEEDED);
             writeErrorResponse(response);
             return;
         }

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.Coming.Backend.common.discord.DiscordNotifier;
 import io.github.bucket4j.distributed.BucketProxy;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
 import jakarta.servlet.FilterChain;
@@ -34,13 +35,16 @@ class RateLimitFilterTest {
     @Mock
     private ObjectMapper objectMapper;
 
+    @Mock
+    private DiscordNotifier discordNotifier;
+
     private RateLimitFilter filter;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
     @BeforeEach
     void setUp() {
-        filter = new RateLimitFilter(proxyManager, objectMapper);
+        filter = new RateLimitFilter(proxyManager, objectMapper, discordNotifier);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         given(proxyManager.builder().build(anyString(), any(java.util.function.Supplier.class))).willReturn(bucket);

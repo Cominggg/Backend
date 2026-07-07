@@ -6,6 +6,7 @@ import com.Coming.Backend.auth.oauth2.CustomOAuth2UserService;
 import com.Coming.Backend.auth.oauth2.OAuth2FailureHandler;
 import com.Coming.Backend.auth.oauth2.OAuth2SuccessHandler;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
+import com.Coming.Backend.common.discord.DiscordNotifier;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.filter.MdcLoggingFilter;
 import com.Coming.Backend.common.filter.RateLimitFilter;
@@ -48,11 +49,13 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper;
     private final Environment environment;
     private final ProxyManager<String> rateLimitProxyManager;
+    private final DiscordNotifier discordNotifier;
 
     public SecurityConfig(JwtProvider jwtProvider, BlacklistRepository blacklistRepository,
             CustomOAuth2UserService oAuth2UserService, OAuth2SuccessHandler oAuth2SuccessHandler,
             OAuth2FailureHandler oAuth2FailureHandler, ObjectMapper objectMapper,
-            Environment environment, ProxyManager<String> rateLimitProxyManager) {
+            Environment environment, ProxyManager<String> rateLimitProxyManager,
+            DiscordNotifier discordNotifier) {
         this.jwtProvider = jwtProvider;
         this.blacklistRepository = blacklistRepository;
         this.oAuth2UserService = oAuth2UserService;
@@ -61,6 +64,7 @@ public class SecurityConfig {
         this.objectMapper = objectMapper;
         this.environment = environment;
         this.rateLimitProxyManager = rateLimitProxyManager;
+        this.discordNotifier = discordNotifier;
     }
 
     @Bean
@@ -114,17 +118,21 @@ public class SecurityConfig {
                         .failureHandler(oAuth2FailureHandler)
                 )
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, e) ->
-                                writeErrorResponse(response, ErrorCode.UNAUTHORIZED))
-                        .accessDeniedHandler((request, response, e) ->
-                                writeErrorResponse(response, ErrorCode.FORBIDDEN))
+                        .authenticationEntryPoint((request, response, e) -> {
+                            discordNotifier.notifyFourXx(request, ErrorCode.UNAUTHORIZED);
+                            writeErrorResponse(response, ErrorCode.UNAUTHORIZED);
+                        })
+                        .accessDeniedHandler((request, response, e) -> {
+                            discordNotifier.notifyFourXx(request, ErrorCode.FORBIDDEN);
+                            writeErrorResponse(response, ErrorCode.FORBIDDEN);
+                        })
                 )
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtProvider, blacklistRepository),
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .addFilterBefore(
-                        new RateLimitFilter(rateLimitProxyManager, objectMapper),
+                        new RateLimitFilter(rateLimitProxyManager, objectMapper, discordNotifier),
                         JwtAuthenticationFilter.class
                 )
                 .addFilterBefore(
