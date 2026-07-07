@@ -28,6 +28,9 @@ public class User extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "email", length = 255)
+    private String email;
+
     @Column(name = "provider", nullable = false, length = 20)
     private String provider;
 
@@ -82,6 +85,10 @@ public class User extends BaseTimeEntity {
     public void withdraw() {
         this.status = UserStatus.INACTIVE;
         this.nickname = null;
+    }
+
+    public void updateEmail(String email) {
+        this.email = email;
     }
 
     public void reactivate() {
