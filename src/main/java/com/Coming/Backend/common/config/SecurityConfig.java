@@ -7,6 +7,7 @@ import com.Coming.Backend.auth.oauth2.OAuth2FailureHandler;
 import com.Coming.Backend.auth.oauth2.OAuth2SuccessHandler;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.common.filter.MdcLoggingFilter;
 import com.Coming.Backend.common.filter.RateLimitFilter;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
 import tools.jackson.databind.ObjectMapper;
@@ -125,6 +126,10 @@ public class SecurityConfig {
                 .addFilterBefore(
                         new RateLimitFilter(rateLimitProxyManager, objectMapper),
                         JwtAuthenticationFilter.class
+                )
+                .addFilterBefore(
+                        new MdcLoggingFilter(),
+                        RateLimitFilter.class
                 );
 
         return http.build();
