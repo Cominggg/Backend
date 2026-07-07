@@ -94,6 +94,7 @@ public class SecurityConfig {
                     }
                     auth
                             .requestMatchers(
+                                    "/",
                                     "/api/auth/login/**",
                                     "/api/auth/callback/**",
                                     "/api/auth/refresh",
