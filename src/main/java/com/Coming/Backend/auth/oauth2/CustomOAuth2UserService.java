@@ -61,6 +61,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 user.updateEmail(userInfo.getEmail());
                 return new UserResult(user, true);
             }
+            user.updateEmail(userInfo.getEmail());
             return new UserResult(user, false);
         }
         log.info("신규 OAuth2 사용자 생성 — provider: {}, providerId: {}", provider, userInfo.getProviderId());
