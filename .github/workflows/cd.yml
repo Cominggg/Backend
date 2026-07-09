@@ -47,6 +47,8 @@ jobs:
       - name: Update be.env and deploy
         uses: appleboy/ssh-action@v1
         env:
+          V_GHCR_TOKEN: ${{ secrets.GHCR_PAT }}
+          V_GHCR_USER: ${{ secrets.GHCR_USERNAME }}
           V_DB_URL: ${{ secrets.DB_URL }}
           V_DB_USERNAME: ${{ secrets.DB_USERNAME }}
           V_DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
@@ -70,8 +72,10 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 2222
-          envs: V_DB_URL,V_DB_USERNAME,V_DB_PASSWORD,V_JWT_SECRET,V_GOOGLE_CLIENT_ID,V_GOOGLE_CLIENT_SECRET,V_KAKAO_CLIENT_ID,V_KAKAO_CLIENT_SECRET,V_CORS_ALLOWED_ORIGINS,V_OAUTH2_REDIRECT_BASE_URI,V_GOOGLE_REDIRECT_URI,V_KAKAO_REDIRECT_URI,V_DATA_PIPELINE_SECRET,V_DATA_PIPELINE_BASE_URL,V_REDIS_PASSWORD,V_DISCORD_WEBHOOK_5XX_URL,V_DISCORD_WEBHOOK_4XX_URL,V_DISCORD_WEBHOOK_INQUIRY_URL
+          envs: V_GHCR_TOKEN,V_GHCR_USER,V_DB_URL,V_DB_USERNAME,V_DB_PASSWORD,V_JWT_SECRET,V_GOOGLE_CLIENT_ID,V_GOOGLE_CLIENT_SECRET,V_KAKAO_CLIENT_ID,V_KAKAO_CLIENT_SECRET,V_CORS_ALLOWED_ORIGINS,V_OAUTH2_REDIRECT_BASE_URI,V_GOOGLE_REDIRECT_URI,V_KAKAO_REDIRECT_URI,V_DATA_PIPELINE_SECRET,V_DATA_PIPELINE_BASE_URL,V_REDIS_PASSWORD,V_DISCORD_WEBHOOK_5XX_URL,V_DISCORD_WEBHOOK_4XX_URL,V_DISCORD_WEBHOOK_INQUIRY_URL
           script: |
+            echo "$V_GHCR_TOKEN" | docker login ghcr.io -u "$V_GHCR_USER" --password-stdin
+
             printf 'DB_URL=%s\n'                  "$V_DB_URL"                  >  ~/compose/be.env
             printf 'DB_USERNAME=%s\n'             "$V_DB_USERNAME"             >> ~/compose/be.env
             printf 'DB_PASSWORD=%s\n'             "$V_DB_PASSWORD"             >> ~/compose/be.env
