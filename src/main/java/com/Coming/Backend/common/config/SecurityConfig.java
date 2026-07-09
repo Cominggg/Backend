@@ -123,12 +123,22 @@ public class SecurityConfig {
                 )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, e) -> {
+                            String uri = request.getRequestURI();
+                            if (!uri.startsWith("/api/")) {
+                                response.setStatus(404);
+                                return;
+                            }
                             log.warn("[{}] 401 UNAUTHORIZED — {} {}",
-                                    MDC.get("traceId"), request.getMethod(), request.getRequestURI());
+                                    MDC.get("traceId"), request.getMethod(), uri);
                             discordNotifier.notifyFourXx(request, ErrorCode.UNAUTHORIZED);
                             writeErrorResponse(response, ErrorCode.UNAUTHORIZED);
                         })
                         .accessDeniedHandler((request, response, e) -> {
+                            String uri = request.getRequestURI();
+                            if (!uri.startsWith("/api/")) {
+                                response.setStatus(404);
+                                return;
+                            }
                             discordNotifier.notifyFourXx(request, ErrorCode.FORBIDDEN);
                             writeErrorResponse(response, ErrorCode.FORBIDDEN);
                         })

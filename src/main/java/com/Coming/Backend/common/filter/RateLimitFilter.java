@@ -60,11 +60,32 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String extractClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+        String remoteAddr = request.getRemoteAddr();
+        if (isTrustedProxy(remoteAddr)) {
+            String forwarded = request.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.isBlank()) {
+                return forwarded.split(",")[0].trim();
+            }
         }
-        return request.getRemoteAddr();
+        return remoteAddr;
+    }
+
+    // 루프백·사설 IP(Nginx 등 내부 프록시)에서 온 경우에만 X-Forwarded-For 신뢰
+    private boolean isTrustedProxy(String addr) {
+        return addr.equals("127.0.0.1")
+                || addr.equals("0:0:0:0:0:0:0:1")
+                || addr.startsWith("10.")
+                || addr.startsWith("192.168.")
+                || (addr.startsWith("172.") && isTrustedPrivate172(addr));
+    }
+
+    private boolean isTrustedPrivate172(String addr) {
+        try {
+            int second = Integer.parseInt(addr.split("\\.")[1]);
+            return second >= 16 && second <= 31;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private void writeErrorResponse(HttpServletResponse response) throws IOException {
