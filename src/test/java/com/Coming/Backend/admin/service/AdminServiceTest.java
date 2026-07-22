@@ -580,7 +580,7 @@ class AdminServiceTest {
         AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
                 "아이유 앙코르 콘서트", null,
                 LocalDate.of(2025, 10, 1), LocalDate.of(2025, 10, 31),
-                null, null, "R석 100,000원", null, null
+                null, null, null, "R석 100,000원", null, null
         );
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
 
@@ -602,7 +602,7 @@ class AdminServiceTest {
                 new BookingLinkRequest("YES24", "https://yes24.com/ticket/1")
         );
         AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
-                null, null, null, null, null, null, null, null, links
+                null, null, null, null, null, null, null, null, null, links
         );
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
 
@@ -623,7 +623,7 @@ class AdminServiceTest {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
-                "새 제목", null, null, null, null, null, null, null, null
+                "새 제목", null, null, null, null, null, null, null, null, null
         );
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
 
@@ -636,12 +636,56 @@ class AdminServiceTest {
     }
 
     @Test
+    void should_replace_concert_images_when_image_urls_given() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        List<String> imageUrls = List.of(
+                "https://example.com/1.jpg",
+                "https://example.com/2.jpg"
+        );
+        AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
+                null, null, null, null, null, null, imageUrls, null, null, null
+        );
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when
+        adminService.updateConcert(CONCERT_ID, request);
+
+        // then
+        verify(concertImageRepository).deleteByConcertId(CONCERT_ID);
+        ArgumentCaptor<List<ConcertImage>> captor = ArgumentCaptor.forClass(List.class);
+        verify(concertImageRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2);
+        assertThat(captor.getValue().get(0).getUrl()).isEqualTo("https://example.com/1.jpg");
+        assertThat(captor.getValue().get(0).getPosition()).isEqualTo(0);
+        assertThat(captor.getValue().get(1).getUrl()).isEqualTo("https://example.com/2.jpg");
+        assertThat(captor.getValue().get(1).getPosition()).isEqualTo(1);
+    }
+
+    @Test
+    void should_not_touch_concert_images_when_image_urls_is_null() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
+                "새 제목", null, null, null, null, null, null, null, null, null
+        );
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when
+        adminService.updateConcert(CONCERT_ID, request);
+
+        // then
+        verify(concertImageRepository, never()).deleteByConcertId(any());
+        verify(concertImageRepository, never()).saveAll(any());
+    }
+
+    @Test
     void should_update_ticket_open_at_when_ticket_open_at_given() {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         LocalDateTime ticketOpenAt = LocalDateTime.of(2025, 8, 1, 10, 0);
         AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
-                null, null, null, null, null, null, null, ticketOpenAt, null
+                null, null, null, null, null, null, null, null, ticketOpenAt, null
         );
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
 
@@ -658,7 +702,7 @@ class AdminServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         ReflectionTestUtils.setField(concert, "ticketOpenAt", LocalDateTime.of(2025, 8, 1, 10, 0));
         AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
-                null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null
         );
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
 
@@ -673,7 +717,7 @@ class AdminServiceTest {
     void should_throw_concert_not_found_when_update_target_does_not_exist() {
         // given
         AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
-                "새 제목", null, null, null, null, null, null, null, null
+                "새 제목", null, null, null, null, null, null, null, null, null
         );
         given(concertRepository.findById(999L)).willReturn(Optional.empty());
 

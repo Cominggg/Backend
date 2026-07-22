@@ -19,6 +19,7 @@ public record AdminConcertUpdateRequest(
 
         String venueName,
         String posterUrl,
+        List<String> imageUrls,
         String price,
 
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")

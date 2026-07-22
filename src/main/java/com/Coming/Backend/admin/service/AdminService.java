@@ -220,7 +220,7 @@ public class AdminService {
     }
 
     /**
-     * 공연 정보를 수정한다. bookingLinks가 있으면 기존 링크를 삭제 후 새로 저장한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
+     * 공연 정보를 수정한다. bookingLinks·imageUrls가 있으면 각각 기존 목록을 삭제 후 새로 저장한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
      */
     @Transactional
     public void updateConcert(Long id, AdminConcertUpdateRequest request) {
@@ -240,6 +240,23 @@ public class AdminService {
                     .toList();
             concertBookingLinkRepository.saveAll(links);
         }
+
+        if (request.imageUrls() != null) {
+            replaceConcertImages(id, request.imageUrls());
+        }
+    }
+
+    private void replaceConcertImages(Long concertId, List<String> imageUrls) {
+        concertImageRepository.deleteByConcertId(concertId);
+        List<ConcertImage> images = new ArrayList<>();
+        for (int position = 0; position < imageUrls.size(); position++) {
+            images.add(ConcertImage.builder()
+                    .concertId(concertId)
+                    .url(imageUrls.get(position))
+                    .position(position)
+                    .build());
+        }
+        concertImageRepository.saveAll(images);
     }
 
     /**
