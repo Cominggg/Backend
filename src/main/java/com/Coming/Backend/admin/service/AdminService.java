@@ -41,9 +41,11 @@ import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertIsPendingException;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotPendingException;
+import com.Coming.Backend.concert.entity.ConcertImage;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
+import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.inquiry.entity.Inquiry;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
@@ -77,6 +79,7 @@ public class AdminService {
     private final ConcertArtistRepository concertArtistRepository;
     private final ConcertArtistCandidateRepository concertArtistCandidateRepository;
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
+    private final ConcertImageRepository concertImageRepository;
     private final DataPipelineClient dataPipelineClient;
 
     /**
@@ -206,7 +209,14 @@ public class AdminService {
         List<ArtistSummary> artists = artistRepository.findAllById(artistIds).stream()
                 .map(a -> new ArtistSummary(a.getId(), a.getName(), koreanNameMap.get(a.getId())))
                 .toList();
-        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id), artists);
+        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id), artists,
+                buildImageUrls(id));
+    }
+
+    private List<String> buildImageUrls(Long concertId) {
+        return concertImageRepository.findByConcertIdOrderByPosition(concertId).stream()
+                .map(ConcertImage::getUrl)
+                .toList();
     }
 
     /**

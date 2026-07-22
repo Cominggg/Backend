@@ -21,11 +21,13 @@ public record AdminConcertDetailResponse(
         ConcertStatus status,
         LocalDateTime ticketOpenAt,
         List<BookingLinkDto> bookingLinks,
-        List<ArtistSummary> artists
+        List<ArtistSummary> artists,
+        List<String> imageUrls
 ) {
     public record BookingLinkDto(String name, String url) {}
 
-    public static AdminConcertDetailResponse of(Concert concert, List<ConcertBookingLink> links, List<ArtistSummary> artists) {
+    public static AdminConcertDetailResponse of(Concert concert, List<ConcertBookingLink> links,
+            List<ArtistSummary> artists, List<String> imageUrls) {
         return new AdminConcertDetailResponse(
                 concert.getId(),
                 concert.getTitle(),
@@ -38,7 +40,8 @@ public record AdminConcertDetailResponse(
                 concert.getStatus(),
                 concert.getTicketOpenAt(),
                 links.stream().map(l -> new BookingLinkDto(l.getName(), l.getUrl())).toList(),
-                artists
+                artists,
+                imageUrls
         );
     }
 }

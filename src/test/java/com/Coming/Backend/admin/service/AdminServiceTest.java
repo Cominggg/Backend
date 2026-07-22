@@ -6,6 +6,7 @@ import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertApproveRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
+import com.Coming.Backend.admin.dto.AdminConcertDetailResponse;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
@@ -33,6 +34,7 @@ import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
+import com.Coming.Backend.concert.entity.ConcertImage;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertArtistAlreadyExistsException;
 import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
@@ -42,6 +44,7 @@ import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
+import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.inquiry.entity.Inquiry;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
@@ -103,6 +106,9 @@ class AdminServiceTest {
 
     @Mock
     private ConcertBookingLinkRepository concertBookingLinkRepository;
+
+    @Mock
+    private ConcertImageRepository concertImageRepository;
 
     @Mock
     private DataPipelineClient dataPipelineClient;
@@ -506,6 +512,41 @@ class AdminServiceTest {
         // when & then
         assertThatThrownBy(() -> adminService.updateInquiryStatus(INQUIRY_ID, request))
                 .isInstanceOf(InvalidInquiryStatusException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // getAdminConcert
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_image_urls_ordered_by_position_when_valid_id_given() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        List<ConcertImage> images = List.of(
+                ConcertImage.builder().id(1L).concertId(CONCERT_ID).url("https://example.com/1.jpg").position(0).build(),
+                ConcertImage.builder().id(2L).concertId(CONCERT_ID).url("https://example.com/2.jpg").position(1).build()
+        );
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
+        given(artistRepository.findAllById(List.of())).willReturn(List.of());
+        given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
+        given(concertImageRepository.findByConcertIdOrderByPosition(CONCERT_ID)).willReturn(images);
+
+        // when
+        AdminConcertDetailResponse response = adminService.getAdminConcert(CONCERT_ID);
+
+        // then
+        assertThat(response.imageUrls()).containsExactly("https://example.com/1.jpg", "https://example.com/2.jpg");
+    }
+
+    @Test
+    void should_throw_concert_not_found_when_get_admin_concert_with_invalid_id() {
+        // given
+        given(concertRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> adminService.getAdminConcert(999L))
+                .isInstanceOf(ConcertNotFoundException.class);
     }
 
     // -------------------------------------------------------------------------
