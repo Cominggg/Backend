@@ -29,7 +29,7 @@ public class Concert {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "kopis_id", nullable = false, unique = true, length = 50)
+    @Column(name = "kopis_id", unique = true, length = 50)
     private String kopisId;
 
     @Column(name = "title", nullable = false, length = 500)
