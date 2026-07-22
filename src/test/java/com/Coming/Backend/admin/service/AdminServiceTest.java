@@ -6,6 +6,8 @@ import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertApproveRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateResponse;
 import com.Coming.Backend.admin.dto.AdminConcertDetailResponse;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
@@ -547,6 +549,163 @@ class AdminServiceTest {
         // when & then
         assertThatThrownBy(() -> adminService.getAdminConcert(999L))
                 .isInstanceOf(ConcertNotFoundException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // createConcert
+    // -------------------------------------------------------------------------
+
+    private void givenSaveReturnsConcertWithId(Long id) {
+        given(concertRepository.save(any(Concert.class))).willAnswer(invocation -> {
+            Concert argument = invocation.getArgument(0);
+            return Concert.builder()
+                    .id(id)
+                    .kopisId(argument.getKopisId())
+                    .title(argument.getTitle())
+                    .cast(argument.getCast())
+                    .startDate(argument.getStartDate())
+                    .endDate(argument.getEndDate())
+                    .venueName(argument.getVenueName())
+                    .posterUrl(argument.getPosterUrl())
+                    .price(argument.getPrice())
+                    .status(argument.getStatus())
+                    .viewCount(argument.getViewCount())
+                    .kopisUpdateDate(argument.getKopisUpdateDate())
+                    .ticketOpenAt(argument.getTicketOpenAt())
+                    .build();
+        });
+    }
+
+    @Test
+    void should_return_saved_concert_id_when_valid_request_given() {
+        // given
+        AdminConcertCreateRequest request = new AdminConcertCreateRequest(
+                "아이유 콘서트", "아이유",
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(12),
+                "올림픽공원 체조경기장", "https://example.com/poster.jpg",
+                null, "VIP 150,000원", null, null
+        );
+        givenSaveReturnsConcertWithId(CONCERT_ID);
+
+        // when
+        AdminConcertCreateResponse response = adminService.createConcert(request);
+
+        // then
+        verify(concertRepository).save(any(Concert.class));
+        assertThat(response.concertId()).isEqualTo(CONCERT_ID);
+    }
+
+    @Test
+    void should_set_status_upcoming_when_start_date_is_in_the_future() {
+        // given
+        AdminConcertCreateRequest request = new AdminConcertCreateRequest(
+                "아이유 콘서트", null,
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(12),
+                "올림픽공원 체조경기장", null,
+                null, null, null, null
+        );
+        givenSaveReturnsConcertWithId(CONCERT_ID);
+
+        // when
+        adminService.createConcert(request);
+
+        // then
+        ArgumentCaptor<Concert> captor = ArgumentCaptor.forClass(Concert.class);
+        verify(concertRepository).save(captor.capture());
+        Concert saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(ConcertStatus.UPCOMING);
+        assertThat(saved.getViewCount()).isEqualTo(0L);
+        assertThat(saved.getKopisId()).isNull();
+    }
+
+    @Test
+    void should_save_booking_links_when_booking_links_given() {
+        // given
+        List<BookingLinkRequest> links = List.of(
+                new BookingLinkRequest("인터파크", "https://interpark.com/ticket/1")
+        );
+        AdminConcertCreateRequest request = new AdminConcertCreateRequest(
+                "아이유 콘서트", null,
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(12),
+                "올림픽공원 체조경기장", null,
+                null, null, null, links
+        );
+        givenSaveReturnsConcertWithId(CONCERT_ID);
+
+        // when
+        adminService.createConcert(request);
+
+        // then
+        verify(concertBookingLinkRepository).deleteByConcertId(CONCERT_ID);
+        ArgumentCaptor<List<ConcertBookingLink>> captor = ArgumentCaptor.forClass(List.class);
+        verify(concertBookingLinkRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue().get(0).getName()).isEqualTo("인터파크");
+    }
+
+    @Test
+    void should_not_touch_booking_links_when_booking_links_is_null_on_create() {
+        // given
+        AdminConcertCreateRequest request = new AdminConcertCreateRequest(
+                "아이유 콘서트", null,
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(12),
+                "올림픽공원 체조경기장", null,
+                null, null, null, null
+        );
+        givenSaveReturnsConcertWithId(CONCERT_ID);
+
+        // when
+        adminService.createConcert(request);
+
+        // then
+        verify(concertBookingLinkRepository, never()).deleteByConcertId(any());
+        verify(concertBookingLinkRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void should_save_concert_images_when_image_urls_given() {
+        // given
+        List<String> imageUrls = List.of(
+                "https://example.com/1.jpg",
+                "https://example.com/2.jpg"
+        );
+        AdminConcertCreateRequest request = new AdminConcertCreateRequest(
+                "아이유 콘서트", null,
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(12),
+                "올림픽공원 체조경기장", null,
+                imageUrls, null, null, null
+        );
+        givenSaveReturnsConcertWithId(CONCERT_ID);
+
+        // when
+        adminService.createConcert(request);
+
+        // then
+        verify(concertImageRepository).deleteByConcertId(CONCERT_ID);
+        ArgumentCaptor<List<ConcertImage>> captor = ArgumentCaptor.forClass(List.class);
+        verify(concertImageRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2);
+        assertThat(captor.getValue().get(0).getPosition()).isEqualTo(0);
+        assertThat(captor.getValue().get(1).getPosition()).isEqualTo(1);
+    }
+
+    @Test
+    void should_not_touch_concert_images_when_image_urls_is_null_on_create() {
+        // given
+        AdminConcertCreateRequest request = new AdminConcertCreateRequest(
+                "아이유 콘서트", null,
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(12),
+                "올림픽공원 체조경기장", null,
+                null, null, null, null
+        );
+        givenSaveReturnsConcertWithId(CONCERT_ID);
+
+        // when
+        adminService.createConcert(request);
+
+        // then
+        verify(concertImageRepository, never()).deleteByConcertId(any());
+        verify(concertImageRepository, never()).saveAll(any());
     }
 
     // -------------------------------------------------------------------------

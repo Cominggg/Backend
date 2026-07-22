@@ -5,6 +5,9 @@ import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateResponse;
+import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
@@ -230,20 +233,54 @@ public class AdminService {
                 request.venueName(), request.posterUrl(), request.price(), request.ticketOpenAt());
 
         if (request.bookingLinks() != null) {
-            concertBookingLinkRepository.deleteByConcertId(id);
-            List<ConcertBookingLink> links = request.bookingLinks().stream()
-                    .map(link -> ConcertBookingLink.builder()
-                            .concertId(id)
-                            .name(link.name())
-                            .url(link.url())
-                            .build())
-                    .toList();
-            concertBookingLinkRepository.saveAll(links);
+            replaceBookingLinks(id, request.bookingLinks());
         }
 
         if (request.imageUrls() != null) {
             replaceConcertImages(id, request.imageUrls());
         }
+    }
+
+    /**
+     * 어드민이 공연을 직접 등록한다. KOPIS 연동 없이 저장되며, 초기 상태는 날짜 기준으로 계산된다.
+     */
+    @Transactional
+    public AdminConcertCreateResponse createConcert(AdminConcertCreateRequest request) {
+        ConcertStatus status = computeStatusFromDates(request.startDate(), request.endDate());
+        Concert concert = Concert.builder()
+                .title(request.title())
+                .cast(request.cast())
+                .startDate(request.startDate())
+                .endDate(request.endDate())
+                .venueName(request.venueName())
+                .posterUrl(request.posterUrl())
+                .price(request.price())
+                .status(status)
+                .viewCount(0L)
+                .kopisUpdateDate(LocalDate.now())
+                .ticketOpenAt(request.ticketOpenAt())
+                .build();
+        Concert saved = concertRepository.save(concert);
+
+        if (request.bookingLinks() != null) {
+            replaceBookingLinks(saved.getId(), request.bookingLinks());
+        }
+        if (request.imageUrls() != null) {
+            replaceConcertImages(saved.getId(), request.imageUrls());
+        }
+        return new AdminConcertCreateResponse(saved.getId());
+    }
+
+    private void replaceBookingLinks(Long concertId, List<BookingLinkRequest> bookingLinks) {
+        concertBookingLinkRepository.deleteByConcertId(concertId);
+        List<ConcertBookingLink> links = bookingLinks.stream()
+                .map(link -> ConcertBookingLink.builder()
+                        .concertId(concertId)
+                        .name(link.name())
+                        .url(link.url())
+                        .build())
+                .toList();
+        concertBookingLinkRepository.saveAll(links);
     }
 
     private void replaceConcertImages(Long concertId, List<String> imageUrls) {
