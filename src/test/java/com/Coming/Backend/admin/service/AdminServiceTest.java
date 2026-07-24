@@ -839,6 +839,25 @@ class AdminServiceTest {
     }
 
     @Test
+    void should_delete_all_concert_images_when_image_urls_is_empty_list() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        AdminConcertUpdateRequest request = new AdminConcertUpdateRequest(
+                null, null, null, null, null, null, List.of(), null, null, null
+        );
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when
+        adminService.updateConcert(CONCERT_ID, request);
+
+        // then
+        verify(concertImageRepository).deleteByConcertId(CONCERT_ID);
+        ArgumentCaptor<List<ConcertImage>> captor = ArgumentCaptor.forClass(List.class);
+        verify(concertImageRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).isEmpty();
+    }
+
+    @Test
     void should_update_ticket_open_at_when_ticket_open_at_given() {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
