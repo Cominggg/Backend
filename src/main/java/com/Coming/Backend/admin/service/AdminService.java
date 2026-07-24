@@ -5,6 +5,9 @@ import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateResponse;
+import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
@@ -41,9 +44,11 @@ import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertIsPendingException;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertNotPendingException;
+import com.Coming.Backend.concert.entity.ConcertImage;
 import com.Coming.Backend.concert.repository.ConcertArtistCandidateRepository;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
+import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.inquiry.entity.Inquiry;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
@@ -77,6 +82,7 @@ public class AdminService {
     private final ConcertArtistRepository concertArtistRepository;
     private final ConcertArtistCandidateRepository concertArtistCandidateRepository;
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
+    private final ConcertImageRepository concertImageRepository;
     private final DataPipelineClient dataPipelineClient;
 
     /**
@@ -206,11 +212,18 @@ public class AdminService {
         List<ArtistSummary> artists = artistRepository.findAllById(artistIds).stream()
                 .map(a -> new ArtistSummary(a.getId(), a.getName(), koreanNameMap.get(a.getId())))
                 .toList();
-        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id), artists);
+        return AdminConcertDetailResponse.of(concert, concertBookingLinkRepository.findByConcertId(id), artists,
+                buildImageUrls(id));
+    }
+
+    private List<String> buildImageUrls(Long concertId) {
+        return concertImageRepository.findByConcertIdOrderByPosition(concertId).stream()
+                .map(ConcertImage::getUrl)
+                .toList();
     }
 
     /**
-     * 공연 정보를 수정한다. bookingLinks가 있으면 기존 링크를 삭제 후 새로 저장한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
+     * 공연 정보를 수정한다. bookingLinks·imageUrls가 있으면 각각 기존 목록을 삭제 후 새로 저장한다. 존재하지 않는 ID이면 ConcertNotFoundException을 던진다.
      */
     @Transactional
     public void updateConcert(Long id, AdminConcertUpdateRequest request) {
@@ -220,16 +233,67 @@ public class AdminService {
                 request.venueName(), request.posterUrl(), request.price(), request.ticketOpenAt());
 
         if (request.bookingLinks() != null) {
-            concertBookingLinkRepository.deleteByConcertId(id);
-            List<ConcertBookingLink> links = request.bookingLinks().stream()
-                    .map(link -> ConcertBookingLink.builder()
-                            .concertId(id)
-                            .name(link.name())
-                            .url(link.url())
-                            .build())
-                    .toList();
-            concertBookingLinkRepository.saveAll(links);
+            replaceBookingLinks(id, request.bookingLinks());
         }
+
+        if (request.imageUrls() != null) {
+            replaceConcertImages(id, request.imageUrls());
+        }
+    }
+
+    /**
+     * 어드민이 공연을 직접 등록한다. KOPIS 연동 없이 저장되며, 초기 상태는 날짜 기준으로 계산된다.
+     */
+    @Transactional
+    public AdminConcertCreateResponse createConcert(AdminConcertCreateRequest request) {
+        ConcertStatus status = computeStatusFromDates(request.startDate(), request.endDate());
+        Concert concert = Concert.builder()
+                .title(request.title())
+                .cast(request.cast())
+                .startDate(request.startDate())
+                .endDate(request.endDate())
+                .venueName(request.venueName())
+                .posterUrl(request.posterUrl())
+                .price(request.price())
+                .status(status)
+                .viewCount(0L)
+                .kopisUpdateDate(LocalDate.now())
+                .ticketOpenAt(request.ticketOpenAt())
+                .build();
+        Concert saved = concertRepository.save(concert);
+
+        if (request.bookingLinks() != null) {
+            replaceBookingLinks(saved.getId(), request.bookingLinks());
+        }
+        if (request.imageUrls() != null) {
+            replaceConcertImages(saved.getId(), request.imageUrls());
+        }
+        return new AdminConcertCreateResponse(saved.getId());
+    }
+
+    private void replaceBookingLinks(Long concertId, List<BookingLinkRequest> bookingLinks) {
+        concertBookingLinkRepository.deleteByConcertId(concertId);
+        List<ConcertBookingLink> links = bookingLinks.stream()
+                .map(link -> ConcertBookingLink.builder()
+                        .concertId(concertId)
+                        .name(link.name())
+                        .url(link.url())
+                        .build())
+                .toList();
+        concertBookingLinkRepository.saveAll(links);
+    }
+
+    private void replaceConcertImages(Long concertId, List<String> imageUrls) {
+        concertImageRepository.deleteByConcertId(concertId);
+        List<ConcertImage> images = new ArrayList<>();
+        for (int position = 0; position < imageUrls.size(); position++) {
+            images.add(ConcertImage.builder()
+                    .concertId(concertId)
+                    .url(imageUrls.get(position))
+                    .position(position)
+                    .build());
+        }
+        concertImageRepository.saveAll(images);
     }
 
     /**

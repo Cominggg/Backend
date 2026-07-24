@@ -8,6 +8,8 @@ import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminConcertDetailResponse;
 import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateResponse;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
@@ -123,6 +125,13 @@ public class AdminController {
     @GetMapping("/concerts/{id}")
     public ResponseEntity<AdminConcertDetailResponse> getAdminConcert(@PathVariable Long id) {
         return ResponseEntity.ok(adminService.getAdminConcert(id));
+    }
+
+    @Operation(summary = "공연 직접 등록")
+    @PostMapping("/concerts")
+    public ResponseEntity<AdminConcertCreateResponse> createConcert(
+            @RequestBody @Valid AdminConcertCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createConcert(request));
     }
 
     @Operation(summary = "공연 정보 수정")

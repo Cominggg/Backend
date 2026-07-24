@@ -1,0 +1,1 @@
+ALTER TABLE concert ALTER COLUMN kopis_id DROP NOT NULL;

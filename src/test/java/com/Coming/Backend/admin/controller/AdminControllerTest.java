@@ -17,6 +17,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
 import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
+import com.Coming.Backend.admin.dto.AdminConcertCreateResponse;
 import com.Coming.Backend.admin.dto.AdminConcertStateUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminExcludedArtistResponse;
@@ -220,6 +222,88 @@ class AdminControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(ErrorCode.INQUIRY_NOT_FOUND.name()))
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/admin/concerts
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_201_when_valid_concert_create_request_given() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "아이유 콘서트",
+                    "startDate": "2026-09-01",
+                    "endDate": "2026-09-30",
+                    "venueName": "올림픽공원 체조경기장"
+                }
+                """;
+        given(adminService.createConcert(any(AdminConcertCreateRequest.class)))
+                .willReturn(new AdminConcertCreateResponse(CONCERT_ID));
+
+        // when & then
+        mockMvc.perform(post("/api/admin/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.concertId").value(CONCERT_ID));
+    }
+
+    @Test
+    void should_return_400_when_title_is_blank_on_create() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "",
+                    "startDate": "2026-09-01",
+                    "endDate": "2026-09-30",
+                    "venueName": "올림픽공원 체조경기장"
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_return_400_when_start_date_is_null_on_create() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "아이유 콘서트",
+                    "endDate": "2026-09-30",
+                    "venueName": "올림픽공원 체조경기장"
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_return_400_when_venue_name_is_blank_on_create() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "아이유 콘서트",
+                    "startDate": "2026-09-01",
+                    "endDate": "2026-09-30",
+                    "venueName": ""
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/concerts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
     }
 
     // -------------------------------------------------------------------------
