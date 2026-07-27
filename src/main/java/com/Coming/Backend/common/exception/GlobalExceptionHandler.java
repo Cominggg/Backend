@@ -21,10 +21,6 @@ import java.util.Set;
 public class GlobalExceptionHandler {
 
     private static final Set<ErrorCode> ALERTABLE_4XX = Set.of(
-            ErrorCode.UNAUTHORIZED,
-            ErrorCode.INVALID_TOKEN,
-            ErrorCode.REFRESH_TOKEN_INVALID,
-            ErrorCode.FORBIDDEN,
             ErrorCode.USER_SUSPENDED
     );
 
