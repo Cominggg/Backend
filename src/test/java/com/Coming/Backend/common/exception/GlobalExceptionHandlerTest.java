@@ -59,13 +59,25 @@ class GlobalExceptionHandlerTest {
     @Test
     void should_notify_discord_when_alertable_business_exception_thrown() {
         // given
+        BusinessException exception = new BusinessException(ErrorCode.USER_SUSPENDED) {};
+
+        // when
+        handler.handleBusinessException(exception, request);
+
+        // then
+        then(discordNotifier).should().notifyFourXx(request, ErrorCode.USER_SUSPENDED);
+    }
+
+    @Test
+    void should_not_notify_discord_when_non_alertable_business_exception_thrown() {
+        // given
         BusinessException exception = new InvalidTokenException();
 
         // when
         handler.handleBusinessException(exception, request);
 
         // then
-        then(discordNotifier).should().notifyFourXx(request, ErrorCode.INVALID_TOKEN);
+        then(discordNotifier).should(never()).notifyFourXx(request, ErrorCode.INVALID_TOKEN);
     }
 
     @Test
