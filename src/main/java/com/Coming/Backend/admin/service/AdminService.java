@@ -244,10 +244,14 @@ public class AdminService {
 
     /**
      * 어드민이 공연을 직접 등록한다. KOPIS 연동 없이 저장되며, 초기 상태는 날짜 기준으로 계산된다.
+     *
+     * @throws ConcertAlreadyExistsException title·startDate·endDate가 모두 일치하는 공연이 이미 존재하는 경우
      */
     @Transactional
     public AdminConcertCreateResponse createConcert(AdminConcertCreateRequest request) {
-        if (concertRepository.existsByTitleAndStartDateAndEndDate(request.title(), request.startDate(), request.endDate())) {
+        boolean isDuplicate = concertRepository.existsByTitleAndStartDateAndEndDate(
+                request.title(), request.startDate(), request.endDate());
+        if (isDuplicate) {
             throw new ConcertAlreadyExistsException();
         }
 
