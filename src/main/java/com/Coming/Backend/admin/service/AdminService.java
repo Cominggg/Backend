@@ -39,6 +39,7 @@ import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
 import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.exception.ConcertAlreadyExistsException;
 import com.Coming.Backend.concert.exception.ConcertArtistAlreadyExistsException;
 import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
 import com.Coming.Backend.concert.exception.ConcertIsPendingException;
@@ -246,6 +247,10 @@ public class AdminService {
      */
     @Transactional
     public AdminConcertCreateResponse createConcert(AdminConcertCreateRequest request) {
+        if (concertRepository.existsByTitleAndStartDateAndEndDate(request.title(), request.startDate(), request.endDate())) {
+            throw new ConcertAlreadyExistsException();
+        }
+
         ConcertStatus status = computeStatusFromDates(request.startDate(), request.endDate());
         Concert concert = Concert.builder()
                 .title(request.title())
