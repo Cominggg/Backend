@@ -73,7 +73,7 @@ public class AuthService {
     public void logout(String accessToken, Long userId) {
         blacklistRepository.save(accessToken, jwtProvider.getRemainingExpiry(accessToken));
         tokenRepository.delete(userId);
-        log.info("로그아웃 — userId: {}", userId);
+        log.info("로그아웃");
     }
 
     /**
@@ -92,7 +92,7 @@ public class AuthService {
         user.withdraw();
         userRepository.flush();
         logout(accessToken, userId);
-        log.info("회원 탈퇴 — userId: {}", userId);
+        log.info("회원 탈퇴");
     }
 
     /**
@@ -138,7 +138,7 @@ public class AuthService {
             throw new NicknameDuplicateException();
         }
         String accessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
-        log.info("회원가입 완료 — userId: {}", userId);
+        log.info("회원가입 완료");
         return new TokenResponse(accessToken);
     }
 
