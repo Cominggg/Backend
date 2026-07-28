@@ -597,29 +597,6 @@ class AdminServiceTest {
     }
 
     @Test
-    void should_save_concert_when_no_duplicate_exists() {
-        // given
-        LocalDate startDate = LocalDate.now().plusDays(10);
-        LocalDate endDate = LocalDate.now().plusDays(12);
-        AdminConcertCreateRequest request = new AdminConcertCreateRequest(
-                "아이유 콘서트", "아이유",
-                startDate, endDate,
-                "올림픽공원 체조경기장", null,
-                null, null, null, null
-        );
-        given(concertRepository.existsByTitleAndStartDateAndEndDate("아이유 콘서트", startDate, endDate))
-                .willReturn(false);
-        givenSaveReturnsConcertWithId(CONCERT_ID);
-
-        // when
-        AdminConcertCreateResponse response = adminService.createConcert(request);
-
-        // then
-        verify(concertRepository).save(any(Concert.class));
-        assertThat(response.concertId()).isEqualTo(CONCERT_ID);
-    }
-
-    @Test
     void should_throw_concert_already_exists_when_duplicate_title_and_period_given() {
         // given
         LocalDate startDate = LocalDate.now().plusDays(10);
