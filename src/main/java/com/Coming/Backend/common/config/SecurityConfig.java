@@ -122,26 +122,8 @@ public class SecurityConfig {
                         .failureHandler(oAuth2FailureHandler)
                 )
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, e) -> {
-                            String uri = request.getRequestURI();
-                            if (!uri.startsWith("/api/")) {
-                                response.setStatus(404);
-                                return;
-                            }
-                            log.warn("[{}] 401 UNAUTHORIZED — {} {}",
-                                    MDC.get("traceId"), request.getMethod(), uri);
-                            discordNotifier.notifyFourXx(request, ErrorCode.UNAUTHORIZED);
-                            writeErrorResponse(response, ErrorCode.UNAUTHORIZED);
-                        })
-                        .accessDeniedHandler((request, response, e) -> {
-                            String uri = request.getRequestURI();
-                            if (!uri.startsWith("/api/")) {
-                                response.setStatus(404);
-                                return;
-                            }
-                            discordNotifier.notifyFourXx(request, ErrorCode.FORBIDDEN);
-                            writeErrorResponse(response, ErrorCode.FORBIDDEN);
-                        })
+                        .authenticationEntryPoint((request, response, e) -> handleAuthenticationFailure(request, response))
+                        .accessDeniedHandler((request, response, e) -> handleAccessDenied(request, response))
                 )
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtProvider, blacklistRepository),
@@ -170,6 +152,27 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    void handleAuthenticationFailure(jakarta.servlet.http.HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        String uri = request.getRequestURI();
+        if (!uri.startsWith("/api/")) {
+            response.setStatus(404);
+            return;
+        }
+        log.warn("[{}] 401 UNAUTHORIZED — {} {}", MDC.get("traceId"), request.getMethod(), uri);
+        writeErrorResponse(response, ErrorCode.UNAUTHORIZED);
+    }
+
+    void handleAccessDenied(jakarta.servlet.http.HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        String uri = request.getRequestURI();
+        if (!uri.startsWith("/api/")) {
+            response.setStatus(404);
+            return;
+        }
+        writeErrorResponse(response, ErrorCode.FORBIDDEN);
     }
 
     private void writeErrorResponse(jakarta.servlet.http.HttpServletResponse response,
