@@ -21,6 +21,8 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
 
     boolean existsByKopisId(String kopisId);
 
+    boolean existsByTitleAndStartDateAndEndDate(String title, LocalDate startDate, LocalDate endDate);
+
     @Query("SELECT c FROM Concert c WHERE c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId = :artistId) AND c.startDate >= :since AND c.status NOT IN :hidden")
     Page<Concert> findAllByArtistId(@Param("artistId") Long artistId, @Param("since") LocalDate since, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);
 
