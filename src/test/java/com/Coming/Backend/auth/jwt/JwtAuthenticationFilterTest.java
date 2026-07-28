@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -55,6 +56,7 @@ class JwtAuthenticationFilterTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+        MDC.clear();
     }
 
     @Test
@@ -157,5 +159,53 @@ class JwtAuthenticationFilterTest {
 
         // then
         verify(mockChain).doFilter(request, response);
+    }
+
+    @Test
+    void should_setMdcUserId_when_validTokenGiven() throws Exception {
+        // given
+        request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
+        given(jwtProvider.parseClaims(VALID_TOKEN)).willReturn(claims);
+        given(claims.getSubject()).willReturn(USER_ID.toString());
+        given(claims.get("role", String.class)).willReturn(ROLE);
+        given(blacklistRepository.isBlacklisted(VALID_TOKEN)).willReturn(false);
+
+        String[] mdcUserIdDuringChain = new String[1];
+        FilterChain capturingChain = (req, res) -> mdcUserIdDuringChain[0] = MDC.get("userId");
+
+        // when
+        filter.doFilterInternal(request, response, capturingChain);
+
+        // then
+        assertThat(mdcUserIdDuringChain[0]).isEqualTo(USER_ID.toString());
+    }
+
+    @Test
+    void should_clearMdcUserId_after_requestCompletes() throws Exception {
+        // given
+        request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
+        given(jwtProvider.parseClaims(VALID_TOKEN)).willReturn(claims);
+        given(claims.getSubject()).willReturn(USER_ID.toString());
+        given(claims.get("role", String.class)).willReturn(ROLE);
+        given(blacklistRepository.isBlacklisted(VALID_TOKEN)).willReturn(false);
+
+        // when
+        filter.doFilterInternal(request, response, filterChain);
+
+        // then
+        assertThat(MDC.get("userId")).isNull();
+    }
+
+    @Test
+    void should_notSetMdcUserId_when_authorizationHeaderAbsent() throws Exception {
+        // given — Authorization 헤더 없음
+        String[] mdcUserIdDuringChain = new String[1];
+        FilterChain capturingChain = (req, res) -> mdcUserIdDuringChain[0] = MDC.get("userId");
+
+        // when
+        filter.doFilterInternal(request, response, capturingChain);
+
+        // then
+        assertThat(mdcUserIdDuringChain[0]).isNull();
     }
 }
