@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,6 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String MDC_USER_ID_KEY = "userId";
 
     private final JwtProvider jwtProvider;
     private final BlacklistRepository blacklistRepository;
@@ -39,7 +41,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("JWT 파싱 실패 — 인증 없이 통과: {}", e.getMessage());
             }
         }
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            MDC.remove(MDC_USER_ID_KEY);
+        }
     }
 
     private String extractToken(HttpServletRequest request) {
@@ -58,5 +64,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(userId, null, authorities);
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        MDC.put(MDC_USER_ID_KEY, userId.toString());
     }
 }

@@ -1,7 +1,6 @@
 package com.Coming.Backend.common.aspect;
 
 import com.Coming.Backend.common.exception.BusinessException;
-import com.Coming.Backend.common.util.SecurityContextUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -21,23 +20,22 @@ public class LoggingAspect {
         String methodName = joinPoint.getSignature().getName();
         String target = className + "." + methodName;
 
-        String userId = SecurityContextUtils.resolveUserId();
         long start = System.currentTimeMillis();
         try {
             Object result = joinPoint.proceed();
             long elapsed = System.currentTimeMillis() - start;
 
             if (elapsed >= SLOW_THRESHOLD_MS) {
-                log.warn("[{}] {} - slow ({}ms)", userId, target, elapsed);
+                log.warn("{} - slow ({}ms)", target, elapsed);
             } else {
-                log.info("[{}] {} - {}ms", userId, target, elapsed);
+                log.info("{} - {}ms", target, elapsed);
             }
             return result;
         } catch (BusinessException e) {
-            log.warn("[{}] {} - business error: {}", userId, target, e.getErrorCode().name());
+            log.warn("{} - business error: {}", target, e.getErrorCode().name());
             throw e;
         } catch (Exception e) {
-            log.error("[{}] {} - unexpected error", userId, target, e);
+            log.error("{} - unexpected error", target, e);
             throw e;
         }
     }
