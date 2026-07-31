@@ -24,13 +24,18 @@ com.Coming.Backend
 ├── concert/       # 공연, 예매 링크, 셋리스트
 ├── calendar/      # 사용자 공연 캘린더
 ├── release/       # 음악 발매 (앨범, 트랙)
+├── user/          # 사용자 정보
 ├── inquiry/       # 문의
 ├── admin/         # 관리자
 └── common/
     ├── config/    # Security, Redis, CORS 설정
     ├── entity/    # BaseEntity 등 공통 엔티티
     ├── exception/ # ErrorCode, GlobalExceptionHandler
-    └── response/  # 공통 응답 DTO
+    ├── response/  # 공통 응답 DTO
+    ├── filter/    # JWT 인증, Rate Limit, MDC 로깅 필터
+    ├── aspect/    # 로깅 AOP
+    ├── discord/   # 4xx/5xx 알림
+    └── util/      # 공통 유틸
 ```
 
 ## 명령어
@@ -42,15 +47,22 @@ com.Coming.Backend
 ./gradlew build     # 빌드
 ```
 
-> 로컬 실행 전 PostgreSQL과 Redis가 구동 중이어야 한다.
+> 로컬 실행 전 PostgreSQL(Homebrew 서비스)과 Redis(Docker)가 구동 중이어야 한다.
+> - PostgreSQL: `brew services start postgresql@18`
+> - Redis: `docker start redis` (Docker 데몬이 꺼져 있으면 `open -a Docker`로 먼저 기동)
+> - Redis 미기동 시 증상: 연결 실패가 Bean 생성 예외로 나타나 원인이 바로 드러나지 않으니 주의
+
+## 로컬 모니터링 / 부하 테스트
+
+`docker-compose.monitoring.yml`(Prometheus/Grafana), `load-test/k6/`(부하 테스트 스크립트) 참고.
+
+## 알려진 제약
+
+- `application-local.yaml`은 gitignore 대상이며, 프로젝트 훅이 파일명에 `application-local`/`application-prod`/`.env`/`credentials`가 포함된 파일의 Write/Edit를 자동 차단한다 (`.claude/settings.json`). 이 파일 수정이 필요하면 Claude가 직접 편집할 수 없으니, 추가할 내용을 알려주고 사용자가 직접 추가하도록 요청한다.
 
 ## 명세 위치 (Cominggg/Specification)
 
-명세는 외부 레포에 있다. `/read-spec` 스킬로 접근한다.
-
-- ERD: `spec/erd.md`
-- 인증 정책: `spec/auth-policy.md`
-- API 전체: `spec/api/_index.md`
+명세는 외부 레포(`Cominggg/Specification`)에 있다. `/read-spec` 스킬로 접근한다.
 
 ## 핵심 도메인 규칙
 
