@@ -44,7 +44,8 @@ class RateLimitFilterTest {
 
     @BeforeEach
     void setUp() {
-        filter = new RateLimitFilter(proxyManager, objectMapper, discordNotifier);
+        filter = new RateLimitFilter(proxyManager, objectMapper, discordNotifier,
+                new RateLimitFilter.RateLimitPolicy(20, 10, 1));
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         given(proxyManager.builder().build(anyString(), any(java.util.function.Supplier.class))).willReturn(bucket);

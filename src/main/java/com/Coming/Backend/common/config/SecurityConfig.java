@@ -44,6 +44,15 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
+    @Value("${rate-limit.capacity}")
+    private int rateLimitCapacity;
+
+    @Value("${rate-limit.refill-tokens}")
+    private int rateLimitRefillTokens;
+
+    @Value("${rate-limit.refill-duration-seconds}")
+    private int rateLimitRefillDurationSeconds;
+
     private final JwtProvider jwtProvider;
     private final BlacklistRepository blacklistRepository;
     private final CustomOAuth2UserService oAuth2UserService;
@@ -72,6 +81,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        RateLimitFilter.RateLimitPolicy rateLimitPolicy = new RateLimitFilter.RateLimitPolicy(
+                rateLimitCapacity, rateLimitRefillTokens, rateLimitRefillDurationSeconds);
+
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -130,7 +142,9 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .addFilterBefore(
-                        new RateLimitFilter(rateLimitProxyManager, objectMapper, discordNotifier),
+                        new RateLimitFilter(
+                                rateLimitProxyManager, objectMapper, discordNotifier,
+                                rateLimitPolicy),
                         JwtAuthenticationFilter.class
                 )
                 .addFilterBefore(
