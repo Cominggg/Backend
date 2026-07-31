@@ -78,6 +78,11 @@ data-pipeline:
   base-url: ${DATA_PIPELINE_BASE_URL:http://localhost:8000}
   secret: ${DATA_PIPELINE_SECRET:}
 
+rate-limit:
+  capacity: 20
+  refill-tokens: 10
+  refill-duration-seconds: 1
+
 springdoc:
   swagger-ui:
     enabled: false

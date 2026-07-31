@@ -24,30 +24,33 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final String KEY_PREFIX = "RL:";
 
-    // 버킷 용량 20, 초당 10개 refill — 순간 burst 허용하되 지속적 과부하 차단
-    private static final BucketConfiguration BUCKET_CONFIG = BucketConfiguration.builder()
-            .addLimit(BandwidthBuilder.builder()
-                    .capacity(20)
-                    .refillGreedy(10, Duration.ofSeconds(1))
-                    .build())
-            .build();
-
+    private final BucketConfiguration bucketConfig;
     private final ProxyManager<String> proxyManager;
     private final ObjectMapper objectMapper;
     private final DiscordNotifier discordNotifier;
 
     public RateLimitFilter(ProxyManager<String> proxyManager, ObjectMapper objectMapper,
-            DiscordNotifier discordNotifier) {
+            DiscordNotifier discordNotifier, RateLimitPolicy policy) {
         this.proxyManager = proxyManager;
         this.objectMapper = objectMapper;
         this.discordNotifier = discordNotifier;
+        Duration refillDuration = Duration.ofSeconds(policy.refillDurationSeconds());
+        this.bucketConfig = BucketConfiguration.builder()
+                .addLimit(BandwidthBuilder.builder()
+                        .capacity(policy.capacity())
+                        .refillGreedy(policy.refillTokens(), refillDuration)
+                        .build())
+                .build();
+    }
+
+    public record RateLimitPolicy(int capacity, int refillTokens, int refillDurationSeconds) {
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
         String ip = extractClientIp(request);
-        Bucket bucket = proxyManager.builder().build(KEY_PREFIX + ip, () -> BUCKET_CONFIG);
+        Bucket bucket = proxyManager.builder().build(KEY_PREFIX + ip, () -> bucketConfig);
 
         if (!bucket.tryConsume(1)) {
             log.warn("Rate limit exceeded: ip={}", ip);
