@@ -90,7 +90,7 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
                     if (environment.acceptsProfiles(Profiles.of("local"))) {
-                        auth.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api/dev/**").permitAll();
+                        auth.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api/dev/**", "/actuator/prometheus").permitAll();
                     }
                     auth
                             .requestMatchers(
