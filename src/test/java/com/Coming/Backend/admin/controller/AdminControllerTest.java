@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.Coming.Backend.admin.dto.AdminArtistCollectRequest;
+import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.admin.dto.AdminArtistSearchResult;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
@@ -31,6 +32,7 @@ import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
 import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
 import com.Coming.Backend.admin.service.AdminService;
+import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.response.PageResponse;
@@ -712,5 +714,81 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/admin/artists/{id}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_image_url_and_links_when_valid_id_given() throws Exception {
+        // given
+        AdminArtistDetailResponse response = new AdminArtistDetailResponse(
+                1L, "IU", "https://example.com/iu.jpg",
+                new AdminArtistDetailResponse.AliasesDto(List.of(), List.of(), List.of()),
+                List.of(new AdminArtistDetailResponse.LinkDto("twitter", "https://twitter.com/iu"))
+        );
+        given(adminService.getAdminArtist(1L)).willReturn(response);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/artists/{id}", 1L).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imageUrl").value("https://example.com/iu.jpg"))
+                .andExpect(jsonPath("$.links[0].type").value("twitter"))
+                .andExpect(jsonPath("$.links[0].url").value("https://twitter.com/iu"));
+    }
+
+    @Test
+    void should_return_404_when_artist_not_found_on_get() throws Exception {
+        // given
+        given(adminService.getAdminArtist(999L)).willThrow(new ArtistNotFoundException());
+
+        // when & then
+        mockMvc.perform(get("/api/admin/artists/{id}", 999L).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.ARTIST_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // PUT /api/admin/artists/{id}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_valid_artist_update_request_with_image_url_and_links_given() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "imageUrl": "https://example.com/iu.jpg",
+                    "links": [
+                        { "type": "twitter", "url": "https://twitter.com/iu" }
+                    ]
+                }
+                """;
+        willDoNothing().given(adminService).updateArtist(eq(1L), any());
+
+        // when & then
+        mockMvc.perform(put("/api/admin/artists/{id}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_400_when_link_type_is_blank_on_update() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "links": [
+                        { "type": "", "url": "https://twitter.com/iu" }
+                    ]
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(put("/api/admin/artists/{id}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
     }
 }
