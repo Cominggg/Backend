@@ -27,10 +27,13 @@ import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistAlias;
+import com.Coming.Backend.artist.entity.ArtistUrl;
 import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.artist.repository.ArtistUrlRepository;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.common.response.PageResponse;
@@ -77,6 +80,7 @@ public class AdminService {
 
     private final ArtistRepository artistRepository;
     private final ArtistAliasRepository artistAliasRepository;
+    private final ArtistUrlRepository artistUrlRepository;
     private final InquiryRepository inquiryRepository;
     private final UserRepository userRepository;
     private final ConcertRepository concertRepository;
@@ -92,11 +96,13 @@ public class AdminService {
     public AdminArtistDetailResponse getAdminArtist(Long id) {
         Artist artist = artistRepository.findById(id)
                 .orElseThrow(ArtistNotFoundException::new);
-        return AdminArtistDetailResponse.of(artist, artistAliasRepository.findByArtistId(id));
+        return AdminArtistDetailResponse.of(artist, artistAliasRepository.findByArtistId(id),
+                artistUrlRepository.findByArtistId(id));
     }
 
     /**
-     * 아티스트 정보를 수정한다. aliases가 전달된 경우 기존 alias와 diff를 계산해 추가·삭제한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
+     * 아티스트 정보를 수정한다. aliases가 전달된 경우 기존 alias와 diff를 계산해 추가·삭제하고, links가 전달된 경우 기존 링크를 전체 교체한다.
+     * imageUrl은 빈 문자열이면 삭제, null이면 무변경으로 처리한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
      */
     @Transactional
     public void updateArtist(Long id, AdminArtistUpdateRequest request) {
@@ -104,9 +110,35 @@ public class AdminService {
                 .orElseThrow(ArtistNotFoundException::new);
         artist.update(request.name(), request.sortName());
 
+        if (request.imageUrl() != null) {
+            artist.updateImageUrl(request.imageUrl().isBlank() ? null : request.imageUrl());
+        }
+
         if (request.aliases() != null) {
             applyAliasesDiff(id, request.aliases());
         }
+
+        if (request.links() != null) {
+            replaceLinks(id, request.links());
+        }
+    }
+
+    private void replaceLinks(Long artistId, List<AdminArtistUpdateRequest.LinkRequest> links) {
+        Set<String> types = links.stream()
+                .map(AdminArtistUpdateRequest.LinkRequest::type)
+                .collect(Collectors.toSet());
+        if (types.size() != links.size()) {
+            throw new InvalidInputException();
+        }
+
+        artistUrlRepository.deleteByArtistId(artistId);
+        if (links.isEmpty()) {
+            return;
+        }
+        List<ArtistUrl> entities = links.stream()
+                .map(link -> ArtistUrl.builder().artistId(artistId).type(link.type()).url(link.url()).build())
+                .toList();
+        artistUrlRepository.saveAll(entities);
     }
 
     private void applyAliasesDiff(Long artistId, AdminArtistUpdateRequest.AliasesRequest aliases) {

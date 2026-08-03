@@ -24,9 +24,11 @@ import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
 import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistAlias;
+import com.Coming.Backend.artist.entity.ArtistUrl;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.artist.repository.ArtistUrlRepository;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
@@ -55,6 +57,7 @@ import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.Coming.Backend.inquiry.exception.InvalidInquiryStatusException;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -91,6 +94,9 @@ class AdminServiceTest {
 
     @Mock
     private ArtistAliasRepository artistAliasRepository;
+
+    @Mock
+    private ArtistUrlRepository artistUrlRepository;
 
     @Mock
     private InquiryRepository inquiryRepository;
@@ -161,6 +167,8 @@ class AdminServiceTest {
         AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(
                 "아이유",
                 "Iu, Lee Ji Eun",
+                null,
+                null,
                 null
         );
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
@@ -182,7 +190,7 @@ class AdminServiceTest {
                 .sortName("IU")
                 .isComing(false)
                 .build();
-        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest("아이유", null, null);
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest("아이유", null, null, null, null);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
 
         // when
@@ -199,7 +207,7 @@ class AdminServiceTest {
         given(artistRepository.findById(999L)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> adminService.updateArtist(999L, new AdminArtistUpdateRequest("IU", null, null)))
+        assertThatThrownBy(() -> adminService.updateArtist(999L, new AdminArtistUpdateRequest("IU", null, null, null, null)))
                 .isInstanceOf(ArtistNotFoundException.class);
     }
 
@@ -210,7 +218,7 @@ class AdminServiceTest {
         ArtistAlias existingJa = ArtistAlias.builder().artistId(1L).name("ヨアソビ").locale("ja").build();
         AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(
                 List.of("ヨアソビ", "よあそび"), List.of(), List.of());
-        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, null, aliases, null);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
         given(artistAliasRepository.findByArtistId(1L)).willReturn(List.of(existingJa));
 
@@ -234,7 +242,7 @@ class AdminServiceTest {
         ArtistAlias alias2 = ArtistAlias.builder().artistId(1L).name("よあそび").locale("ja").build();
         AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(
                 List.of("ヨアソビ"), List.of(), List.of());
-        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, null, aliases, null);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
         given(artistAliasRepository.findByArtistId(1L)).willReturn(List.of(alias1, alias2));
 
@@ -256,7 +264,7 @@ class AdminServiceTest {
         ArtistAlias existing = ArtistAlias.builder().artistId(1L).name("ヨアソビ").locale("ja").build();
         AdminArtistUpdateRequest.AliasesRequest aliases = new AdminArtistUpdateRequest.AliasesRequest(
                 List.of(), List.of(), List.of());
-        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, aliases);
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, null, aliases, null);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
         given(artistAliasRepository.findByArtistId(1L)).willReturn(List.of(existing));
 
@@ -274,7 +282,7 @@ class AdminServiceTest {
     void should_not_touch_aliases_when_aliases_field_is_null() {
         // given
         Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
-        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest("요아소비", null, null);
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest("요아소비", null, null, null, null);
         given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
 
         // when
@@ -284,6 +292,129 @@ class AdminServiceTest {
         verify(artistAliasRepository, never()).findByArtistId(any());
         verify(artistAliasRepository, never()).deleteAll(any(List.class));
         verify(artistAliasRepository, never()).saveAll(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // updateArtist — imageUrl
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_not_change_image_url_when_image_url_is_null() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").imageUrl("https://example.com/before.jpg").isComing(false).build();
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, null, null, null);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then
+        assertThat(artist.getImageUrl()).isEqualTo("https://example.com/before.jpg");
+    }
+
+    @Test
+    void should_delete_image_url_when_empty_string_given() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").imageUrl("https://example.com/before.jpg").isComing(false).build();
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, "", null, null);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then
+        assertThat(artist.getImageUrl()).isNull();
+    }
+
+    @Test
+    void should_update_image_url_when_value_given() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").imageUrl("https://example.com/before.jpg").isComing(false).build();
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, "https://example.com/after.jpg", null, null);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then
+        assertThat(artist.getImageUrl()).isEqualTo("https://example.com/after.jpg");
+    }
+
+    // -------------------------------------------------------------------------
+    // updateArtist — links
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_not_touch_links_when_links_field_is_null() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, null, null, null);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then
+        verify(artistUrlRepository, never()).deleteByArtistId(any());
+        verify(artistUrlRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void should_only_delete_links_when_empty_list_given() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, null, null, List.of());
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then
+        verify(artistUrlRepository).deleteByArtistId(1L);
+        verify(artistUrlRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void should_replace_links_when_links_given() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        List<AdminArtistUpdateRequest.LinkRequest> links = List.of(
+                new AdminArtistUpdateRequest.LinkRequest("twitter", "https://twitter.com/yoasobi"),
+                new AdminArtistUpdateRequest.LinkRequest("instagram", "https://instagram.com/yoasobi")
+        );
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, null, null, links);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when
+        adminService.updateArtist(1L, request);
+
+        // then
+        verify(artistUrlRepository).deleteByArtistId(1L);
+        ArgumentCaptor<List<ArtistUrl>> captor = ArgumentCaptor.forClass(List.class);
+        verify(artistUrlRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2);
+        assertThat(captor.getValue().get(0).getType()).isEqualTo("twitter");
+        assertThat(captor.getValue().get(0).getUrl()).isEqualTo("https://twitter.com/yoasobi");
+        assertThat(captor.getValue().get(1).getType()).isEqualTo("instagram");
+        assertThat(captor.getValue().get(1).getUrl()).isEqualTo("https://instagram.com/yoasobi");
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_duplicate_link_type_given() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(false).build();
+        List<AdminArtistUpdateRequest.LinkRequest> links = List.of(
+                new AdminArtistUpdateRequest.LinkRequest("twitter", "https://twitter.com/yoasobi"),
+                new AdminArtistUpdateRequest.LinkRequest("twitter", "https://twitter.com/yoasobi_official")
+        );
+        AdminArtistUpdateRequest request = new AdminArtistUpdateRequest(null, null, null, null, links);
+        given(artistRepository.findById(1L)).willReturn(Optional.of(artist));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.updateArtist(1L, request))
+                .isInstanceOf(InvalidInputException.class);
+        verify(artistUrlRepository, never()).deleteByArtistId(any());
+        verify(artistUrlRepository, never()).saveAll(any());
     }
 
     // -------------------------------------------------------------------------
@@ -339,6 +470,44 @@ class AdminServiceTest {
         // when & then
         assertThatThrownBy(() -> adminService.getAdminArtist(999L))
                 .isInstanceOf(ArtistNotFoundException.class);
+    }
+
+    @Test
+    void should_return_image_url_and_links_when_valid_id_given() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").imageUrl("https://example.com/yoasobi.jpg").isComing(true).build();
+        ReflectionTestUtils.setField(artist, "id", ARTIST_ID);
+        List<ArtistUrl> links = List.of(
+                ArtistUrl.builder().artistId(ARTIST_ID).type("twitter").url("https://twitter.com/yoasobi").build()
+        );
+        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(artistAliasRepository.findByArtistId(ARTIST_ID)).willReturn(List.of());
+        given(artistUrlRepository.findByArtistId(ARTIST_ID)).willReturn(links);
+
+        // when
+        AdminArtistDetailResponse response = adminService.getAdminArtist(ARTIST_ID);
+
+        // then
+        assertThat(response.imageUrl()).isEqualTo("https://example.com/yoasobi.jpg");
+        assertThat(response.links()).hasSize(1);
+        assertThat(response.links().get(0).type()).isEqualTo("twitter");
+        assertThat(response.links().get(0).url()).isEqualTo("https://twitter.com/yoasobi");
+    }
+
+    @Test
+    void should_return_empty_links_when_no_links_exist() {
+        // given
+        Artist artist = Artist.builder().mbid("mbid-1").name("YOASOBI").isComing(true).build();
+        ReflectionTestUtils.setField(artist, "id", ARTIST_ID);
+        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(artistAliasRepository.findByArtistId(ARTIST_ID)).willReturn(List.of());
+        given(artistUrlRepository.findByArtistId(ARTIST_ID)).willReturn(List.of());
+
+        // when
+        AdminArtistDetailResponse response = adminService.getAdminArtist(ARTIST_ID);
+
+        // then
+        assertThat(response.links()).isEmpty();
     }
 
     // -------------------------------------------------------------------------

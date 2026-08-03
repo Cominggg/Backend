@@ -44,6 +44,10 @@ public class Artist {
         if (sortName != null) this.sortName = sortName;
     }
 
+    public void updateImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
     public void updateIsComing(boolean isComing) {
         this.isComing = isComing;
     }
