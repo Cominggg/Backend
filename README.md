@@ -1,3 +1,7 @@
+<p align="center">
+  <img src=".github/logo.png" alt="Coming logo" width="120" />
+</p>
+
 # Coming Backend
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
