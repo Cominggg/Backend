@@ -1,32 +1,29 @@
-<p align="center">
-  <img src=".github/logo.png" alt="Coming logo" width="120" />
-</p>
+<div align="center">
+  <img src=".github/logo.png" alt="Coming" width="180" />
 
-# Coming Backend
+  <br />
+  <br />
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/Cominggg/Backend/actions/workflows/ci.yml/badge.svg)](https://github.com/Cominggg/Backend/actions/workflows/ci.yml)
-[![Java](https://img.shields.io/badge/Java-21-orange)](build.gradle)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.6-brightgreen)](build.gradle)
+  **Jpop 아티스트 내한 공연 정보 통합 플랫폼**
 
-**Jpop 아티스트**의 팔로우, 공연 일정, 음악 발매 정보를 제공하는 **Coming** 서비스의 백엔드 서버입니다.
-Spring Boot 4 기반으로 REST API를 제공하며, 개발 전 과정을 Claude Code 서브에이전트·스킬 워크플로우와 함께 진행한 1인 프로젝트입니다.
+  아티스트·공연·발매 데이터를 서빙하는 REST API 서버 — Claude Code 서브에이전트·스킬 워크플로우로 개발 전 과정을 진행한 1인 프로젝트입니다.
 
-> Frontend / Data Pipeline / API 명세는 별도 레포(`Frontend`, `Data`, `Specification`)로 분리되어 있고, 이 레포는 그중 BE(백엔드)를 담당합니다.
+  <br />
 
-## 목차
+  [![Java](https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&logo=openjdk&logoColor=white)](build.gradle)
+  [![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.6-6DB33F?style=flat-square&logo=springboot&logoColor=white)](build.gradle)
+  [![Gradle](https://img.shields.io/badge/Gradle-02303A?style=flat-square&logo=gradle&logoColor=white)](build.gradle)
+  [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+  [![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io/)
+  [![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](Dockerfile)
+  [![CI](https://img.shields.io/github/actions/workflow/status/Cominggg/Backend/ci.yml?style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/Cominggg/Backend/actions/workflows/ci.yml)
+  [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
-- [기술 스택](#기술-스택)
-- [시스템 구성](#시스템-구성)
-- [핵심 도메인](#핵심-도메인)
-- [AI 협업 워크플로우](#ai-협업-워크플로우)
-- [로컬 실행](#로컬-실행)
-- [테스트](#테스트)
-- [모니터링 · 부하 테스트](#모니터링--부하-테스트)
-- [CI/CD · 배포 아키텍처](#cicd--배포-아키텍처)
-- [프로젝트 규모](#프로젝트-규모)
-- [License](#license)
-- [Contact](#contact)
+  <br />
+
+  **[→ comingg.com](https://comingg.com)**
+
+</div>
 
 ---
 
@@ -45,33 +42,6 @@ Spring Boot 4 기반으로 REST API를 제공하며, 개발 전 과정을 Claude
 | 부하 테스트 | k6 |
 | CI/CD | GitHub Actions → GHCR → SSH 배포 |
 | 컨테이너 | Docker |
-
-## 시스템 구성
-
-```mermaid
-flowchart LR
-    subgraph Client
-        FE[Frontend]
-    end
-    subgraph Backend["Coming Backend (이 레포)"]
-        API[REST API<br/>Spring Boot]
-        JWT[JWT / OAuth2<br/>Auth Filter]
-        API --- JWT
-    end
-    DB[(PostgreSQL)]
-    Cache[(Redis)]
-    Pipeline[Data Pipeline<br/>별도 레포]
-    OAuth[Google / Kakao OAuth]
-
-    FE -->|Bearer Token| API
-    API --> DB
-    API --> Cache
-    Pipeline -->|공연·발매 데이터 적재| DB
-    JWT --> OAuth
-```
-
-- **Data Pipeline**이 KOPIS 등 외부 API에서 공연·아티스트·발매 데이터를 수집해 동일 DB에 적재하고, 이 레포는 그 데이터를 API로 서빙합니다.
-- 명세는 `Specification` 레포에서 단일 소스로 관리하며, BE·FE·Data가 이를 기준으로 동기화됩니다.
 
 ## 핵심 도메인
 
@@ -106,17 +76,11 @@ flowchart LR
 
 ### 개발 흐름
 
-```mermaid
-flowchart LR
-    A["/issue"] --> B[구현]
-    B --> C["write-tests\n(3개 이상 도메인은 병렬 실행)"]
-    C --> D["/be-review\n(DDD · SOLID · 커버리지 · API 스펙)"]
-    D -->|critical 0건| E["/simplify"]
-    D -->|critical 존재| B
-    E --> F["/commit"]
-    F --> G["/pr"]
-    G --> H["/sync-docs"]
-```
+1. `/issue` — GitHub 이슈·브랜치 생성
+2. 구현
+3. `write-tests` — 3개 이상 도메인은 병렬 실행
+4. `/be-review` — DDD·SOLID·커버리지·API 스펙 리뷰 (🔴 critical 존재 시 2번으로 복귀)
+5. `/simplify` → `/commit` → `/pr` → `/sync-docs`
 
 - `/be-review`에서 🔴 critical 이슈가 0건일 때만 커밋으로 진행합니다.
 - auth 관련 코드(JWT, OAuth2, Redis 토큰 처리)는 `/security-review`를 추가로 실행합니다.
@@ -188,42 +152,15 @@ open -a Docker && docker start redis   # Docker 데몬이 꺼져 있으면 먼�
 
 ## CI/CD · 배포 아키텍처
 
-```mermaid
-flowchart LR
-    Client([Client / Frontend])
-    Actions[GitHub Actions]
-    GHCR[(GHCR<br/>Docker Image)]
-
-    subgraph Lightsail["AWS Lightsail 인스턴스"]
-        direction TB
-        Nginx[Nginx<br/>Reverse Proxy]
-        Blue["be-blue :8080<br/>(active)"]
-        Green["be-green :8081<br/>(standby)"]
-        Redis[(Redis)]
-    end
-
-    RDS[(AWS Lightsail<br/>Managed PostgreSQL)]
-    Discord[Discord Webhook]
-
-    Client -->|HTTPS| Nginx
-    Nginx -->|현재 active 슬롯| Blue
-    Nginx -.->|배포 시 전환| Green
-    Blue --> Redis
-    Green -.-> Redis
-    Blue --> RDS
-    Green -.-> RDS
-
-    Actions -->|이미지 push| GHCR
-    Actions -->|SSH 배포 스크립트 실행| Lightsail
-    GHCR -.->|standby 슬롯에 pull| Green
-    Blue -.->|4xx/5xx 알림| Discord
-```
+<p align="center">
+  <img src=".github/deploy-architecture.png" alt="배포 아키텍처" width="800" />
+</p>
 
 - **CI** (`ci.yml`): PR 생성 시 PostgreSQL·Redis 컨테이너를 띄워 전체 테스트 실행 + Docker 이미지 빌드 검증
 - **CD** (`cd.yml`): `main` 브랜치 push 시 Docker 이미지를 GHCR에 push하고, Lightsail 인스턴스로 SSH 접속해 `scripts/deploy.sh` 실행
-- Nginx가 `be-blue`(:8080)/`be-green`(:8081) 중 활성 슬롯으로만 트래픽을 전달하고, Redis는 같은 Docker Compose 내에서 두 슬롯이 공유합니다.
+- Nginx가 `be-blue`(:8080)/`be-green`(:8081) 중 활성 슬롯으로만 트래픽을 전달하고, Redis는 두 슬롯이 공유합니다. Data Pipeline(`data`)도 같은 Docker Compose에 포함되어 별도 인스턴스 없이 함께 배포됩니다.
 - 배포 시 standby 슬롯에 새 이미지를 pull → `/actuator/health` 체크 통과 → Nginx upstream 전환 → 이전 슬롯 정지 순으로 무중단 배포합니다.
-- DB는 별도 Lightsail 인스턴스(Managed PostgreSQL)로 분리되어 두 슬롯이 공통으로 바라보고, 4xx/5xx 에러는 Discord Webhook으로 실시간 알림됩니다.
+- DB는 별도 Lightsail 인스턴스(Managed PostgreSQL)로 분리되어 두 슬롯이 공통으로 바라보고, 4xx/5xx 에러·공연 데이터 수집 결과·문의 접수는 각각 Discord Webhook으로 알림됩니다.
 
 ## 프로젝트 규모
 
