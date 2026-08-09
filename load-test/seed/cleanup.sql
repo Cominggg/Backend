@@ -17,6 +17,8 @@ DELETE FROM concert WHERE kopis_id LIKE 'LOADTEST-%';
 
 DELETE FROM artist WHERE name LIKE '[LOADTEST]%';
 
+DELETE FROM inquiry WHERE title LIKE '[LOADTEST]%';
+
 DELETE FROM "user" WHERE provider = 'local' AND provider_id = 'k6-load-test';
 
 COMMIT;
