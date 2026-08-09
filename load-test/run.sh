@@ -2,12 +2,12 @@
 # 더미 데이터 시딩 -> k6 실행 -> 더미 데이터 정리를 한 번에 묶는다.
 # k6가 실패하거나 스크립트가 중간에 죽어도 trap으로 cleanup.sql이 항상 실행된다.
 #
-# 사용법: ./load-test/run.sh <시나리오> [profile]
-#   ./load-test/run.sh concert-list smoke
-#   ./load-test/run.sh artist-detail stress
+# 사용법: ./load-test/run.sh <도메인/시나리오> [profile]
+#   ./load-test/run.sh concert/list smoke
+#   ./load-test/run.sh artist/detail stress
 set -euo pipefail
 
-SCENARIO="${1:?사용법: ./load-test/run.sh <시나리오> [smoke|load|stress]}"
+SCENARIO="${1:?사용법: ./load-test/run.sh <도메인/시나리오> [smoke|load|stress]}"
 PROFILE="${2:-load}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

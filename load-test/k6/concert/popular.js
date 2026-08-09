@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { getOptions } from './lib/profiles.js';
+import { getOptions } from '../lib/profiles.js';
 
 export const options = getOptions();
 
