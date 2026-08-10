@@ -7,6 +7,15 @@ services:
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
 
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    container_name: coming-postgres-exporter
+    environment:
+      # 로컬 Postgres(Homebrew, host.docker.internal)는 127.0.0.1/host 접속에 trust 인증이라 비밀번호가 없다.
+      DATA_SOURCE_NAME: "postgresql://youhyuk@host.docker.internal:5432/coming?sslmode=disable"
+    ports:
+      - "9187:9187"
+
   grafana:
     image: grafana/grafana:latest
     container_name: coming-grafana
