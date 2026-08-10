@@ -33,5 +33,9 @@ echo "[seed] 더미 데이터 시딩 중 (test_user_id=$TEST_USER_ID)"
 psql -h "$DB_HOST" -d "$DB_NAME" -v ON_ERROR_STOP=1 -v test_user_id="$TEST_USER_ID" \
   -f "$SCRIPT_DIR/seed/seed.sql"
 
+HOT_ARTIST_ID=$(psql -h "$DB_HOST" -d "$DB_NAME" -t -A \
+  -c "SELECT id FROM artist WHERE name = '[LOADTEST] Artist 1'")
+
 echo "[k6] $SCENARIO 실행 (profile=$PROFILE)"
-k6 run -e PROFILE="$PROFILE" -e BASE_URL="$BASE_URL" "$SCRIPT_DIR/k6/$SCENARIO.js"
+k6 run -e PROFILE="$PROFILE" -e BASE_URL="$BASE_URL" -e HOT_ARTIST_ID="$HOT_ARTIST_ID" \
+  "$SCRIPT_DIR/k6/$SCENARIO.js"
