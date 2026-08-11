@@ -159,6 +159,81 @@
       ],
       "title": "테이블별 Dead Tuple 수 (대량 삭제 후 vacuum 여부 확인용)",
       "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 24 },
+      "id": 9,
+      "options": { "showHeader": true },
+      "targets": [
+        {
+          "expr": "topk(10, pg_stat_statements_seconds_total) * on(queryid) group_left(query) pg_stat_statements_query_id",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "쿼리별 누적 총 실행시간 상위 10개 (DB 전체 부하 기여도가 큰 쿼리)",
+      "type": "table"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 24 },
+      "id": 10,
+      "options": { "showHeader": true },
+      "targets": [
+        {
+          "expr": "topk(10, pg_stat_statements_seconds_total / pg_stat_statements_calls_total) * on(queryid) group_left(query) pg_stat_statements_query_id",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "쿼리별 평균 실행시간 상위 10개 (호출 1회당 느린 쿼리 — 인덱스 후보)",
+      "type": "table"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 33 },
+      "id": 11,
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "Value", "desc": false }] },
+      "targets": [
+        {
+          "expr": "sum by (relname, indexrelname) (pg_statio_user_indexes_idx_blks_hit_total) / (sum by (relname, indexrelname) (pg_statio_user_indexes_idx_blks_hit_total) + sum by (relname, indexrelname) (pg_statio_user_indexes_idx_blks_read_total))",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "인덱스별 캐시 히트율 (낮을수록 디스크 I/O 유발 — 인덱스 효율 점검용)",
+      "type": "table"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 33 },
+      "id": 12,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "expr": "pg_stat_user_tables_table_size_bytes{datname=\"coming\"}",
+          "legendFormat": "{{relname}} (table)",
+          "refId": "A"
+        },
+        {
+          "expr": "pg_stat_user_tables_index_size_bytes{datname=\"coming\"}",
+          "legendFormat": "{{relname}} (index)",
+          "refId": "B"
+        }
+      ],
+      "title": "테이블별 테이블/인덱스 크기 (인덱스 추가 시 스토리지 비용 tradeoff 확인용)",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",

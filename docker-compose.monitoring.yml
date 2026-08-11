@@ -13,6 +13,12 @@ services:
     environment:
       # 로컬 Postgres(Homebrew, host.docker.internal)는 127.0.0.1/host 접속에 trust 인증이라 비밀번호가 없다.
       DATA_SOURCE_NAME: "postgresql://youhyuk@host.docker.internal:5432/coming?sslmode=disable"
+    # 기본 비활성 콜렉터: 쿼리별 실행시간 랭킹(pg_stat_statements 확장 필요)과
+    # 인덱스별 캐시 히트/디스크 읽기(statio_user_indexes)는 인덱싱 최적화 판단에 쓰인다.
+    command:
+      - "--collector.stat_statements"
+      - "--collector.stat_statements.include_query"
+      - "--collector.statio_user_indexes"
     ports:
       - "9187:9187"
 
