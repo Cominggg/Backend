@@ -18,6 +18,7 @@ import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -115,12 +116,16 @@ public class CalendarService {
         if (userConcertCalendarRepository.existsByUserIdAndConcertId(userId, concertId)) {
             throw new AlreadyInCalendarException();
         }
-        userConcertCalendarRepository.save(
-                UserConcertCalendar.builder()
-                        .userId(userId)
-                        .concertId(concertId)
-                        .build()
-        );
+        try {
+            userConcertCalendarRepository.save(
+                    UserConcertCalendar.builder()
+                            .userId(userId)
+                            .concertId(concertId)
+                            .build()
+            );
+        } catch (DataIntegrityViolationException e) {
+            throw new AlreadyInCalendarException();
+        }
     }
 
     /**

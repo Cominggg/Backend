@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -340,6 +342,20 @@ class CalendarServiceTest {
         // given
         given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
         given(userConcertCalendarRepository.existsByUserIdAndConcertId(USER_ID, CONCERT_ID)).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> calendarService.addToCalendar(USER_ID, CONCERT_ID))
+                .isInstanceOf(AlreadyInCalendarException.class)
+                .hasMessage(ErrorCode.ALREADY_IN_CALENDAR.getMessage());
+    }
+
+    @Test
+    void should_throw_already_in_calendar_when_save_violates_unique_constraint_due_to_race_condition() {
+        // given
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        given(userConcertCalendarRepository.existsByUserIdAndConcertId(USER_ID, CONCERT_ID)).willReturn(false);
+        willThrow(new DataIntegrityViolationException("duplicate key"))
+                .given(userConcertCalendarRepository).save(any(UserConcertCalendar.class));
 
         // when & then
         assertThatThrownBy(() -> calendarService.addToCalendar(USER_ID, CONCERT_ID))

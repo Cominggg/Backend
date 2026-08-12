@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -84,14 +85,20 @@ class CustomOAuth2UserServiceTest {
                 }
                 return new UserHolder(user, false);
             }
-            return new UserHolder(repo.save(
-                    User.builder()
-                            .provider(provider)
-                            .providerId(userInfo.getProviderId())
-                            .role(UserRole.PENDING)
-                            .status(UserStatus.ACTIVE)
-                            .build()
-            ), true);
+            try {
+                return new UserHolder(repo.save(
+                        User.builder()
+                                .provider(provider)
+                                .providerId(userInfo.getProviderId())
+                                .role(UserRole.PENDING)
+                                .status(UserStatus.ACTIVE)
+                                .build()
+                ), true);
+            } catch (DataIntegrityViolationException e) {
+                User user = repo.findByProviderAndProviderId(provider, userInfo.getProviderId())
+                        .orElseThrow(() -> e);
+                return new UserHolder(user, false);
+            }
         }
     }
 
@@ -211,6 +218,31 @@ class CustomOAuth2UserServiceTest {
         assertThat(userCaptor.getValue().getProvider()).isEqualTo("kakao");
         assertThat(userCaptor.getValue().getProviderId()).isEqualTo("99999");
         assertThat(userCaptor.getValue().getNickname()).isNull();
+    }
+
+    @Test
+    void should_return_existing_user_when_save_fails_with_concurrent_duplicate_key() {
+        // given
+        User existingUser = User.builder()
+                .provider("kakao")
+                .providerId("99999")
+                .role(UserRole.PENDING)
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        given(userRepository.findByProviderAndProviderId("kakao", "99999"))
+                .willReturn(Optional.empty(), Optional.of(existingUser));
+        given(userRepository.save(any(User.class)))
+                .willThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint"));
+
+        // when
+        OAuth2User result = kakaoService.loadUser(buildUserRequest("kakao"));
+
+        // then
+        assertThat(result).isInstanceOf(CustomOAuth2User.class);
+        CustomOAuth2User customUser = (CustomOAuth2User) result;
+        assertThat(customUser.getUser()).isEqualTo(existingUser);
+        assertThat(customUser.isNewUser()).isFalse();
     }
 
     @Test
