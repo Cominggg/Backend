@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -65,14 +66,21 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             return new UserResult(user, false);
         }
         log.info("신규 OAuth2 사용자 생성 — provider: {}, providerId: {}", provider, userInfo.getProviderId());
-        return new UserResult(userRepository.save(
-                User.builder()
-                        .email(userInfo.getEmail())
-                        .provider(provider)
-                        .providerId(userInfo.getProviderId())
-                        .role(UserRole.PENDING)
-                        .status(UserStatus.ACTIVE)
-                        .build()
-        ), true);
+        try {
+            return new UserResult(userRepository.save(
+                    User.builder()
+                            .email(userInfo.getEmail())
+                            .provider(provider)
+                            .providerId(userInfo.getProviderId())
+                            .role(UserRole.PENDING)
+                            .status(UserStatus.ACTIVE)
+                            .build()
+            ), true);
+        } catch (DataIntegrityViolationException e) {
+            log.info("동시 최초 로그인 경합 — 기존 사용자 재조회. provider: {}, providerId: {}", provider, userInfo.getProviderId());
+            User user = userRepository.findByProviderAndProviderId(provider, userInfo.getProviderId())
+                    .orElseThrow(() -> e);
+            return new UserResult(user, false);
+        }
     }
 }
