@@ -1,0 +1,94 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "엔드포인트(URI)별 요청 속도 / 평균 지연시간 / 5xx 에러율. 기존 JVM·HikariCP 대시보드는 전체 집계만 보여줘서 어떤 API가 느린지 알 수 없었다.",
+  "editable": true,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (uri, method) (rate(http_server_requests_seconds_count{job=\"coming-backend\", uri!~\"/actuator.*|UNKNOWN|/\\\\*\\\\*\"}[1m])))",
+          "legendFormat": "{{method}} {{uri}}",
+          "refId": "A"
+        }
+      ],
+      "title": "URI별 요청 속도 (상위 10개)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
+      "id": 2,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (uri, method) (rate(http_server_requests_seconds_sum{job=\"coming-backend\", uri!~\"/actuator.*|UNKNOWN|/\\\\*\\\\*\"}[1m])) / sum by (uri, method) (rate(http_server_requests_seconds_count{job=\"coming-backend\", uri!~\"/actuator.*|UNKNOWN|/\\\\*\\\\*\"}[1m])))",
+          "legendFormat": "{{method}} {{uri}}",
+          "refId": "A"
+        }
+      ],
+      "title": "URI별 평균 지연시간 (상위 10개, http_server_requests_seconds가 summary라 p95 대신 avg만 가능)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 18 },
+      "id": 3,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "expr": "sum by (uri, method) (rate(http_server_requests_seconds_count{job=\"coming-backend\", status=~\"5..\"}[1m]))",
+          "legendFormat": "{{method}} {{uri}}",
+          "refId": "A"
+        }
+      ],
+      "title": "URI별 5xx 에러율",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["coming-backend", "http"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "API Endpoints (HTTP)",
+  "uid": "coming-http-endpoints",
+  "version": 1
+}
