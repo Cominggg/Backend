@@ -22,6 +22,7 @@ import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -186,10 +187,14 @@ public class ArtistService {
         if (userFollowArtistRepository.existsByUserIdAndArtistId(userId, artistId)) {
             throw new AlreadyFollowingException();
         }
-        userFollowArtistRepository.save(UserFollowArtist.builder()
-                .userId(userId)
-                .artistId(artistId)
-                .build());
+        try {
+            userFollowArtistRepository.save(UserFollowArtist.builder()
+                    .userId(userId)
+                    .artistId(artistId)
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            throw new AlreadyFollowingException();
+        }
     }
 
     /**

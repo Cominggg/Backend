@@ -39,6 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -531,6 +532,20 @@ class ArtistServiceTest {
         // given
         given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
         given(userFollowArtistRepository.existsByUserIdAndArtistId(USER_ID, ARTIST_ID)).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> artistService.follow(USER_ID, ARTIST_ID))
+                .isInstanceOf(AlreadyFollowingException.class)
+                .hasMessage(ErrorCode.ALREADY_FOLLOWING.getMessage());
+    }
+
+    @Test
+    void should_throw_already_following_when_save_violates_unique_constraint_due_to_race_condition() {
+        // given
+        given(artistRepository.existsById(ARTIST_ID)).willReturn(true);
+        given(userFollowArtistRepository.existsByUserIdAndArtistId(USER_ID, ARTIST_ID)).willReturn(false);
+        given(userFollowArtistRepository.save(any(UserFollowArtist.class)))
+                .willThrow(new DataIntegrityViolationException("duplicate key"));
 
         // when & then
         assertThatThrownBy(() -> artistService.follow(USER_ID, ARTIST_ID))
