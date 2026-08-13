@@ -61,7 +61,8 @@ public class CalendarService {
         LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
 
         List<Concert> concertList = concertRepository.findByDateRange(firstDay, lastDay, HIDDEN_STATUSES);
-        List<Concert> ticketingList = concertRepository.findByTicketOpenAtMonth(year, month, HIDDEN_STATUSES);
+        List<Concert> ticketingList = concertRepository.findByTicketOpenAtRange(
+                firstDay.atStartOfDay(), lastDay.plusDays(1).atStartOfDay(), HIDDEN_STATUSES);
 
         List<Long> allConcertIds = Stream.concat(concertList.stream(), ticketingList.stream())
                 .map(Concert::getId).distinct().toList();
