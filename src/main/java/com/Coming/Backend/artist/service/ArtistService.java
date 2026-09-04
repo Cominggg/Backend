@@ -24,7 +24,9 @@ import com.Coming.Backend.concert.repository.ConcertRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +35,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -54,11 +57,12 @@ public class ArtistService {
     private final ConcertRepository concertRepository;
 
     /**
-     * 아티스트 목록을 조회한다. name, isComing, following 필터를 조합해 적용한다.
+     * 아티스트 목록을 조회한다. name, isComing, following 필터를 조합해 적용하며, 기본 정렬은 sortName ASC(동률 시 id ASC)다.
      *
      * @param name      검색 키워드 (null 또는 공백이면 전체 조회)
      * @param isComing  null이면 전체, true/false이면 isComing 필드 기준 필터 적용
      * @param following true이면 팔로잉 아티스트만 반환 (미인증·팔로잉 없으면 빈 페이지)
+     * @param pageable  sort=followerCount이면 팔로워 수 기준 전용 집계 쿼리로 처리한다
      * @param userId    인증된 사용자 ID (null이면 isFollowing 항상 false)
      */
     public PageResponse<ArtistSummaryResponse> getArtists(String name, Boolean isComing, Boolean following, Pageable pageable, Long userId) {
@@ -77,13 +81,14 @@ public class ArtistService {
         }
 
         boolean hasName = name != null && !name.isBlank();
-        Page<Artist> page = fetchArtists(hasName, isComing, filterIds, name, pageable);
+        Page<Artist> page = fetchArtistsSorted(hasName, isComing, filterIds, name, pageable);
 
         List<Long> artistIds = page.getContent().stream().map(Artist::getId).toList();
         Map<Long, String> spotifyUrlMap = artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(artistIds, "spotify")
                 .stream()
                 .collect(Collectors.toMap(ArtistUrl::getArtistId, ArtistUrl::getUrl));
         Map<Long, String> koreanNameMap = buildKoreanNameMap(artistIds);
+        Map<Long, Long> followerCountMap = buildFollowerCountMap(artistIds);
 
         Set<Long> followingIdSet = new HashSet<>(followingIds);
         return PageResponse.from(page.map(artist -> new ArtistSummaryResponse(
@@ -93,8 +98,32 @@ public class ArtistService {
                 artist.getImageUrl(),
                 artist.isComing(),
                 followingIdSet.contains(artist.getId()),
-                spotifyUrlMap.get(artist.getId())
+                spotifyUrlMap.get(artist.getId()),
+                followerCountMap.getOrDefault(artist.getId(), 0L)
         )));
+    }
+
+    private Page<Artist> fetchArtistsSorted(boolean hasName, Boolean isComing, List<Long> ids, String name, Pageable pageable) {
+        Optional<Sort.Order> followerCountOrder = pageable.getSort().stream()
+                .filter(order -> order.getProperty().equals("followerCount"))
+                .findFirst();
+        if (followerCountOrder.isPresent()) {
+            Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+            return artistRepository.findAllOrderByFollowerCount(
+                    hasName, name, isComing, ids, followerCountOrder.get().getDirection().isDescending(), unsorted);
+        }
+        Sort sortWithIdTiebreaker = pageable.getSort().and(Sort.by(Sort.Direction.ASC, "id"));
+        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sortWithIdTiebreaker);
+        return fetchArtists(hasName, isComing, ids, name, sorted);
+    }
+
+    private Map<Long, Long> buildFollowerCountMap(List<Long> artistIds) {
+        if (artistIds.isEmpty()) {
+            return Map.of();
+        }
+        return userFollowArtistRepository.countByArtistIdIn(artistIds).stream()
+                .collect(Collectors.toMap(UserFollowArtistRepository.ArtistFollowerCount::getArtistId,
+                        UserFollowArtistRepository.ArtistFollowerCount::getFollowerCount));
     }
 
     private Page<Artist> fetchArtists(boolean hasName, Boolean isComing, List<Long> ids, String name, Pageable pageable) {
