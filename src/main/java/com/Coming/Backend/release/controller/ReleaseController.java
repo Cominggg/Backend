@@ -26,27 +26,16 @@ public class ReleaseController {
 
     private final ReleaseService releaseService;
 
-    @Operation(summary = "릴리즈 검색")
-    @ApiResponse(responseCode = "400", description = "INVALID_INPUT")
-    @GetMapping("/search")
-    public ResponseEntity<PageResponse<ReleaseListItemResponse>> searchReleases(
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) String type,
-            @RequestParam(required = false) Boolean following,
-            @AuthenticationPrincipal Long userId,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(releaseService.searchReleases(q, type, userId, Boolean.TRUE.equals(following), pageable));
-    }
-
-    @Operation(summary = "전체 릴리즈 목록 조회")
+    @Operation(summary = "릴리즈 목록 조회")
     @GetMapping
     public ResponseEntity<PageResponse<ReleaseListItemResponse>> getReleases(
+            @RequestParam(required = false) String q,
             @RequestParam(required = false) Long artistId,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) Boolean following,
             @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(releaseService.getReleases(artistId, type, userId, Boolean.TRUE.equals(following), pageable));
+        return ResponseEntity.ok(releaseService.getReleases(q, artistId, type, userId, Boolean.TRUE.equals(following), pageable));
     }
 
     @Operation(summary = "릴리즈 상세 조회")

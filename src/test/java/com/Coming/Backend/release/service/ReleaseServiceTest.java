@@ -3,9 +3,11 @@ package com.Coming.Backend.release.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
@@ -15,7 +17,6 @@ import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
-import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
@@ -177,114 +178,152 @@ class ReleaseServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // getReleases
+    // getReleases — 기본 필터
     // -------------------------------------------------------------------------
 
     @Test
-    void should_return_all_releases_when_no_filters() {
+    void should_return_all_releases_when_no_filters_given() {
         // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findAll(any(Pageable.class))).willReturn(page);
+        given(releaseGroupRepository.searchReleases(
+                isNull(), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
+                .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, null, null, false, PAGEABLE);
+                releaseService.getReleases(null, null, null, null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findAll(any(Pageable.class));
+        verify(releaseGroupRepository).searchReleases(
+                isNull(), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
     }
 
     @Test
-    void should_return_releases_filtered_by_artist_id_when_only_artist_id_given() {
+    void should_pass_lowercased_wrapped_query_when_q_given() {
         // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "SINGLE");
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findByArtistId(eq(ARTIST_ID), any(Pageable.class))).willReturn(page);
+        given(releaseGroupRepository.searchReleases(
+                isNull(), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), eq("%iu%"), any(Pageable.class)))
+                .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(ARTIST_ID, null, null, false, PAGEABLE);
+                releaseService.getReleases("IU", null, null, null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByArtistId(eq(ARTIST_ID), any(Pageable.class));
+        verify(releaseGroupRepository).searchReleases(
+                isNull(), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), eq("%iu%"), any(Pageable.class));
     }
 
     @Test
-    void should_return_releases_filtered_by_type_when_only_type_given() {
+    void should_pass_artist_id_when_artist_id_given() {
         // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Single");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findByType(eq("ALBUM"), any(Pageable.class))).willReturn(page);
+        given(releaseGroupRepository.searchReleases(
+                eq(ARTIST_ID), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
+                .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, "ALBUM", null, false, PAGEABLE);
+                releaseService.getReleases(null, ARTIST_ID, null, null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByType(eq("ALBUM"), any(Pageable.class));
+        verify(releaseGroupRepository).searchReleases(
+                eq(ARTIST_ID), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
     }
 
     @Test
-    void should_return_releases_excluding_standard_types_when_type_is_other() {
+    void should_pass_exact_type_when_general_type_given() {
         // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "LIVE");
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findByTypeNotIn(eq(STANDARD_TYPES), any(Pageable.class))).willReturn(page);
+        given(releaseGroupRepository.searchReleases(
+                isNull(), isNull(), eq("Album"), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
+                .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, "기타", null, false, PAGEABLE);
+                releaseService.getReleases(null, null, "Album", null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByTypeNotIn(eq(STANDARD_TYPES), any(Pageable.class));
+        verify(releaseGroupRepository).searchReleases(
+                isNull(), isNull(), eq("Album"), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
     }
 
     @Test
-    void should_return_releases_filtered_by_artist_id_and_type() {
+    void should_pass_other_type_flag_when_type_is_other() {
         // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "EP");
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Live");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findByArtistIdAndType(eq(ARTIST_ID), eq("EP"), any(Pageable.class))).willReturn(page);
+        given(releaseGroupRepository.searchReleases(
+                isNull(), isNull(), isNull(), eq(true), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
+                .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(ARTIST_ID, "EP", null, false, PAGEABLE);
+                releaseService.getReleases(null, null, "기타", null, false, PAGEABLE);
 
         // then
         assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByArtistIdAndType(eq(ARTIST_ID), eq("EP"), any(Pageable.class));
+        verify(releaseGroupRepository).searchReleases(
+                isNull(), isNull(), isNull(), eq(true), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
     }
 
     @Test
     void should_include_artist_name_in_response() {
         // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.findAll(any(Pageable.class))).willReturn(page);
+        given(releaseGroupRepository.searchReleases(
+                any(), any(), any(), anyBoolean(), any(), any(), any(Pageable.class)))
+                .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, null, null, false, PAGEABLE);
+                releaseService.getReleases(null, null, null, null, false, PAGEABLE);
 
         // then
         assertThat(response.content().get(0).artistName()).isEqualTo("IU");
+    }
+
+    @Test
+    void should_combine_q_artist_id_and_type_filters_when_all_given() {
+        // given
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
+        given(releaseGroupRepository.searchReleases(
+                eq(ARTIST_ID), isNull(), eq("Album"), eq(false), eq(STANDARD_TYPES), eq("%lilac%"), any(Pageable.class)))
+                .willReturn(page);
+        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
+
+        // when
+        PageResponse<ReleaseListItemResponse> response =
+                releaseService.getReleases("LILAC", ARTIST_ID, "Album", null, false, PAGEABLE);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        verify(releaseGroupRepository).searchReleases(
+                eq(ARTIST_ID), isNull(), eq("Album"), eq(false), eq(STANDARD_TYPES), eq("%lilac%"), any(Pageable.class));
     }
 
     // -------------------------------------------------------------------------
@@ -292,39 +331,16 @@ class ReleaseServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_return_following_releases_when_following_is_true_and_user_is_authenticated() {
-        // given
-        Long artistId2 = 2L;
-        ReleaseGroup release1 = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
-        ReleaseGroup release2 = buildRelease(20L, artistId2, "SINGLE");
-        Artist artist1 = buildArtist(ARTIST_ID, "IU");
-        Artist artist2 = buildArtist(artistId2, "BTS");
-        UserFollowArtist follow1 = UserFollowArtist.builder().id(1L).userId(USER_ID).artistId(ARTIST_ID).build();
-        UserFollowArtist follow2 = UserFollowArtist.builder().id(2L).userId(USER_ID).artistId(artistId2).build();
-        Page<ReleaseGroup> page = new PageImpl<>(List.of(release1, release2), PAGEABLE, 2);
-        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow1, follow2));
-        given(releaseGroupRepository.findByArtistIdIn(eq(List.of(ARTIST_ID, artistId2)), any(Pageable.class))).willReturn(page);
-        given(artistRepository.findAllById(Set.of(ARTIST_ID, artistId2))).willReturn(List.of(artist1, artist2));
-
-        // when
-        PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, null, USER_ID, true, PAGEABLE);
-
-        // then
-        assertThat(response.content()).hasSize(2);
-        verify(userFollowArtistRepository).findByUserId(USER_ID);
-        verify(releaseGroupRepository).findByArtistIdIn(eq(List.of(ARTIST_ID, artistId2)), any(Pageable.class));
-    }
-
-    @Test
     void should_return_empty_page_when_following_is_true_and_user_is_not_authenticated() {
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, null, null, true, PAGEABLE);
+                releaseService.getReleases(null, null, null, null, true, PAGEABLE);
 
         // then
         assertThat(response.content()).isEmpty();
         assertThat(response.totalElements()).isZero();
+        verify(releaseGroupRepository, never()).searchReleases(
+                any(), any(), any(), anyBoolean(), any(), any(), any());
     }
 
     @Test
@@ -334,191 +350,42 @@ class ReleaseServiceTest {
 
         // when
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, null, USER_ID, true, PAGEABLE);
+                releaseService.getReleases(null, null, null, USER_ID, true, PAGEABLE);
 
         // then
         assertThat(response.content()).isEmpty();
         assertThat(response.totalElements()).isZero();
         verify(userFollowArtistRepository).findByUserId(USER_ID);
+        verify(releaseGroupRepository, never()).searchReleases(
+                any(), any(), any(), anyBoolean(), any(), any(), any());
     }
 
     @Test
-    void should_return_following_releases_filtered_by_type_when_following_and_type_given() {
+    void should_pass_followed_artist_ids_and_ignore_artist_id_param_when_following_is_true() {
         // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Single");
-        Artist artist = buildArtist(ARTIST_ID, "IU");
-        UserFollowArtist follow = UserFollowArtist.builder().id(1L).userId(USER_ID).artistId(ARTIST_ID).build();
-        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(releaseGroupRepository.findByArtistIdInAndType(eq(List.of(ARTIST_ID)), eq("Single"), any(Pageable.class))).willReturn(page);
-        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
+        Long otherArtistId = 2L;
+        ReleaseGroup release1 = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
+        ReleaseGroup release2 = buildRelease(20L, otherArtistId, "Single");
+        Artist artist1 = buildArtist(ARTIST_ID, "IU");
+        Artist artist2 = buildArtist(otherArtistId, "BTS");
+        UserFollowArtist follow1 = UserFollowArtist.builder().id(1L).userId(USER_ID).artistId(ARTIST_ID).build();
+        UserFollowArtist follow2 = UserFollowArtist.builder().id(2L).userId(USER_ID).artistId(otherArtistId).build();
+        List<Long> followedArtistIds = List.of(ARTIST_ID, otherArtistId);
+        Page<ReleaseGroup> page = new PageImpl<>(List.of(release1, release2), PAGEABLE, 2);
+        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow1, follow2));
+        given(releaseGroupRepository.searchReleases(
+                isNull(), eq(followedArtistIds), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
+                .willReturn(page);
+        given(artistRepository.findAllById(Set.of(ARTIST_ID, otherArtistId))).willReturn(List.of(artist1, artist2));
 
-        // when
+        // when — artistId=999L을 넘겨도 following=true이면 무시된다
         PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, "Single", USER_ID, true, PAGEABLE);
+                releaseService.getReleases(null, 999L, null, USER_ID, true, PAGEABLE);
 
         // then
-        assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByArtistIdInAndType(eq(List.of(ARTIST_ID)), eq("Single"), any(Pageable.class));
-    }
-
-    @Test
-    void should_return_following_releases_excluding_standard_types_when_following_and_type_is_other() {
-        // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Live");
-        Artist artist = buildArtist(ARTIST_ID, "IU");
-        UserFollowArtist follow = UserFollowArtist.builder().id(1L).userId(USER_ID).artistId(ARTIST_ID).build();
-        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(releaseGroupRepository.findByArtistIdInAndTypeNotIn(eq(List.of(ARTIST_ID)), eq(STANDARD_TYPES), any(Pageable.class))).willReturn(page);
-        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
-
-        // when
-        PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, "기타", USER_ID, true, PAGEABLE);
-
-        // then
-        assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).findByArtistIdInAndTypeNotIn(eq(List.of(ARTIST_ID)), eq(STANDARD_TYPES), any(Pageable.class));
-    }
-
-    // -------------------------------------------------------------------------
-    // searchReleases
-    // -------------------------------------------------------------------------
-
-    @Test
-    void should_return_search_results_with_artist_name_when_query_matches() {
-        // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
-        Artist artist = buildArtist(ARTIST_ID, "IU");
-        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.searchReleases(eq("%iu%"), isNull(), any(Pageable.class))).willReturn(page);
-        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
-
-        // when
-        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases("IU", null, null, false, PAGEABLE);
-
-        // then
-        assertThat(response.content()).hasSize(1);
-        assertThat(response.content().get(0).artistName()).isEqualTo("IU");
-        assertThat(response.content().get(0).title()).isEqualTo("미니앨범 " + RELEASE_ID);
-        verify(releaseGroupRepository).searchReleases(eq("%iu%"), isNull(), any(Pageable.class));
-    }
-
-    @Test
-    void should_return_empty_page_when_query_matches_no_releases() {
-        // given
-        Page<ReleaseGroup> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(releaseGroupRepository.searchReleases(eq("%없는앨범%"), isNull(), any(Pageable.class))).willReturn(emptyPage);
-
-        // when
-        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases("없는앨범", null, null, false, PAGEABLE);
-
-        // then
-        assertThat(response.content()).isEmpty();
-        assertThat(response.totalElements()).isZero();
-    }
-
-    @Test
-    void should_return_filtered_results_when_type_is_album() {
-        // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
-        Artist artist = buildArtist(ARTIST_ID, "IU");
-        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.searchReleases(eq("%iu%"), eq("Album"), any(Pageable.class))).willReturn(page);
-        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
-
-        // when
-        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases("IU", "Album", null, false, PAGEABLE);
-
-        // then
-        assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).searchReleases(eq("%iu%"), eq("Album"), any(Pageable.class));
-    }
-
-    @Test
-    void should_apply_only_type_filter_when_q_is_null() {
-        // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Single");
-        Artist artist = buildArtist(ARTIST_ID, "IU");
-        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.searchReleases(isNull(), eq("Single"), any(Pageable.class))).willReturn(page);
-        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
-
-        // when
-        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases(null, "Single", null, false, PAGEABLE);
-
-        // then
-        assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).searchReleases(isNull(), eq("Single"), any(Pageable.class));
-    }
-
-    @Test
-    void should_throw_invalid_input_when_type_is_not_allowed() {
-        // when & then
-        assertThatThrownBy(() -> releaseService.searchReleases("IU", "기타", null, false, PAGEABLE))
-                .isInstanceOf(InvalidInputException.class);
-    }
-
-    @Test
-    void should_return_empty_page_when_search_following_is_true_and_user_is_not_authenticated() {
-        // when
-        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases("IU", null, null, true, PAGEABLE);
-
-        // then
-        assertThat(response.content()).isEmpty();
-        assertThat(response.totalElements()).isZero();
-    }
-
-    @Test
-    void should_return_empty_page_when_search_following_is_true_and_user_has_no_followed_artists() {
-        // given
-        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of());
-
-        // when
-        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases("IU", null, USER_ID, true, PAGEABLE);
-
-        // then
-        assertThat(response.content()).isEmpty();
-        assertThat(response.totalElements()).isZero();
-    }
-
-    @Test
-    void should_search_within_following_artists_when_following_is_true() {
-        // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
-        Artist artist = buildArtist(ARTIST_ID, "IU");
-        UserFollowArtist follow = UserFollowArtist.builder().id(1L).userId(USER_ID).artistId(ARTIST_ID).build();
-        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(releaseGroupRepository.searchReleasesByArtistIdIn(eq("%iu%"), eq(List.of(ARTIST_ID)), isNull(), any(Pageable.class))).willReturn(page);
-        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
-
-        // when
-        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases("IU", null, USER_ID, true, PAGEABLE);
-
-        // then
-        assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).searchReleasesByArtistIdIn(eq("%iu%"), eq(List.of(ARTIST_ID)), isNull(), any(Pageable.class));
-    }
-
-    @Test
-    void should_search_within_following_artists_filtered_by_type_when_following_and_type_given() {
-        // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Single");
-        Artist artist = buildArtist(ARTIST_ID, "IU");
-        UserFollowArtist follow = UserFollowArtist.builder().id(1L).userId(USER_ID).artistId(ARTIST_ID).build();
-        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(releaseGroupRepository.searchReleasesByArtistIdIn(eq("%iu%"), eq(List.of(ARTIST_ID)), eq("Single"), any(Pageable.class))).willReturn(page);
-        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
-
-        // when
-        PageResponse<ReleaseListItemResponse> response = releaseService.searchReleases("IU", "Single", USER_ID, true, PAGEABLE);
-
-        // then
-        assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).searchReleasesByArtistIdIn(eq("%iu%"), eq(List.of(ARTIST_ID)), eq("Single"), any(Pageable.class));
+        assertThat(response.content()).hasSize(2);
+        verify(releaseGroupRepository).searchReleases(
+                isNull(), eq(followedArtistIds), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
     }
 
     // -------------------------------------------------------------------------

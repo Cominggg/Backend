@@ -7,7 +7,6 @@ import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
-import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
@@ -71,57 +70,35 @@ public class ReleaseService {
     }
 
     /**
-     * 전체 릴리즈 목록을 조회한다. firstReleaseDate DESC NULLS LAST로 정렬한다.
+     * 릴리즈 목록을 q·artistId·type·following 조건으로 조회한다. firstReleaseDate DESC NULLS LAST로 정렬한다.
      *
-     * @param type      "기타"이면 ALBUM·SINGLE·EP 외 타입 전체를 반환한다
+     * @param q         검색어(릴리즈명·트랙명·아티스트명·alias 대소문자 무시 부분 일치). null·공백이면 텍스트 조건 없이 나머지 필터만 적용한다.
+     * @param type      null이면 전체. "기타"이면 ALBUM·SINGLE 외 타입 전체를 반환한다
      * @param userId    인증 사용자 ID (미인증이면 null)
-     * @param following true이면 팔로우 아티스트 릴리즈만 반환한다. artistId 필터와 조합하지 않으나 type 필터는 적용된다
+     * @param following true이면 팔로우 아티스트 릴리즈만 반환한다(미인증·팔로잉 없으면 빈 페이지). artistId 필터와 조합하지 않으나 type·q 필터는 적용된다
      */
-    public PageResponse<ReleaseListItemResponse> getReleases(Long artistId, String type, Long userId, boolean following, Pageable pageable) {
-        Pageable sorted = releasesSorted(pageable);
-        Page<ReleaseGroup> page = following
-                ? queryFollowingReleases(userId, type, sorted)
-                : queryReleases(artistId, type, sorted);
-
-        Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
-        Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()
-                .collect(Collectors.toMap(Artist::getId, Artist::getName));
-        Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
-
-        return PageResponse.from(page.map(release ->
-                ReleaseListItemResponse.of(release, artistNameMap.getOrDefault(release.getArtistId(), ""), koreanNameMap.get(release.getArtistId()))
-        ));
-    }
-
-    /**
-     * 릴리즈명·트랙명·아티스트명(alias 포함)으로 릴리즈를 검색한다. firstReleaseDate DESC NULLS LAST로 정렬한다.
-     *
-     * @param q         검색어. null·공백이면 텍스트 조건 없이 나머지 필터만 적용한다.
-     * @param type      null이면 전체. "Album"·"Single"만 허용하며 그 외 값은 예외를 던진다.
-     * @param userId    인증 사용자 ID (미인증이면 null)
-     * @param following true이면 팔로우 아티스트 릴리즈만 검색. 미인증 시 빈 페이지 반환.
-     */
-    public PageResponse<ReleaseListItemResponse> searchReleases(String q, String type, Long userId, boolean following, Pageable pageable) {
-        if (type != null && !STANDARD_TYPES.contains(type)) {
-            throw new InvalidInputException();
-        }
-        String qLike = (q == null || q.isBlank()) ? null : "%" + q.toLowerCase() + "%";
-        Pageable sorted = releasesSorted(pageable);
-        Page<ReleaseGroup> page;
+    public PageResponse<ReleaseListItemResponse> getReleases(String q, Long artistId, String type, Long userId, boolean following, Pageable pageable) {
+        Long effectiveArtistId = following ? null : artistId;
+        List<Long> followedArtistIds = null;
         if (following) {
             if (userId == null) {
                 return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
             }
-            List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
+            followedArtistIds = userFollowArtistRepository.findByUserId(userId).stream()
                     .map(UserFollowArtist::getArtistId)
                     .toList();
-            if (artistIds.isEmpty()) {
+            if (followedArtistIds.isEmpty()) {
                 return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
             }
-            page = releaseGroupRepository.searchReleasesByArtistIdIn(qLike, artistIds, type, sorted);
-        } else {
-            page = releaseGroupRepository.searchReleases(qLike, type, sorted);
         }
+
+        boolean isOther = "기타".equals(type);
+        String exactType = (type != null && !isOther) ? type : null;
+        String qLike = (q == null || q.isBlank()) ? null : "%" + q.toLowerCase() + "%";
+        Pageable sorted = releasesSorted(pageable);
+
+        Page<ReleaseGroup> page = releaseGroupRepository.searchReleases(
+                effectiveArtistId, followedArtistIds, exactType, isOther, STANDARD_TYPES, qLike, sorted);
 
         Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
         Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()
@@ -165,45 +142,5 @@ public class ReleaseService {
                 pageable.getPageSize(),
                 Sort.by(Sort.Order.desc("firstReleaseDate").nullsLast())
         );
-    }
-
-    private Page<ReleaseGroup> queryFollowingReleases(Long userId, String type, Pageable pageable) {
-        if (userId == null) {
-            return Page.empty(pageable);
-        }
-        List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
-                .map(UserFollowArtist::getArtistId)
-                .toList();
-        if (artistIds.isEmpty()) {
-            return Page.empty(pageable);
-        }
-        if ("기타".equals(type)) {
-            return releaseGroupRepository.findByArtistIdInAndTypeNotIn(artistIds, STANDARD_TYPES, pageable);
-        }
-        if (type != null) {
-            return releaseGroupRepository.findByArtistIdInAndType(artistIds, type, pageable);
-        }
-        return releaseGroupRepository.findByArtistIdIn(artistIds, pageable);
-    }
-
-    private Page<ReleaseGroup> queryReleases(Long artistId, String type, Pageable pageable) {
-        boolean isOther = "기타".equals(type);
-
-        if (artistId != null && isOther) {
-            return releaseGroupRepository.findByArtistIdAndTypeNotIn(artistId, STANDARD_TYPES, pageable);
-        }
-        if (artistId != null && type != null) {
-            return releaseGroupRepository.findByArtistIdAndType(artistId, type, pageable);
-        }
-        if (artistId != null) {
-            return releaseGroupRepository.findByArtistId(artistId, pageable);
-        }
-        if (isOther) {
-            return releaseGroupRepository.findByTypeNotIn(STANDARD_TYPES, pageable);
-        }
-        if (type != null) {
-            return releaseGroupRepository.findByType(type, pageable);
-        }
-        return releaseGroupRepository.findAll(pageable);
     }
 }
