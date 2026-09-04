@@ -69,8 +69,8 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query("SELECT COUNT(c) > 0 FROM Concert c WHERE c.id IN (SELECT ca.concertId FROM ConcertArtist ca WHERE ca.artistId = :artistId) AND c.status IN :statuses")
     boolean existsActiveByArtistId(@Param("artistId") Long artistId, @Param("statuses") Collection<ConcertStatus> statuses);
 
-    @Query("SELECT c FROM Concert c WHERE YEAR(c.ticketOpenAt) = :year AND MONTH(c.ticketOpenAt) = :month AND c.status NOT IN :hidden ORDER BY c.ticketOpenAt ASC")
-    List<Concert> findByTicketOpenAtMonth(@Param("year") int year, @Param("month") int month, @Param("hidden") Collection<ConcertStatus> hidden);
+    @Query("SELECT c FROM Concert c WHERE c.ticketOpenAt >= :monthStart AND c.ticketOpenAt < :monthEnd AND c.status NOT IN :hidden ORDER BY c.ticketOpenAt ASC")
+    List<Concert> findByTicketOpenAtRange(@Param("monthStart") LocalDateTime monthStart, @Param("monthEnd") LocalDateTime monthEnd, @Param("hidden") Collection<ConcertStatus> hidden);
 
     @Query("SELECT c FROM Concert c WHERE c.ticketOpenAt > :now AND c.status NOT IN :hidden ORDER BY c.ticketOpenAt ASC")
     List<Concert> findUpcomingTicketing(@Param("now") LocalDateTime now, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);

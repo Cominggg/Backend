@@ -202,7 +202,9 @@ class CalendarServiceTest {
                 .build();
 
         given(concertRepository.findByDateRange(any(), any(), anyList())).willReturn(List.of());
-        given(concertRepository.findByTicketOpenAtMonth(eq(2025), eq(8), anyList())).willReturn(List.of(concert));
+        given(concertRepository.findByTicketOpenAtRange(
+                eq(LocalDateTime.of(2025, 8, 1, 0, 0)), eq(LocalDateTime.of(2025, 9, 1, 0, 0)), anyList()))
+                .willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
         // when
@@ -232,7 +234,9 @@ class CalendarServiceTest {
                 .build();
 
         given(concertRepository.findByDateRange(any(), any(), anyList())).willReturn(List.of(concertEntry));
-        given(concertRepository.findByTicketOpenAtMonth(eq(2025), eq(8), anyList())).willReturn(List.of(ticketingEntry));
+        given(concertRepository.findByTicketOpenAtRange(
+                eq(LocalDateTime.of(2025, 8, 1, 0, 0)), eq(LocalDateTime.of(2025, 9, 1, 0, 0)), anyList()))
+                .willReturn(List.of(ticketingEntry));
         given(concertArtistRepository.findByConcertIdIn(any())).willReturn(List.of());
 
         // when
@@ -262,7 +266,9 @@ class CalendarServiceTest {
                 .build();
 
         given(concertRepository.findByDateRange(any(), any(), anyList())).willReturn(List.of(concert));
-        given(concertRepository.findByTicketOpenAtMonth(eq(2025), eq(8), anyList())).willReturn(List.of(concert));
+        given(concertRepository.findByTicketOpenAtRange(
+                eq(LocalDateTime.of(2025, 8, 1, 0, 0)), eq(LocalDateTime.of(2025, 9, 1, 0, 0)), anyList()))
+                .willReturn(List.of(concert));
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
         // when
