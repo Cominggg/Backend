@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -84,19 +85,12 @@ public class ReleaseService {
             throw new InvalidInputException();
         }
 
-        Long effectiveArtistId = following ? null : artistId;
-        List<Long> followedArtistIds = null;
-        if (following) {
-            if (userId == null) {
-                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
-            }
-            followedArtistIds = userFollowArtistRepository.findByUserId(userId).stream()
-                    .map(UserFollowArtist::getArtistId)
-                    .toList();
-            if (followedArtistIds.isEmpty()) {
-                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
-            }
+        Optional<List<Long>> followedResolution = resolveFollowedArtistIds(userId, following);
+        if (followedResolution.isPresent() && followedResolution.get().isEmpty()) {
+            return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
         }
+        Long effectiveArtistId = following ? null : artistId;
+        List<Long> followedArtistIds = followedResolution.orElse(null);
 
         String qLike = (q == null || q.isBlank()) ? null : "%" + q.toLowerCase() + "%";
         Pageable sorted = releasesSorted(pageable);
@@ -111,6 +105,24 @@ public class ReleaseService {
         return PageResponse.from(page.map(release ->
                 ReleaseListItemResponse.of(release, artistNameMap.getOrDefault(release.getArtistId(), ""), koreanNameMap.get(release.getArtistId()))
         ));
+    }
+
+    /**
+     * following 필터에 해당하는 아티스트 ID 목록을 반환한다.
+     *
+     * @return 필터 미요청 시 {@code Optional.empty()}. 필터 요청 시 팔로우한 아티스트 ID 목록
+     *         (미인증·팔로잉 없으면 빈 리스트 — 호출부에서 빈 페이지로 처리해야 함을 의미).
+     */
+    private Optional<List<Long>> resolveFollowedArtistIds(Long userId, boolean following) {
+        if (!following) {
+            return Optional.empty();
+        }
+        if (userId == null) {
+            return Optional.of(List.of());
+        }
+        return Optional.of(userFollowArtistRepository.findByUserId(userId).stream()
+                .map(UserFollowArtist::getArtistId)
+                .toList());
     }
 
     /**

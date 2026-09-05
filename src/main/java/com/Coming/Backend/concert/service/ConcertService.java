@@ -40,6 +40,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -142,22 +143,15 @@ public class ConcertService {
     public PageResponse<ConcertSummaryResponse> getConcerts(String q, ConcertStatus status, Boolean inCalendar, Boolean followedOnly,
                                                               Boolean ticketOpenPending, Pageable pageable, Long userId) {
         if (Boolean.TRUE.equals(inCalendar) && userId == null) {
-            return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+            return emptyPage(pageable);
         }
         Long calendarUserId = Boolean.TRUE.equals(inCalendar) ? userId : null;
 
-        List<Long> followedArtistIds = null;
-        if (Boolean.TRUE.equals(followedOnly)) {
-            if (userId == null) {
-                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
-            }
-            followedArtistIds = userFollowArtistRepository.findByUserId(userId).stream()
-                    .map(UserFollowArtist::getArtistId)
-                    .toList();
-            if (followedArtistIds.isEmpty()) {
-                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
-            }
+        Optional<List<Long>> followedResolution = resolveFollowedArtistIds(userId, Boolean.TRUE.equals(followedOnly));
+        if (followedResolution.isPresent() && followedResolution.get().isEmpty()) {
+            return emptyPage(pageable);
         }
+        List<Long> followedArtistIds = followedResolution.orElse(null);
 
         boolean pending = Boolean.TRUE.equals(ticketOpenPending);
         LocalDateTime now = LocalDateTime.now();
@@ -168,6 +162,28 @@ public class ConcertService {
 
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
+
+    /**
+     * followedOnly 필터에 해당하는 아티스트 ID 목록을 반환한다.
+     *
+     * @return 필터 미요청 시 {@code Optional.empty()}. 필터 요청 시 팔로우한 아티스트 ID 목록
+     *         (미인증·팔로잉 없으면 빈 리스트 — 호출부에서 빈 페이지로 처리해야 함을 의미).
+     */
+    private Optional<List<Long>> resolveFollowedArtistIds(Long userId, boolean followedOnly) {
+        if (!followedOnly) {
+            return Optional.empty();
+        }
+        if (userId == null) {
+            return Optional.of(List.of());
+        }
+        return Optional.of(userFollowArtistRepository.findByUserId(userId).stream()
+                .map(UserFollowArtist::getArtistId)
+                .toList());
+    }
+
+    private PageResponse<ConcertSummaryResponse> emptyPage(Pageable pageable) {
+        return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
     }
 
     /**
