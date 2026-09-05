@@ -29,6 +29,7 @@ import com.Coming.Backend.release.repository.TrackRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -220,6 +221,33 @@ class ReleaseServiceTest {
         assertThat(response.content()).hasSize(1);
         verify(releaseGroupRepository).searchReleases(
                 isNull(), isNull(), isNull(), eq("%iu%"), any(Pageable.class));
+    }
+
+    @Test
+    void should_pass_locale_independent_lowercased_query_when_default_locale_is_turkish() {
+        // given
+        Locale defaultLocale = Locale.getDefault();
+        Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+        try {
+            ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
+            Artist artist = buildArtist(ARTIST_ID, "IU");
+            Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
+            given(releaseGroupRepository.searchReleases(
+                    isNull(), isNull(), isNull(), eq("%iu%"), any(Pageable.class)))
+                    .willReturn(page);
+            given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
+
+            // when
+            PageResponse<ReleaseListItemResponse> response =
+                    releaseService.getReleases("IU", null, null, null, false, PAGEABLE);
+
+            // then
+            assertThat(response.content()).hasSize(1);
+            verify(releaseGroupRepository).searchReleases(
+                    isNull(), isNull(), isNull(), eq("%iu%"), any(Pageable.class));
+        } finally {
+            Locale.setDefault(defaultLocale);
+        }
     }
 
     @Test

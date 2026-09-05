@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -92,7 +93,7 @@ public class ReleaseService {
         Long effectiveArtistId = following ? null : artistId;
         List<Long> followedArtistIds = followedResolution.orElse(null);
 
-        String qLike = (q == null || q.isBlank()) ? null : "%" + q.toLowerCase() + "%";
+        String qLike = (q == null || q.isBlank()) ? null : "%" + q.toLowerCase(Locale.ROOT) + "%";
         Pageable sorted = releasesSorted(pageable);
 
         Page<ReleaseGroup> page = releaseGroupRepository.searchReleases(effectiveArtistId, followedArtistIds, type, qLike, sorted);
