@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
 import com.Coming.Backend.release.dto.ReleaseListItemResponse;
@@ -144,24 +145,18 @@ class ReleaseControllerTest {
     }
 
     @Test
-    void should_pass_other_type_to_service_when_type_is_other() throws Exception {
+    void should_return_400_when_type_is_not_standard() throws Exception {
         // given
-        ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "Live at Seoul", "Live", LocalDate.of(2023, 8, 1), null
-        );
-        PageResponse<ReleaseListItemResponse> pageResponse =
-                new PageResponse<>(List.of(item), 0, 20, 1, 1);
         given(releaseService.getReleases(isNull(), isNull(), eq("기타"), isNull(), eq(false), any(Pageable.class)))
-                .willReturn(pageResponse);
+                .willThrow(new InvalidInputException());
 
         // when & then
         mockMvc.perform(get("/api/releases")
                         .param("type", "기타")
                         .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].type").value("Live"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").exists());
     }
 
     @Test

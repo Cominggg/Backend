@@ -3,7 +3,6 @@ package com.Coming.Backend.release.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
@@ -17,6 +16,7 @@ import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
@@ -67,7 +67,6 @@ class ReleaseServiceTest {
     private static final Long USER_ID = 100L;
     private static final Long RELEASE_ID = 10L;
     private static final Pageable PAGEABLE = PageRequest.of(0, 20);
-    private static final List<String> STANDARD_TYPES = List.of("Album", "Single");
 
     private ReleaseGroup buildRelease(Long id, Long artistId, String type) {
         return ReleaseGroup.builder()
@@ -188,7 +187,7 @@ class ReleaseServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
         given(releaseGroupRepository.searchReleases(
-                isNull(), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
+                isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
@@ -199,7 +198,7 @@ class ReleaseServiceTest {
         // then
         assertThat(response.content()).hasSize(1);
         verify(releaseGroupRepository).searchReleases(
-                isNull(), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
+                isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
     }
 
     @Test
@@ -209,7 +208,7 @@ class ReleaseServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
         given(releaseGroupRepository.searchReleases(
-                isNull(), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), eq("%iu%"), any(Pageable.class)))
+                isNull(), isNull(), isNull(), eq("%iu%"), any(Pageable.class)))
                 .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
@@ -220,7 +219,7 @@ class ReleaseServiceTest {
         // then
         assertThat(response.content()).hasSize(1);
         verify(releaseGroupRepository).searchReleases(
-                isNull(), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), eq("%iu%"), any(Pageable.class));
+                isNull(), isNull(), isNull(), eq("%iu%"), any(Pageable.class));
     }
 
     @Test
@@ -230,7 +229,7 @@ class ReleaseServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
         given(releaseGroupRepository.searchReleases(
-                eq(ARTIST_ID), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
+                eq(ARTIST_ID), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
@@ -241,17 +240,17 @@ class ReleaseServiceTest {
         // then
         assertThat(response.content()).hasSize(1);
         verify(releaseGroupRepository).searchReleases(
-                eq(ARTIST_ID), isNull(), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
+                eq(ARTIST_ID), isNull(), isNull(), isNull(), any(Pageable.class));
     }
 
     @Test
-    void should_pass_exact_type_when_general_type_given() {
+    void should_pass_type_when_standard_type_given() {
         // given
         ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
         given(releaseGroupRepository.searchReleases(
-                isNull(), isNull(), eq("Album"), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
+                isNull(), isNull(), eq("Album"), isNull(), any(Pageable.class)))
                 .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
@@ -262,28 +261,16 @@ class ReleaseServiceTest {
         // then
         assertThat(response.content()).hasSize(1);
         verify(releaseGroupRepository).searchReleases(
-                isNull(), isNull(), eq("Album"), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
+                isNull(), isNull(), eq("Album"), isNull(), any(Pageable.class));
     }
 
     @Test
-    void should_pass_other_type_flag_when_type_is_other() {
-        // given
-        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "Live");
-        Artist artist = buildArtist(ARTIST_ID, "IU");
-        Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
-        given(releaseGroupRepository.searchReleases(
-                isNull(), isNull(), isNull(), eq(true), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
-                .willReturn(page);
-        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
-
-        // when
-        PageResponse<ReleaseListItemResponse> response =
-                releaseService.getReleases(null, null, "기타", null, false, PAGEABLE);
-
-        // then
-        assertThat(response.content()).hasSize(1);
-        verify(releaseGroupRepository).searchReleases(
-                isNull(), isNull(), isNull(), eq(true), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
+    void should_throw_invalid_input_exception_when_type_is_not_standard() {
+        // when & then
+        assertThatThrownBy(() -> releaseService.getReleases(null, null, "기타", null, false, PAGEABLE))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        verify(releaseGroupRepository, never()).searchReleases(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -293,7 +280,7 @@ class ReleaseServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
         given(releaseGroupRepository.searchReleases(
-                any(), any(), any(), anyBoolean(), any(), any(), any(Pageable.class)))
+                any(), any(), any(), any(), any(Pageable.class)))
                 .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
@@ -312,7 +299,7 @@ class ReleaseServiceTest {
         Artist artist = buildArtist(ARTIST_ID, "IU");
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release), PAGEABLE, 1);
         given(releaseGroupRepository.searchReleases(
-                eq(ARTIST_ID), isNull(), eq("Album"), eq(false), eq(STANDARD_TYPES), eq("%lilac%"), any(Pageable.class)))
+                eq(ARTIST_ID), isNull(), eq("Album"), eq("%lilac%"), any(Pageable.class)))
                 .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
 
@@ -323,7 +310,7 @@ class ReleaseServiceTest {
         // then
         assertThat(response.content()).hasSize(1);
         verify(releaseGroupRepository).searchReleases(
-                eq(ARTIST_ID), isNull(), eq("Album"), eq(false), eq(STANDARD_TYPES), eq("%lilac%"), any(Pageable.class));
+                eq(ARTIST_ID), isNull(), eq("Album"), eq("%lilac%"), any(Pageable.class));
     }
 
     // -------------------------------------------------------------------------
@@ -340,7 +327,7 @@ class ReleaseServiceTest {
         assertThat(response.content()).isEmpty();
         assertThat(response.totalElements()).isZero();
         verify(releaseGroupRepository, never()).searchReleases(
-                any(), any(), any(), anyBoolean(), any(), any(), any());
+                any(), any(), any(), any(), any());
     }
 
     @Test
@@ -357,7 +344,7 @@ class ReleaseServiceTest {
         assertThat(response.totalElements()).isZero();
         verify(userFollowArtistRepository).findByUserId(USER_ID);
         verify(releaseGroupRepository, never()).searchReleases(
-                any(), any(), any(), anyBoolean(), any(), any(), any());
+                any(), any(), any(), any(), any());
     }
 
     @Test
@@ -374,7 +361,7 @@ class ReleaseServiceTest {
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release1, release2), PAGEABLE, 2);
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow1, follow2));
         given(releaseGroupRepository.searchReleases(
-                isNull(), eq(followedArtistIds), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class)))
+                isNull(), eq(followedArtistIds), isNull(), isNull(), any(Pageable.class)))
                 .willReturn(page);
         given(artistRepository.findAllById(Set.of(ARTIST_ID, otherArtistId))).willReturn(List.of(artist1, artist2));
 
@@ -385,7 +372,7 @@ class ReleaseServiceTest {
         // then
         assertThat(response.content()).hasSize(2);
         verify(releaseGroupRepository).searchReleases(
-                isNull(), eq(followedArtistIds), isNull(), eq(false), eq(STANDARD_TYPES), isNull(), any(Pageable.class));
+                isNull(), eq(followedArtistIds), isNull(), isNull(), any(Pageable.class));
     }
 
     // -------------------------------------------------------------------------

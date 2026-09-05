@@ -7,6 +7,7 @@ import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
@@ -73,11 +74,16 @@ public class ReleaseService {
      * 릴리즈 목록을 q·artistId·type·following 조건으로 조회한다. firstReleaseDate DESC NULLS LAST로 정렬한다.
      *
      * @param q         검색어(릴리즈명·트랙명·아티스트명·alias 대소문자 무시 부분 일치). null·공백이면 텍스트 조건 없이 나머지 필터만 적용한다.
-     * @param type      null이면 전체. "기타"이면 ALBUM·SINGLE 외 타입 전체를 반환한다
+     * @param type      null이면 전체. "Album"·"Single"만 허용하며 그 외 값은 예외를 던진다.
      * @param userId    인증 사용자 ID (미인증이면 null)
      * @param following true이면 팔로우 아티스트 릴리즈만 반환한다(미인증·팔로잉 없으면 빈 페이지). artistId 필터와 조합하지 않으나 type·q 필터는 적용된다
+     * @throws InvalidInputException type이 "Album"·"Single"이 아닌 경우
      */
     public PageResponse<ReleaseListItemResponse> getReleases(String q, Long artistId, String type, Long userId, boolean following, Pageable pageable) {
+        if (type != null && !STANDARD_TYPES.contains(type)) {
+            throw new InvalidInputException();
+        }
+
         Long effectiveArtistId = following ? null : artistId;
         List<Long> followedArtistIds = null;
         if (following) {
@@ -92,13 +98,10 @@ public class ReleaseService {
             }
         }
 
-        boolean isOther = "기타".equals(type);
-        String exactType = (type != null && !isOther) ? type : null;
         String qLike = (q == null || q.isBlank()) ? null : "%" + q.toLowerCase() + "%";
         Pageable sorted = releasesSorted(pageable);
 
-        Page<ReleaseGroup> page = releaseGroupRepository.searchReleases(
-                effectiveArtistId, followedArtistIds, exactType, isOther, STANDARD_TYPES, qLike, sorted);
+        Page<ReleaseGroup> page = releaseGroupRepository.searchReleases(effectiveArtistId, followedArtistIds, type, qLike, sorted);
 
         Set<Long> artistIds = page.stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet());
         Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()

@@ -21,15 +21,14 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
     Page<ReleaseGroup> findByArtistIdAndTypeIn(Long artistId, List<String> types, Pageable pageable);
 
     /**
-     * artistId·followedArtistIds·type(exactType 또는 기타 NOT IN standardTypes)·q 필터를 조합해 릴리즈를 조회한다.
-     * 각 필터는 대응 파라미터가 null(또는 false)이면 조건 없이 통과된다.
+     * artistId·followedArtistIds·type·q 필터를 조합해 릴리즈를 조회한다.
+     * 각 필터는 대응 파라미터가 null이면 조건 없이 통과된다.
      */
     @Query(value = """
             SELECT r FROM ReleaseGroup r
             WHERE (:artistId IS NULL OR r.artistId = :artistId)
             AND (:followedArtistIds IS NULL OR r.artistId IN :followedArtistIds)
-            AND (:exactType IS NULL OR r.type = :exactType)
-            AND (:otherType = false OR r.type NOT IN :standardTypes)
+            AND (:type IS NULL OR r.type = :type)
             AND (:q IS NULL OR
                 LOWER(r.title) LIKE :q
                 OR r.id IN (
@@ -47,8 +46,7 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
             SELECT COUNT(r) FROM ReleaseGroup r
             WHERE (:artistId IS NULL OR r.artistId = :artistId)
             AND (:followedArtistIds IS NULL OR r.artistId IN :followedArtistIds)
-            AND (:exactType IS NULL OR r.type = :exactType)
-            AND (:otherType = false OR r.type NOT IN :standardTypes)
+            AND (:type IS NULL OR r.type = :type)
             AND (:q IS NULL OR
                 LOWER(r.title) LIKE :q
                 OR r.id IN (
@@ -64,9 +62,7 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
             """)
     Page<ReleaseGroup> searchReleases(@Param("artistId") Long artistId,
                                        @Param("followedArtistIds") List<Long> followedArtistIds,
-                                       @Param("exactType") String exactType,
-                                       @Param("otherType") boolean otherType,
-                                       @Param("standardTypes") List<String> standardTypes,
+                                       @Param("type") String type,
                                        @Param("q") String q,
                                        Pageable pageable);
 }

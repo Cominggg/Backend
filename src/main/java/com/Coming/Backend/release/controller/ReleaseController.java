@@ -27,6 +27,7 @@ public class ReleaseController {
     private final ReleaseService releaseService;
 
     @Operation(summary = "릴리즈 목록 조회")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (type이 Album·Single이 아님)")
     @GetMapping
     public ResponseEntity<PageResponse<ReleaseListItemResponse>> getReleases(
             @RequestParam(required = false) String q,
