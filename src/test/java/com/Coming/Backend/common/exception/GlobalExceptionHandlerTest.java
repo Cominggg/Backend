@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
@@ -122,6 +123,21 @@ class GlobalExceptionHandlerTest {
 
         // when
         ResponseEntity<ErrorResponse> response = handler.handlePropertyReference(exception);
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("INVALID_INPUT");
+        assertThat(response.getBody().message()).isEqualTo(ErrorCode.INVALID_INPUT.getMessage());
+    }
+
+    @Test
+    void should_return_400_when_type_mismatch_exception_thrown() {
+        // given
+        MethodArgumentTypeMismatchException exception = mock(MethodArgumentTypeMismatchException.class);
+
+        // when
+        ResponseEntity<ErrorResponse> response = handler.handleTypeMismatch(exception);
 
         // then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
