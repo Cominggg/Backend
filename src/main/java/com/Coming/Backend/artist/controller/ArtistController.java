@@ -41,7 +41,7 @@ public class ArtistController {
     private final ReleaseService releaseService;
 
     @Operation(summary = "아티스트 목록 조회")
-    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (허용되지 않은 sort 필드)")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (허용되지 않은 sort 필드 또는 정렬 필드 2개 이상 지정)")
     @GetMapping
     public ResponseEntity<PageResponse<ArtistSummaryResponse>> getArtists(
             @RequestParam(required = false) String name,
@@ -50,6 +50,7 @@ public class ArtistController {
             @PageableDefault(size = 25, sort = "sortName", direction = Sort.Direction.ASC) Pageable pageable,
             @AuthenticationPrincipal Long userId) {
         SortPropertyValidator.validate(pageable, SORTABLE_PROPERTIES);
+        SortPropertyValidator.validateSingleSort(pageable);
         return ResponseEntity.ok(artistService.getArtists(name, isComing, following, pageable, userId));
     }
 

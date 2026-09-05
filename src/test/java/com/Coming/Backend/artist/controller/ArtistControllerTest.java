@@ -129,6 +129,18 @@ class ArtistControllerTest {
                 .andExpect(jsonPath("$.content[0].followerCount").value(10));
     }
 
+    @Test
+    void should_return_400_when_multiple_sort_properties_given() throws Exception {
+        // when & then
+        mockMvc.perform(get("/api/artists")
+                        .param("sort", "sortName,asc")
+                        .param("sort", "followerCount,desc")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
     // -------------------------------------------------------------------------
     // getArtist
     // -------------------------------------------------------------------------

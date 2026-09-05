@@ -46,4 +46,25 @@ class SortPropertyValidatorTest {
         assertThatCode(() -> SortPropertyValidator.validate(pageable, ALLOWED_PROPERTIES))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void should_not_throw_when_only_one_sort_property_given() {
+        // given
+        Pageable pageable = PageRequest.of(0, 20, Sort.by("name"));
+
+        // when & then
+        assertThatCode(() -> SortPropertyValidator.validateSingleSort(pageable))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_multiple_sort_properties_given() {
+        // given
+        Pageable pageable = PageRequest.of(0, 20, Sort.by("name", "createdAt"));
+
+        // when & then
+        assertThatThrownBy(() -> SortPropertyValidator.validateSingleSort(pageable))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+    }
 }

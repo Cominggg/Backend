@@ -23,4 +23,15 @@ public final class SortPropertyValidator {
             throw new InvalidInputException();
         }
     }
+
+    /**
+     * Pageable의 정렬 필드가 하나만 지정됐는지 검증한다.
+     *
+     * @throws InvalidInputException 정렬 필드가 둘 이상인 경우
+     */
+    public static void validateSingleSort(Pageable pageable) {
+        if (pageable.getSort().stream().count() > 1) {
+            throw new InvalidInputException();
+        }
+    }
 }
