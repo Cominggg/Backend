@@ -47,6 +47,8 @@ import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
 @Transactional(readOnly = true)
 public class ArtistService {
 
+    public static final String SORT_PROPERTY_FOLLOWER_COUNT = "followerCount";
+
     private static final LocalDate CONCERT_HISTORY_START = LocalDate.of(2020, 1, 1);
     private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
 
@@ -105,7 +107,7 @@ public class ArtistService {
 
     private Page<Artist> fetchArtistsSorted(boolean hasName, Boolean isComing, List<Long> ids, String name, Pageable pageable) {
         Optional<Sort.Order> followerCountOrder = pageable.getSort().stream()
-                .filter(order -> order.getProperty().equals("followerCount"))
+                .filter(order -> order.getProperty().equals(SORT_PROPERTY_FOLLOWER_COUNT))
                 .findFirst();
         if (followerCountOrder.isPresent()) {
             Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());

@@ -35,7 +35,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ArtistController {
 
-    private static final Set<String> SORTABLE_PROPERTIES = Set.of("sortName", "followerCount");
+    private static final Set<String> SORTABLE_PROPERTIES = Set.of("sortName", ArtistService.SORT_PROPERTY_FOLLOWER_COUNT);
 
     private final ArtistService artistService;
     private final ReleaseService releaseService;
