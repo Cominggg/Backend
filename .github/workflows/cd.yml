@@ -80,6 +80,7 @@ jobs:
             printf 'DB_USERNAME=%s\n'             "$V_DB_USERNAME"             >> ~/compose/be.env
             printf 'DB_PASSWORD=%s\n'             "$V_DB_PASSWORD"             >> ~/compose/be.env
             printf 'JWT_SECRET=%s\n'              "$V_JWT_SECRET"              >> ~/compose/be.env
+            printf 'TZ=Asia/Seoul\n'                                          >> ~/compose/be.env
             printf 'REDIS_HOST=redis\n'                                        >> ~/compose/be.env
             printf 'REDIS_PORT=6379\n'                                         >> ~/compose/be.env
             printf 'REDIS_PASSWORD=%s\n'              "$V_REDIS_PASSWORD"      >> ~/compose/be.env
