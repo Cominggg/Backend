@@ -6,6 +6,7 @@ import com.Coming.Backend.artist.dto.ArtistSummaryResponse;
 import com.Coming.Backend.artist.dto.FollowingArtistResponse;
 import com.Coming.Backend.artist.service.ArtistService;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.SortPropertyValidator;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
 import com.Coming.Backend.release.service.ReleaseService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 
 @Tag(name = "Artist")
 @RestController
@@ -33,17 +35,22 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ArtistController {
 
+    private static final Set<String> SORTABLE_PROPERTIES = Set.of("sortName", ArtistService.SORT_PROPERTY_FOLLOWER_COUNT);
+
     private final ArtistService artistService;
     private final ReleaseService releaseService;
 
     @Operation(summary = "아티스트 목록 조회")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (허용되지 않은 sort 필드 또는 정렬 필드 2개 이상 지정)")
     @GetMapping
     public ResponseEntity<PageResponse<ArtistSummaryResponse>> getArtists(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Boolean isComing,
             @RequestParam(required = false) Boolean following,
-            @PageableDefault(size = 25) Pageable pageable,
+            @PageableDefault(size = 25, sort = "sortName", direction = Sort.Direction.ASC) Pageable pageable,
             @AuthenticationPrincipal Long userId) {
+        SortPropertyValidator.validate(pageable, SORTABLE_PROPERTIES);
+        SortPropertyValidator.validateSingleSort(pageable);
         return ResponseEntity.ok(artistService.getArtists(name, isComing, following, pageable, userId));
     }
 

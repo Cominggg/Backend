@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
 import com.Coming.Backend.release.dto.ReleaseListItemResponse;
@@ -53,131 +54,19 @@ class ReleaseControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/releases/search
-    // -------------------------------------------------------------------------
-
-    @Test
-    void should_return_200_with_search_results_when_query_matches() throws Exception {
-        // given
-        ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
-        );
-        PageResponse<ReleaseListItemResponse> pageResponse =
-                new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.searchReleases(eq("IU"), isNull(), isNull(), eq(false), any(Pageable.class)))
-                .willReturn(pageResponse);
-
-        // when & then
-        mockMvc.perform(get("/api/releases/search")
-                        .param("q", "IU")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].id").value(RELEASE_ID))
-                .andExpect(jsonPath("$.content[0].artistName").value("IU"))
-                .andExpect(jsonPath("$.content[0].title").value("LILAC"))
-                .andExpect(jsonPath("$.page").value(0))
-                .andExpect(jsonPath("$.totalElements").value(1));
-    }
-
-    @Test
-    void should_return_200_with_search_results_filtered_by_type() throws Exception {
-        // given
-        ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
-        );
-        PageResponse<ReleaseListItemResponse> pageResponse =
-                new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.searchReleases(eq("IU"), eq("Album"), isNull(), eq(false), any(Pageable.class)))
-                .willReturn(pageResponse);
-
-        // when & then
-        mockMvc.perform(get("/api/releases/search")
-                        .param("q", "IU")
-                        .param("type", "Album")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].type").value("Album"));
-    }
-
-    @Test
-    void should_return_200_with_following_search_results_when_following_is_true() throws Exception {
-        // given
-        ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
-        );
-        PageResponse<ReleaseListItemResponse> pageResponse =
-                new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.searchReleases(eq("IU"), isNull(), isNull(), eq(true), any(Pageable.class)))
-                .willReturn(pageResponse);
-
-        // when & then
-        mockMvc.perform(get("/api/releases/search")
-                        .param("q", "IU")
-                        .param("following", "true")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1));
-    }
-
-    @Test
-    void should_return_200_with_empty_results_when_query_matches_nothing() throws Exception {
-        // given
-        PageResponse<ReleaseListItemResponse> emptyPage =
-                new PageResponse<>(List.of(), 0, 20, 0, 0);
-        given(releaseService.searchReleases(eq("없는앨범"), isNull(), isNull(), eq(false), any(Pageable.class)))
-                .willReturn(emptyPage);
-
-        // when & then
-        mockMvc.perform(get("/api/releases/search")
-                        .param("q", "없는앨범")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.content.length()").value(0))
-                .andExpect(jsonPath("$.totalElements").value(0));
-    }
-
-    @Test
-    void should_return_200_with_type_filtered_results_when_q_is_absent() throws Exception {
-        // given
-        ReleaseListItemResponse item = new ReleaseListItemResponse(
-                RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Single", LocalDate.of(2021, 3, 25), null
-        );
-        PageResponse<ReleaseListItemResponse> pageResponse =
-                new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.searchReleases(isNull(), eq("Single"), isNull(), eq(false), any(Pageable.class)))
-                .willReturn(pageResponse);
-
-        // when & then
-        mockMvc.perform(get("/api/releases/search")
-                        .param("type", "Single")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].type").value("Single"));
-    }
-
-    // -------------------------------------------------------------------------
     // GET /api/releases
     // -------------------------------------------------------------------------
 
     @Test
-    void should_return_200_with_all_releases_when_no_filters() throws Exception {
+    void should_return_200_with_all_releases_when_no_filters_given() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25), null
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.getReleases(isNull(), isNull(), isNull(), eq(false), any(Pageable.class)))
+        given(releaseService.getReleases(isNull(), isNull(), isNull(), isNull(), eq(false), any(Pageable.class)))
                 .willReturn(pageResponse);
 
         // when & then
@@ -194,59 +83,92 @@ class ReleaseControllerTest {
     }
 
     @Test
-    void should_return_200_with_releases_filtered_by_type() throws Exception {
+    void should_pass_query_param_to_service_when_q_given() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25), null
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.getReleases(isNull(), eq("ALBUM"), isNull(), eq(false), any(Pageable.class)))
+        given(releaseService.getReleases(eq("IU"), isNull(), isNull(), isNull(), eq(false), any(Pageable.class)))
                 .willReturn(pageResponse);
 
         // when & then
         mockMvc.perform(get("/api/releases")
-                        .param("type", "ALBUM")
+                        .param("q", "IU")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].type").value("ALBUM"));
+                .andExpect(jsonPath("$.content[0].title").value("LILAC"));
     }
 
     @Test
-    void should_return_200_with_releases_filtered_by_type_other() throws Exception {
+    void should_pass_artist_id_to_service_when_artist_id_given() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "Live at Seoul", "LIVE", LocalDate.of(2023, 8, 1), null
+                "LILAC", "Single", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.getReleases(isNull(), eq("기타"), isNull(), eq(false), any(Pageable.class)))
+        given(releaseService.getReleases(isNull(), eq(ARTIST_ID), isNull(), isNull(), eq(false), any(Pageable.class)))
                 .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/releases")
+                        .param("artistId", String.valueOf(ARTIST_ID))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1));
+    }
+
+    @Test
+    void should_pass_type_to_service_when_type_given() throws Exception {
+        // given
+        ReleaseListItemResponse item = new ReleaseListItemResponse(
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
+        );
+        PageResponse<ReleaseListItemResponse> pageResponse =
+                new PageResponse<>(List.of(item), 0, 20, 1, 1);
+        given(releaseService.getReleases(isNull(), isNull(), eq("Album"), isNull(), eq(false), any(Pageable.class)))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/releases")
+                        .param("type", "Album")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].type").value("Album"));
+    }
+
+    @Test
+    void should_return_400_when_type_is_not_standard() throws Exception {
+        // given
+        given(releaseService.getReleases(isNull(), isNull(), eq("기타"), isNull(), eq(false), any(Pageable.class)))
+                .willThrow(new InvalidInputException());
 
         // when & then
         mockMvc.perform(get("/api/releases")
                         .param("type", "기타")
                         .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].type").value("LIVE"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").exists());
     }
 
     @Test
-    void should_return_200_with_following_releases_when_following_is_true() throws Exception {
+    void should_pass_following_true_to_service_when_following_param_given() throws Exception {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "ALBUM", LocalDate.of(2021, 3, 25), null
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
-        given(releaseService.getReleases(isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
+        given(releaseService.getReleases(isNull(), isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
                 .willReturn(pageResponse);
 
         // when & then
@@ -254,10 +176,49 @@ class ReleaseControllerTest {
                         .param("following", "true")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].artistName").value("IU"))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void should_pass_all_filters_to_service_when_q_artist_id_and_type_given_together() throws Exception {
+        // given
+        ReleaseListItemResponse item = new ReleaseListItemResponse(
+                RELEASE_ID, "https://cover.example.com/10", "IU", null,
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
+        );
+        PageResponse<ReleaseListItemResponse> pageResponse =
+                new PageResponse<>(List.of(item), 0, 20, 1, 1);
+        given(releaseService.getReleases(eq("LILAC"), eq(ARTIST_ID), eq("Album"), isNull(), eq(false), any(Pageable.class)))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/releases")
+                        .param("q", "LILAC")
+                        .param("artistId", String.valueOf(ARTIST_ID))
+                        .param("type", "Album")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1));
+    }
+
+    @Test
+    void should_return_200_with_empty_results_when_query_matches_nothing() throws Exception {
+        // given
+        PageResponse<ReleaseListItemResponse> emptyPage =
+                new PageResponse<>(List.of(), 0, 20, 0, 0);
+        given(releaseService.getReleases(eq("없는앨범"), isNull(), isNull(), isNull(), eq(false), any(Pageable.class)))
+                .willReturn(emptyPage);
+
+        // when & then
+        mockMvc.perform(get("/api/releases")
+                        .param("q", "없는앨범")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
     }
 
     // -------------------------------------------------------------------------

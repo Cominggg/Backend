@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -74,41 +75,59 @@ class ConcertControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/concerts/search
+    // GET /api/concerts
     // -------------------------------------------------------------------------
 
     @Test
-    void should_return_200_with_search_results_when_query_matches_concerts() throws Exception {
+    void should_return_200_with_concerts_when_no_query_params_given() throws Exception {
         // given
         ConcertSummaryResponse summary = buildSummary(CONCERT_ID, "IU CONCERT", "IU");
         PageResponse<ConcertSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 20, 1, 1);
-        given(concertService.searchConcerts(eq("IU"), isNull(), any(Pageable.class), isNull()))
+        given(concertService.getConcerts(isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
 
         // when & then
-        mockMvc.perform(get("/api/concerts/search")
-                        .param("q", "IU")
+        mockMvc.perform(get("/api/concerts")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].id").value(CONCERT_ID))
                 .andExpect(jsonPath("$.content[0].title").value("IU CONCERT"))
-                .andExpect(jsonPath("$.content[0].artists[0].name").value("IU"))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(1));
+        verify(concertService).getConcerts(isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class), isNull());
     }
 
     @Test
-    void should_return_200_with_empty_result_when_query_matches_no_concerts() throws Exception {
+    void should_pass_all_query_params_to_service_when_all_filters_given() throws Exception {
         // given
         PageResponse<ConcertSummaryResponse> emptyPage = new PageResponse<>(List.of(), 0, 20, 0, 0);
-        given(concertService.searchConcerts(eq("없는공연"), isNull(), any(Pageable.class), isNull()))
+        given(concertService.getConcerts(eq("IU"), eq(ConcertStatus.UPCOMING), eq(true), eq(true), eq(true), any(Pageable.class), isNull()))
                 .willReturn(emptyPage);
 
         // when & then
-        mockMvc.perform(get("/api/concerts/search")
+        mockMvc.perform(get("/api/concerts")
+                        .param("q", "IU")
+                        .param("status", "UPCOMING")
+                        .param("inCalendar", "true")
+                        .param("followedOnly", "true")
+                        .param("ticketOpenPending", "true")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+        verify(concertService).getConcerts(eq("IU"), eq(ConcertStatus.UPCOMING), eq(true), eq(true), eq(true), any(Pageable.class), isNull());
+    }
+
+    @Test
+    void should_return_200_with_empty_page_when_no_concerts_match_filters() throws Exception {
+        // given
+        PageResponse<ConcertSummaryResponse> emptyPage = new PageResponse<>(List.of(), 0, 20, 0, 0);
+        given(concertService.getConcerts(eq("없는공연"), isNull(), isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
+                .willReturn(emptyPage);
+
+        // when & then
+        mockMvc.perform(get("/api/concerts")
                         .param("q", "없는공연")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -118,74 +137,17 @@ class ConcertControllerTest {
     }
 
     @Test
-    void should_return_200_with_multiple_results_when_query_is_partial_match() throws Exception {
+    void should_return_400_when_sort_property_is_not_allowed() throws Exception {
         // given
-        ConcertSummaryResponse result1 = buildSummary(1L, "IU CONCERT 2025", "IU");
-        ConcertSummaryResponse result2 = buildSummary(2L, "IU 앙코르 공연", "IU");
-        PageResponse<ConcertSummaryResponse> pageResponse = new PageResponse<>(List.of(result1, result2), 0, 20, 2, 1);
-        given(concertService.searchConcerts(eq("IU"), isNull(), any(Pageable.class), isNull()))
-                .willReturn(pageResponse);
-
-        // when & then
-        mockMvc.perform(get("/api/concerts/search")
-                        .param("q", "IU")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(2))
-                .andExpect(jsonPath("$.totalElements").value(2))
-                .andExpect(jsonPath("$.totalPages").value(1));
-    }
-
-    // -------------------------------------------------------------------------
-    // GET /api/concerts?inCalendar=true
-    // -------------------------------------------------------------------------
-
-    @Test
-    void should_return_200_with_calendar_concerts_when_in_calendar_is_true_and_user_authenticated() throws Exception {
-        // given
-        ConcertSummaryResponse summary = buildSummary(CONCERT_ID, "캘린더 공연", "IU");
-        PageResponse<ConcertSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 20, 1, 1);
-        given(concertService.getConcerts(isNull(), eq(true), any(Pageable.class), isNull()))
-                .willReturn(pageResponse);
+        // sort로 허용되지 않은 필드(예: id)가 오면 SortPropertyValidator가 INVALID_INPUT을 던진다
 
         // when & then
         mockMvc.perform(get("/api/concerts")
-                        .param("inCalendar", "true")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].title").value("캘린더 공연"))
-                .andExpect(jsonPath("$.totalElements").value(1));
-    }
-
-    @Test
-    void should_return_200_with_empty_page_when_in_calendar_is_true_and_user_is_not_authenticated() throws Exception {
-        // given
-        PageResponse<ConcertSummaryResponse> emptyPage = new PageResponse<>(List.of(), 0, 20, 0, 0);
-        given(concertService.getConcerts(isNull(), eq(true), any(Pageable.class), isNull()))
-                .willReturn(emptyPage);
-
-        // when & then
-        mockMvc.perform(get("/api/concerts")
-                        .param("inCalendar", "true")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.content.length()").value(0))
-                .andExpect(jsonPath("$.totalElements").value(0));
-    }
-
-    @Test
-    void should_return_400_when_q_is_missing() throws Exception {
-        // given
-        // q 파라미터 자체가 없으면 MissingServletRequestParameterException → 400
-
-        // when & then
-        mockMvc.perform(get("/api/concerts/search")
+                        .param("sort", "id,desc")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").exists());
     }
 
     // -------------------------------------------------------------------------

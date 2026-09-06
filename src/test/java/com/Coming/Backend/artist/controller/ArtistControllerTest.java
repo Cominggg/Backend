@@ -73,7 +73,7 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_artist_list_when_no_name_filter() throws Exception {
         // given
-        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, null, true, false, null);
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, null, true, false, null, 0L);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
         given(artistService.getArtists(isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
@@ -93,7 +93,7 @@ class ArtistControllerTest {
     @Test
     void should_return_200_with_filtered_artist_list_when_name_given() throws Exception {
         // given
-        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, null, true, false, null);
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, null, true, false, null, 0L);
         PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
         given(artistService.getArtists(eq("yoa"), isNull(), isNull(), any(Pageable.class), isNull()))
                 .willReturn(pageResponse);
@@ -104,6 +104,41 @@ class ArtistControllerTest {
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].name").value("YOASOBI"));
+    }
+
+    @Test
+    void should_return_400_when_sort_property_is_not_allowed() throws Exception {
+        // when & then
+        mockMvc.perform(get("/api/artists").param("sort", "notAllowedField").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void should_delegate_to_service_when_sort_is_followerCount_desc() throws Exception {
+        // given
+        ArtistSummaryResponse summary = new ArtistSummaryResponse(ARTIST_ID, "YOASOBI", null, null, true, false, null, 10L);
+        PageResponse<ArtistSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 25, 1, 1);
+        given(artistService.getArtists(isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/artists").param("sort", "followerCount,desc").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].followerCount").value(10));
+    }
+
+    @Test
+    void should_return_400_when_multiple_sort_properties_given() throws Exception {
+        // when & then
+        mockMvc.perform(get("/api/artists")
+                        .param("sort", "sortName,asc")
+                        .param("sort", "followerCount,desc")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").exists());
     }
 
     // -------------------------------------------------------------------------

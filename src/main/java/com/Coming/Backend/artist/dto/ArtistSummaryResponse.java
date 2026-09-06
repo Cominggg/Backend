@@ -7,6 +7,7 @@ public record ArtistSummaryResponse(
         String imageUrl,
         boolean hasUpcomingConcert,
         boolean isFollowing,
-        String spotifyUrl
+        String spotifyUrl,
+        long followerCount
 ) {
 }

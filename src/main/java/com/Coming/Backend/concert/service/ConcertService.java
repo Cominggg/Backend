@@ -40,6 +40,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -128,73 +129,61 @@ public class ConcertService {
     }
 
     /**
-     * 공연 목록을 status·inCalendar 조건으로 조회한다. 기본 정렬은 startDate DESC.
+     * 공연 목록을 q·status·inCalendar·followedOnly·ticketOpenPending 조건으로 조회한다.
      *
-     * <p>우선순위: status(EXCLUDED|PENDING 가드) → inCalendar → status 필터 순으로 적용된다.
-     * inCalendar=true이면 status(UPCOMING 등)는 무시되고 캘린더 공연 전체가 반환된다.</p>
+     * <p>모든 필터는 AND로 조합된다. EXCLUDED·PENDING은 항상 숨겨지므로 status로 요청해도 빈 페이지가 반환된다.</p>
      *
-     * @param status     null이면 전체 조회. EXCLUDED·PENDING이면 즉시 빈 페이지 반환.
-     * @param inCalendar true이면 내 캘린더에 추가한 공연만 반환 (미인증 시 빈 페이지). status보다 우선.
-     * @param userId     인증 사용자 ID (null이면 isInCalendar 전부 false)
+     * @param q                 검색어 (공연명, 아티스트명, alias 대소문자 무시 부분 일치). null·공백이면 텍스트 조건 없이 나머지 필터만 적용한다.
+     * @param status            null이면 전체 조회
+     * @param inCalendar        true이면 내 캘린더에 추가한 공연만 반환 (미인증 시 빈 페이지)
+     * @param followedOnly      true이면 팔로우한 아티스트의 공연만 반환 (미인증·팔로잉 없으면 빈 페이지)
+     * @param ticketOpenPending true이면 티켓 오픈 예정(ticketOpenAt > now) 공연만 반환
+     * @param userId            인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
-    public PageResponse<ConcertSummaryResponse> getConcerts(ConcertStatus status, Boolean inCalendar, Pageable pageable, Long userId) {
-        if (status == EXCLUDED || status == PENDING) {
-            return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+    public PageResponse<ConcertSummaryResponse> getConcerts(String q, ConcertStatus status, Boolean inCalendar, Boolean followedOnly,
+                                                              Boolean ticketOpenPending, Pageable pageable, Long userId) {
+        if (Boolean.TRUE.equals(inCalendar) && userId == null) {
+            return emptyPage(pageable);
         }
-        if (Boolean.TRUE.equals(inCalendar)) {
-            if (userId == null) {
-                return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
-            }
-            Page<Concert> page = concertRepository.findByUserCalendar(userId, HIDDEN_STATUSES, pageable);
-            List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
-            return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+        Long calendarUserId = Boolean.TRUE.equals(inCalendar) ? userId : null;
+
+        Optional<List<Long>> followedResolution = resolveFollowedArtistIds(userId, Boolean.TRUE.equals(followedOnly));
+        if (followedResolution.isPresent() && followedResolution.get().isEmpty()) {
+            return emptyPage(pageable);
         }
-        Page<Concert> page = (status == null)
-                ? concertRepository.findByStatusNotIn(HIDDEN_STATUSES, pageable)
-                : concertRepository.findByStatus(status, pageable);
+        List<Long> followedArtistIds = followedResolution.orElse(null);
+
+        boolean pending = Boolean.TRUE.equals(ticketOpenPending);
+        LocalDateTime now = LocalDateTime.now();
+        boolean hasQuery = q != null && !q.isBlank();
+        Page<Concert> page = hasQuery
+                ? concertRepository.searchConcerts(HIDDEN_STATUSES, status, calendarUserId, followedArtistIds, pending, now, "%" + q.toLowerCase() + "%", pageable)
+                : concertRepository.findConcerts(HIDDEN_STATUSES, status, calendarUserId, followedArtistIds, pending, now, pageable);
+
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     /**
-     * 공연명·아티스트명(alias 포함)으로 공연을 검색한다. 기본 정렬은 startDate DESC.
+     * followedOnly 필터에 해당하는 아티스트 ID 목록을 반환한다.
      *
-     * @param q      검색어 (공연명, 아티스트명, alias 대소문자 무시 부분 일치)
-     * @param status null이면 전체 조회. EXCLUDED·PENDING이면 즉시 빈 페이지 반환.
-     * @param userId 인증 사용자 ID (null이면 isInCalendar 전부 false)
+     * @return 필터 미요청 시 {@code Optional.empty()}. 필터 요청 시 팔로우한 아티스트 ID 목록
+     *         (미인증·팔로잉 없으면 빈 리스트 — 호출부에서 빈 페이지로 처리해야 함을 의미).
      */
-    public PageResponse<ConcertSummaryResponse> searchConcerts(String q, ConcertStatus status, Pageable pageable, Long userId) {
-        if (status == EXCLUDED || status == PENDING) {
-            return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+    private Optional<List<Long>> resolveFollowedArtistIds(Long userId, boolean followedOnly) {
+        if (!followedOnly) {
+            return Optional.empty();
         }
-        String qLike = "%" + q.toLowerCase() + "%";
-        Page<Concert> page = (status == null)
-                ? concertRepository.searchConcerts(qLike, HIDDEN_STATUSES, pageable)
-                : concertRepository.searchConcertsWithStatus(qLike, status, pageable);
-        List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
-        return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
-    }
-
-    /**
-     * 팔로우한 아티스트의 공연 목록을 조회한다. 기본 정렬은 startDate DESC.
-     *
-     * @param userId 인증된 사용자 ID
-     * @param status null이면 전체 조회
-     */
-    public List<ConcertSummaryResponse> getFollowingConcerts(Long userId, ConcertStatus status) {
-        if (status == EXCLUDED || status == PENDING) {
-            return List.of();
+        if (userId == null) {
+            return Optional.of(List.of());
         }
-        List<Long> artistIds = userFollowArtistRepository.findByUserId(userId).stream()
+        return Optional.of(userFollowArtistRepository.findByUserId(userId).stream()
                 .map(UserFollowArtist::getArtistId)
-                .toList();
-        if (artistIds.isEmpty()) {
-            return List.of();
-        }
-        List<Concert> concerts = (status == null)
-                ? concertRepository.findAllByArtistIdIn(artistIds, HIDDEN_STATUSES)
-                : concertRepository.findAllByArtistIdInAndStatus(artistIds, status);
-        return toConcertSummaryList(concerts, userId);
+                .toList());
+    }
+
+    private PageResponse<ConcertSummaryResponse> emptyPage(Pageable pageable) {
+        return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
     }
 
     /**

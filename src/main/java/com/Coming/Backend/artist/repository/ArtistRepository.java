@@ -128,4 +128,46 @@ public interface ArtistRepository extends JpaRepository<Artist, Long> {
     Page<Artist> findAllByIdIn(List<Long> ids, Pageable pageable);
 
     Page<Artist> findByIsComingAndIdIn(boolean isComing, List<Long> ids, Pageable pageable);
+
+    // ── followerCount 정렬 (집계 쿼리) ──────────────────────────────────────
+
+    /**
+     * name·isComing·ids 필터를 조합해 팔로워 수 순으로 아티스트를 조회한다.
+     * followerCount는 Artist 엔티티 필드가 아니라 Pageable로 정렬을 위임할 수 없어 전용 쿼리로 처리한다.
+     */
+    @Query(value = """
+            SELECT a FROM Artist a
+            LEFT JOIN UserFollowArtist ufa ON ufa.artistId = a.id
+            WHERE (:hasName = false OR (
+                LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%'))
+                OR LOWER(a.sortName) LIKE LOWER(CONCAT('%', :name, '%'))
+                OR a.id IN (
+                    SELECT al.artistId FROM ArtistAlias al
+                    WHERE LOWER(al.name) LIKE LOWER(CONCAT('%', :name, '%'))
+                )
+            ))
+            AND (:isComing IS NULL OR a.isComing = :isComing)
+            AND (:ids IS NULL OR a.id IN :ids)
+            GROUP BY a.id
+            ORDER BY (CASE WHEN :descending = true THEN -COUNT(ufa) ELSE COUNT(ufa) END) ASC, a.id ASC
+            """,
+            countQuery = """
+            SELECT COUNT(a) FROM Artist a
+            WHERE (:hasName = false OR (
+                LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%'))
+                OR LOWER(a.sortName) LIKE LOWER(CONCAT('%', :name, '%'))
+                OR a.id IN (
+                    SELECT al.artistId FROM ArtistAlias al
+                    WHERE LOWER(al.name) LIKE LOWER(CONCAT('%', :name, '%'))
+                )
+            ))
+            AND (:isComing IS NULL OR a.isComing = :isComing)
+            AND (:ids IS NULL OR a.id IN :ids)
+            """)
+    Page<Artist> findAllOrderByFollowerCount(@Param("hasName") boolean hasName,
+                                              @Param("name") String name,
+                                              @Param("isComing") Boolean isComing,
+                                              @Param("ids") List<Long> ids,
+                                              @Param("descending") boolean descending,
+                                              Pageable pageable);
 }

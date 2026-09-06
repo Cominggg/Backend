@@ -1,6 +1,7 @@
 package com.Coming.Backend.concert.controller;
 
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.SortPropertyValidator;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
 import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
@@ -13,7 +14,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -28,6 +28,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 
 @Tag(name = "Concert")
 @Validated
@@ -36,16 +37,23 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ConcertController {
 
+    private static final Set<String> SORTABLE_PROPERTIES = Set.of("startDate", "ticketOpenAt");
+
     private final ConcertService concertService;
 
     @Operation(summary = "공연 목록 조회")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (허용되지 않은 sort 필드)")
     @GetMapping
     public ResponseEntity<PageResponse<ConcertSummaryResponse>> getConcerts(
+            @RequestParam(required = false) String q,
             @RequestParam(required = false) ConcertStatus status,
             @RequestParam(required = false) Boolean inCalendar,
+            @RequestParam(required = false) Boolean followedOnly,
+            @RequestParam(required = false) Boolean ticketOpenPending,
             @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(concertService.getConcerts(status, inCalendar, pageable, userId));
+        SortPropertyValidator.validate(pageable, SORTABLE_PROPERTIES);
+        return ResponseEntity.ok(concertService.getConcerts(q, status, inCalendar, followedOnly, ticketOpenPending, pageable, userId));
     }
 
     @Operation(summary = "인기 공연 목록 조회")
@@ -61,25 +69,6 @@ public class ConcertController {
             @RequestParam int year,
             @RequestParam @Min(1) @Max(12) int month) {
         return ResponseEntity.ok(concertService.getConcertStats(year, month));
-    }
-
-    @Operation(summary = "공연 검색")
-    @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR (q가 빈 문자열)")
-    @GetMapping("/search")
-    public ResponseEntity<PageResponse<ConcertSummaryResponse>> searchConcerts(
-            @RequestParam @NotBlank String q,
-            @RequestParam(required = false) ConcertStatus status,
-            @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable,
-            @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(concertService.searchConcerts(q, status, pageable, userId));
-    }
-
-    @Operation(summary = "관심 아티스트 공연 조회")
-    @GetMapping("/following")
-    public ResponseEntity<List<ConcertSummaryResponse>> getFollowingConcerts(
-            @AuthenticationPrincipal Long userId,
-            @RequestParam(required = false) ConcertStatus status) {
-        return ResponseEntity.ok(concertService.getFollowingConcerts(userId, status));
     }
 
     @Operation(summary = "공연 상세 조회")
