@@ -221,12 +221,14 @@ public class AdminController {
     }
 
     @Operation(summary = "Data 파이프라인 아티스트 검색")
+    @ApiResponse(responseCode = "504", description = "PIPELINE_TIMEOUT")
     @GetMapping("/data/search/artists")
     public ResponseEntity<List<DataArtistSearchResult>> searchArtists(@RequestParam String name) {
         return ResponseEntity.ok(adminService.searchArtists(name));
     }
 
     @Operation(summary = "Data 파이프라인 공연 검색")
+    @ApiResponse(responseCode = "504", description = "PIPELINE_TIMEOUT")
     @GetMapping("/data/search/concerts")
     public ResponseEntity<List<DataConcertSearchResult>> searchConcerts(@RequestParam String title) {
         return ResponseEntity.ok(adminService.searchConcerts(title));
