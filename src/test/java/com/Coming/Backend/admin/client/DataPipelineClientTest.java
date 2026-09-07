@@ -50,7 +50,7 @@ class DataPipelineClientTest {
     }
 
     @Test
-    void should_throwPipelineTimeoutException_when_responseExceedsConfiguredTimeout() {
+    void should_throw_pipeline_timeout_exception_when_response_exceeds_configured_timeout() {
         // when
         // then
         assertThatThrownBy(() -> dataPipelineClient.searchArtists("test"))

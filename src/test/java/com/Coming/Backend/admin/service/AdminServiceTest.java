@@ -1679,7 +1679,7 @@ class AdminServiceTest {
     }
 
     @Test
-    void should_throw_PipelineConflictException_when_lock_already_held_by_another_request() {
+    void should_throw_pipeline_conflict_exception_when_lock_already_held_by_another_request() {
         // given
         AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
         given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn(false);
@@ -1692,7 +1692,7 @@ class AdminServiceTest {
     }
 
     @Test
-    void should_release_lock_when_dataPipelineClient_throws() {
+    void should_release_lock_when_data_pipeline_client_throws() {
         // given
         AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
         given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn(true);

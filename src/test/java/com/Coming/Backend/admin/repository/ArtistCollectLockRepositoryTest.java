@@ -26,7 +26,7 @@ class ArtistCollectLockRepositoryTest {
     private ValueOperations<String, String> valueOperations;
 
     @Test
-    void should_return_true_when_tryLock_with_unheld_mbid() {
+    void should_return_true_when_try_lock_with_unheld_mbid() {
         // given
         String mbid = "some-mbid-123";
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
@@ -41,7 +41,7 @@ class ArtistCollectLockRepositoryTest {
     }
 
     @Test
-    void should_return_false_when_tryLock_with_already_held_mbid() {
+    void should_return_false_when_try_lock_with_already_held_mbid() {
         // given
         String mbid = "some-mbid-123";
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
