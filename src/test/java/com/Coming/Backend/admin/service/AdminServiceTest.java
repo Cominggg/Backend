@@ -1667,7 +1667,7 @@ class AdminServiceTest {
         AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
         PipelineArtistCollectResult result = new PipelineArtistCollectResult(
                 true, 1L, "some-mbid-123", "IU", null, List.of(), null);
-        given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn(true);
+        given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn("lock-token");
         given(dataPipelineClient.collectArtist("some-mbid-123")).willReturn(result);
 
         // when
@@ -1675,7 +1675,7 @@ class AdminServiceTest {
 
         // then
         verify(dataPipelineClient).collectArtist("some-mbid-123");
-        verify(artistCollectLockRepository).unlock("some-mbid-123");
+        verify(artistCollectLockRepository).unlock("some-mbid-123", "lock-token");
         assertThat(actual.success()).isTrue();
     }
 
@@ -1683,27 +1683,27 @@ class AdminServiceTest {
     void should_throw_pipeline_conflict_exception_when_lock_already_held_by_another_request() {
         // given
         AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
-        given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn(false);
+        given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn(null);
 
         // when & then
         assertThatThrownBy(() -> adminService.collectArtist(request))
                 .isInstanceOf(PipelineConflictException.class);
         verify(dataPipelineClient, never()).collectArtist(any());
-        verify(artistCollectLockRepository, never()).unlock(any());
+        verify(artistCollectLockRepository, never()).unlock(any(), any());
     }
 
     @Test
     void should_release_lock_when_data_pipeline_client_throws() {
         // given
         AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
-        given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn(true);
+        given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn("lock-token");
         given(dataPipelineClient.collectArtist("some-mbid-123"))
                 .willThrow(new PipelineConflictException());
 
         // when & then
         assertThatThrownBy(() -> adminService.collectArtist(request))
                 .isInstanceOf(PipelineConflictException.class);
-        verify(artistCollectLockRepository).unlock("some-mbid-123");
+        verify(artistCollectLockRepository).unlock("some-mbid-123", "lock-token");
     }
 
     // -------------------------------------------------------------------------

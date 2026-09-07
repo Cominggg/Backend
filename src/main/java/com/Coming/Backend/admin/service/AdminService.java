@@ -654,13 +654,14 @@ public class AdminService {
      */
     public PipelineArtistCollectResult collectArtist(AdminArtistCollectRequest request) {
         String mbid = request.mbid();
-        if (!artistCollectLockRepository.tryLock(mbid)) {
+        String lockToken = artistCollectLockRepository.tryLock(mbid);
+        if (lockToken == null) {
             throw new PipelineConflictException();
         }
         try {
             return dataPipelineClient.collectArtist(mbid);
         } finally {
-            artistCollectLockRepository.unlock(mbid);
+            artistCollectLockRepository.unlock(mbid, lockToken);
         }
     }
 
