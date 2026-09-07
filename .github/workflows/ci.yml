@@ -35,8 +35,7 @@ jobs:
           - 6379:6379
 
     env:
-      # TODO: V29 마이그레이션의 CREATE INDEX CONCURRENTLY가 CI hang 원인인지 진단 후 이 옵션 제거
-      DB_URL: jdbc:postgresql://localhost:5432/coming_test?options=-c%20statement_timeout%3D30000
+      DB_URL: jdbc:postgresql://localhost:5432/coming_test
       DB_USERNAME: coming
       DB_PASSWORD: coming
       JWT_SECRET: dGVzdHNlY3JldGtleWZvcmNpbWluaW11bWxlbmd0aDMyY2hhcnM=
