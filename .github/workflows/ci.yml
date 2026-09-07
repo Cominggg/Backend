@@ -58,8 +58,29 @@ jobs:
           distribution: temurin
           cache: gradle
 
-      - name: Run tests
-        run: ./gradlew test --no-daemon
+      # TODO(진단용, 원인 확인 후 제거): V29의 CREATE INDEX CONCURRENTLY가
+      # CI에서만 무기한 대기하는 원인을 pg_stat_activity/pg_locks로 실시간 캡처한다.
+      - name: Run tests with live lock diagnostics
+        run: |
+          which psql || (sudo apt-get update -y && sudo apt-get install -y postgresql-client)
+          (
+            for i in $(seq 1 60); do
+              echo "----- poll #$i $(date -u +%H:%M:%S) -----"
+              PGPASSWORD="$DB_PASSWORD" psql -h localhost -U "$DB_USERNAME" -d coming_test -c \
+                "SELECT pid, state, wait_event_type, wait_event, now()-query_start AS duration, left(query,150) AS query FROM pg_stat_activity WHERE datname='coming_test' ORDER BY query_start;"
+              PGPASSWORD="$DB_PASSWORD" psql -h localhost -U "$DB_USERNAME" -d coming_test -c \
+                "SELECT l.pid, l.mode, l.granted, l.relation::regclass AS relation, a.state, left(a.query,100) AS query FROM pg_locks l LEFT JOIN pg_stat_activity a ON l.pid = a.pid WHERE l.relation IS NOT NULL ORDER BY l.granted, l.pid;"
+              sleep 5
+            done
+          ) &
+          MONITOR_PID=$!
+          set +e
+          ./gradlew test --no-daemon
+          TEST_EXIT=$?
+          set -e
+          kill "$MONITOR_PID" 2>/dev/null || true
+          wait "$MONITOR_PID" 2>/dev/null || true
+          exit $TEST_EXIT
 
   build-image:
     needs: test
