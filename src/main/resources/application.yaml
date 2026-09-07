@@ -28,9 +28,6 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     baseline-version: 1
-    # CONCURRENTLY DDL 앞에 SET statement_timeout을 두는 마이그레이션(V29)이 있어,
-    # 트랜잭션 문장과 비트랜잭션 문장이 한 스크립트에 섞이는 것을 허용해야 한다.
-    mixed: true
 
   security:
     oauth2:
