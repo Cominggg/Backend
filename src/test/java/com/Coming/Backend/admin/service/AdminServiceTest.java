@@ -1665,7 +1665,8 @@ class AdminServiceTest {
     void should_trigger_artist_collect_when_mbid_given() {
         // given
         AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
-        PipelineArtistCollectResult result = new PipelineArtistCollectResult(true, 1L, "some-mbid-123", "IU", null, List.of(), null);
+        PipelineArtistCollectResult result = new PipelineArtistCollectResult(
+                true, 1L, "some-mbid-123", "IU", null, List.of(), null);
         given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn(true);
         given(dataPipelineClient.collectArtist("some-mbid-123")).willReturn(result);
 
@@ -1696,7 +1697,8 @@ class AdminServiceTest {
         // given
         AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
         given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn(true);
-        given(dataPipelineClient.collectArtist("some-mbid-123")).willThrow(new PipelineConflictException());
+        given(dataPipelineClient.collectArtist("some-mbid-123"))
+                .willThrow(new PipelineConflictException());
 
         // when & then
         assertThatThrownBy(() -> adminService.collectArtist(request))

@@ -30,7 +30,8 @@ class ArtistCollectLockRepositoryTest {
         // given
         String mbid = "some-mbid-123";
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
-        given(valueOperations.setIfAbsent("ARTIST_COLLECT_LOCK:" + mbid, "1", 150, TimeUnit.SECONDS))
+        given(valueOperations.setIfAbsent(
+                "ARTIST_COLLECT_LOCK:" + mbid, "1", 150, TimeUnit.SECONDS))
                 .willReturn(true);
 
         // when
@@ -45,7 +46,8 @@ class ArtistCollectLockRepositoryTest {
         // given
         String mbid = "some-mbid-123";
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
-        given(valueOperations.setIfAbsent("ARTIST_COLLECT_LOCK:" + mbid, "1", 150, TimeUnit.SECONDS))
+        given(valueOperations.setIfAbsent(
+                "ARTIST_COLLECT_LOCK:" + mbid, "1", 150, TimeUnit.SECONDS))
                 .willReturn(false);
 
         // when

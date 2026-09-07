@@ -40,8 +40,10 @@ class DataPipelineClientTest {
         server.start();
 
         HttpClient httpClient = HttpClient.create().responseTimeout(Duration.ofMillis(50));
-        WebClient.Builder builder = WebClient.builder().clientConnector(new ReactorClientHttpConnector(httpClient));
-        dataPipelineClient = new DataPipelineClient(builder, "http://localhost:" + server.getAddress().getPort(), "secret");
+        WebClient.Builder builder = WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient));
+        String baseUrl = "http://localhost:" + server.getAddress().getPort();
+        dataPipelineClient = new DataPipelineClient(builder, baseUrl, "secret");
     }
 
     @AfterEach
