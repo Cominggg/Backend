@@ -63,6 +63,7 @@ import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.Coming.Backend.inquiry.exception.InvalidInquiryStatusException;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -75,6 +76,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -661,7 +663,11 @@ public class AdminService {
         try {
             return dataPipelineClient.collectArtist(mbid);
         } finally {
-            artistCollectLockRepository.unlock(mbid, lockToken);
+            try {
+                artistCollectLockRepository.unlock(mbid, lockToken);
+            } catch (Exception e) {
+                log.warn("Failed to release artist collect lock: mbid={}", mbid, e);
+            }
         }
     }
 

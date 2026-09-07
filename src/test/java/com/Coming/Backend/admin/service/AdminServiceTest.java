@@ -23,6 +23,7 @@ import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
 import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
 import com.Coming.Backend.admin.dto.AdminArtistDetailResponse;
 import com.Coming.Backend.admin.exception.PipelineConflictException;
+import com.Coming.Backend.admin.exception.PipelineTimeoutException;
 import com.Coming.Backend.admin.repository.ArtistCollectLockRepository;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistAlias;
@@ -82,6 +83,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -1704,6 +1706,39 @@ class AdminServiceTest {
         assertThatThrownBy(() -> adminService.collectArtist(request))
                 .isInstanceOf(PipelineConflictException.class);
         verify(artistCollectLockRepository).unlock("some-mbid-123", "lock-token");
+    }
+
+    @Test
+    void should_return_pipeline_result_when_unlock_fails_after_success() {
+        // given
+        AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
+        PipelineArtistCollectResult result = new PipelineArtistCollectResult(
+                true, 1L, "some-mbid-123", "IU", null, List.of(), null);
+        given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn("lock-token");
+        given(dataPipelineClient.collectArtist("some-mbid-123")).willReturn(result);
+        willThrow(new RuntimeException("redis down"))
+                .given(artistCollectLockRepository).unlock("some-mbid-123", "lock-token");
+
+        // when
+        PipelineArtistCollectResult actual = adminService.collectArtist(request);
+
+        // then - unlock 실패가 성공 결과를 가리지 않는다
+        assertThat(actual.success()).isTrue();
+    }
+
+    @Test
+    void should_keep_original_exception_when_unlock_also_fails() {
+        // given
+        AdminArtistCollectRequest request = new AdminArtistCollectRequest("some-mbid-123");
+        given(artistCollectLockRepository.tryLock("some-mbid-123")).willReturn("lock-token");
+        given(dataPipelineClient.collectArtist("some-mbid-123"))
+                .willThrow(new PipelineTimeoutException());
+        willThrow(new RuntimeException("redis down"))
+                .given(artistCollectLockRepository).unlock("some-mbid-123", "lock-token");
+
+        // when & then - unlock 실패가 원래 예외(PipelineTimeoutException)를 가리지 않는다
+        assertThatThrownBy(() -> adminService.collectArtist(request))
+                .isInstanceOf(PipelineTimeoutException.class);
     }
 
     // -------------------------------------------------------------------------
