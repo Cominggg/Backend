@@ -27,11 +27,12 @@ class DataPipelineClientTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        // given: 지정된 응답 타임아웃(50ms)보다 오래(300ms) 지연 응답하는 로컬 서버
+        // given: 지정된 응답 타임아웃(500ms)보다 오래(2000ms) 지연 응답하는 로컬 서버
+        // CI처럼 부하가 있는 환경에서도 즉시 응답하는 다른 테스트들이 오탐 타임아웃에 걸리지 않도록 여유를 크게 둔다
         server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/search/artists", exchange -> {
             try {
-                TimeUnit.MILLISECONDS.sleep(300);
+                TimeUnit.MILLISECONDS.sleep(2000);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             }
@@ -53,7 +54,7 @@ class DataPipelineClientTest {
         });
         server.start();
 
-        HttpClient httpClient = HttpClient.create().responseTimeout(Duration.ofMillis(50));
+        HttpClient httpClient = HttpClient.create().responseTimeout(Duration.ofMillis(500));
         WebClient.Builder builder = WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient));
         String baseUrl = "http://localhost:" + server.getAddress().getPort();
