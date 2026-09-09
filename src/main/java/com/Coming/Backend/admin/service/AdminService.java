@@ -25,6 +25,8 @@ import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
+import com.Coming.Backend.admin.exception.PipelineConflictException;
+import com.Coming.Backend.admin.repository.ArtistCollectLockRepository;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistAlias;
 import com.Coming.Backend.artist.entity.ArtistUrl;
@@ -61,6 +63,7 @@ import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.Coming.Backend.inquiry.exception.InvalidInquiryStatusException;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -73,6 +76,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -89,6 +93,7 @@ public class AdminService {
     private final ConcertBookingLinkRepository concertBookingLinkRepository;
     private final ConcertImageRepository concertImageRepository;
     private final DataPipelineClient dataPipelineClient;
+    private final ArtistCollectLockRepository artistCollectLockRepository;
 
     /**
      * 어드민 아티스트 단건을 조회한다. 존재하지 않는 아티스트 ID이면 ArtistNotFoundException을 던진다.
@@ -645,9 +650,25 @@ public class AdminService {
 
     /**
      * MBID 기반으로 아티스트를 동기 수집한다. 수집 결과를 반환한다.
+     * 동일 MBID에 대한 요청이 이미 처리 중이면 Data 파이프라인까지 가지 않고 즉시 거부한다.
+     *
+     * @throws PipelineConflictException 동일 MBID에 대한 수집 요청이 이미 처리 중인 경우
      */
     public PipelineArtistCollectResult collectArtist(AdminArtistCollectRequest request) {
-        return dataPipelineClient.collectArtist(request.mbid());
+        String mbid = request.mbid();
+        String lockToken = artistCollectLockRepository.tryLock(mbid);
+        if (lockToken == null) {
+            throw new PipelineConflictException();
+        }
+        try {
+            return dataPipelineClient.collectArtist(mbid);
+        } finally {
+            try {
+                artistCollectLockRepository.unlock(mbid, lockToken);
+            } catch (Exception e) {
+                log.warn("Failed to release artist collect lock: mbid={}", mbid, e);
+            }
+        }
     }
 
     /**

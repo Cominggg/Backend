@@ -221,12 +221,14 @@ public class AdminController {
     }
 
     @Operation(summary = "Data 파이프라인 아티스트 검색")
+    @ApiResponse(responseCode = "504", description = "PIPELINE_TIMEOUT")
     @GetMapping("/data/search/artists")
     public ResponseEntity<List<DataArtistSearchResult>> searchArtists(@RequestParam String name) {
         return ResponseEntity.ok(adminService.searchArtists(name));
     }
 
     @Operation(summary = "Data 파이프라인 공연 검색")
+    @ApiResponse(responseCode = "504", description = "PIPELINE_TIMEOUT")
     @GetMapping("/data/search/concerts")
     public ResponseEntity<List<DataConcertSearchResult>> searchConcerts(@RequestParam String title) {
         return ResponseEntity.ok(adminService.searchConcerts(title));
@@ -235,6 +237,7 @@ public class AdminController {
     @Operation(summary = "MBID 기반 아티스트 동기 수집")
     @ApiResponse(responseCode = "404", description = "PIPELINE_NOT_FOUND")
     @ApiResponse(responseCode = "409", description = "PIPELINE_CONFLICT")
+    @ApiResponse(responseCode = "504", description = "PIPELINE_TIMEOUT")
     @PostMapping("/data/collect/artists")
     public ResponseEntity<PipelineArtistCollectResult> collectArtist(@RequestBody @Valid AdminArtistCollectRequest request) {
         return ResponseEntity.ok(adminService.collectArtist(request));
@@ -243,6 +246,7 @@ public class AdminController {
     @Operation(summary = "KOPIS ID 기반 공연 동기 수집")
     @ApiResponse(responseCode = "404", description = "PIPELINE_NOT_FOUND")
     @ApiResponse(responseCode = "409", description = "PIPELINE_CONFLICT")
+    @ApiResponse(responseCode = "504", description = "PIPELINE_TIMEOUT")
     @PostMapping("/data/collect/concerts")
     public ResponseEntity<PipelineConcertCollectResult> collectConcert(@RequestBody @Valid AdminConcertCollectRequest request) {
         return ResponseEntity.ok(adminService.collectConcert(request));
@@ -250,6 +254,7 @@ public class AdminController {
 
     @Operation(summary = "Data 파이프라인 아티스트 릴리즈 수집 트리거")
     @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND (Data 파이프라인 측)")
+    @ApiResponse(responseCode = "504", description = "PIPELINE_TIMEOUT")
     @PostMapping("/data/collect/artists/{id}/releases")
     public ResponseEntity<Void> triggerArtistReleases(@PathVariable Long id) {
         adminService.triggerArtistReleases(id);
@@ -259,6 +264,7 @@ public class AdminController {
     @Operation(summary = "공연 셋리스트 동기 수집")
     @ApiResponse(responseCode = "404", description = "PIPELINE_NOT_FOUND")
     @ApiResponse(responseCode = "409", description = "PIPELINE_CONFLICT")
+    @ApiResponse(responseCode = "504", description = "PIPELINE_TIMEOUT")
     @PostMapping("/data/collect/concerts/{id}/setlist")
     public ResponseEntity<PipelineSetlistCollectResult> triggerConcertSetlist(@PathVariable Long id) {
         return ResponseEntity.ok(adminService.triggerConcertSetlist(id));

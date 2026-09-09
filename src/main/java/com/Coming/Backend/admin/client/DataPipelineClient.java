@@ -8,6 +8,9 @@ import com.Coming.Backend.admin.dto.PipelineSetlistCollectResult;
 import com.Coming.Backend.admin.exception.PipelineConflictException;
 import com.Coming.Backend.admin.exception.PipelineNotFoundException;
 import com.Coming.Backend.admin.exception.PipelineServerException;
+import com.Coming.Backend.admin.exception.PipelineTimeoutException;
+import io.netty.channel.ConnectTimeoutException;
+import io.netty.handler.timeout.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -44,6 +47,7 @@ public class DataPipelineClient {
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<List<DataArtistSearchResult>>() {})
                 .doOnError(e -> log.warn("Data pipeline artist search failed: name={}, error={}", name, e.getMessage()))
+                .onErrorMap(DataPipelineClient::isTimeout, e -> new PipelineTimeoutException())
                 .block();
     }
 
@@ -56,6 +60,7 @@ public class DataPipelineClient {
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<List<DataConcertSearchResult>>() {})
                 .doOnError(e -> log.warn("Data pipeline concert search failed: title={}, error={}", title, e.getMessage()))
+                .onErrorMap(DataPipelineClient::isTimeout, e -> new PipelineTimeoutException())
                 .block();
     }
 
@@ -64,6 +69,7 @@ public class DataPipelineClient {
      *
      * @throws PipelineNotFoundException MusicBrainz에 해당 MBID가 없는 경우
      * @throws PipelineConflictException 동일 MBID에 대한 수집이 이미 처리 중인 경우
+     * @throws PipelineTimeoutException  Data 파이프라인 응답이 설정된 시간 내에 오지 않은 경우
      */
     public PipelineArtistCollectResult collectArtist(String mbid) {
         return webClient.post()
@@ -77,6 +83,7 @@ public class DataPipelineClient {
                 .bodyToMono(PipelineArtistCollectResult.class)
                 .doOnSuccess(r -> log.info("Artist collect completed: mbid={}, success={}", mbid, r.success()))
                 .doOnError(e -> log.warn("Artist collect failed: mbid={}, error={}", mbid, e.getMessage()))
+                .onErrorMap(DataPipelineClient::isTimeout, e -> new PipelineTimeoutException())
                 .block();
     }
 
@@ -85,6 +92,7 @@ public class DataPipelineClient {
      *
      * @throws PipelineNotFoundException KOPIS에 해당 ID가 없는 경우
      * @throws PipelineConflictException 동일 KOPIS ID에 대한 수집이 이미 처리 중인 경우
+     * @throws PipelineTimeoutException  Data 파이프라인 응답이 설정된 시간 내에 오지 않은 경우
      */
     public PipelineConcertCollectResult collectConcert(String kopisId) {
         return webClient.post()
@@ -98,6 +106,7 @@ public class DataPipelineClient {
                 .bodyToMono(PipelineConcertCollectResult.class)
                 .doOnSuccess(r -> log.info("Concert collect completed: kopisId={}, success={}", kopisId, r.success()))
                 .doOnError(e -> log.warn("Concert collect failed: kopisId={}, error={}", kopisId, e.getMessage()))
+                .onErrorMap(DataPipelineClient::isTimeout, e -> new PipelineTimeoutException())
                 .block();
     }
 
@@ -111,6 +120,7 @@ public class DataPipelineClient {
                 .toBodilessEntity()
                 .doOnSuccess(r -> log.info("Data pipeline artist releases triggered: artistId={}", artistId))
                 .doOnError(e -> log.warn("Data pipeline artist releases failed: artistId={}, error={}", artistId, e.getMessage()))
+                .onErrorMap(DataPipelineClient::isTimeout, e -> new PipelineTimeoutException())
                 .block();
     }
 
@@ -119,6 +129,7 @@ public class DataPipelineClient {
      *
      * @throws PipelineNotFoundException setlist.fm에 해당 공연의 셋리스트가 없는 경우
      * @throws PipelineConflictException 동일 공연에 대한 수집이 이미 처리 중인 경우
+     * @throws PipelineTimeoutException  Data 파이프라인 응답이 설정된 시간 내에 오지 않은 경우
      */
     public PipelineSetlistCollectResult collectConcertSetlist(Long concertId) {
         return webClient.post()
@@ -130,6 +141,15 @@ public class DataPipelineClient {
                 .bodyToMono(PipelineSetlistCollectResult.class)
                 .doOnSuccess(r -> log.info("Setlist collect completed: concertId={}, success={}", concertId, r.success()))
                 .doOnError(e -> log.warn("Setlist collect failed: concertId={}, error={}", concertId, e.getMessage()))
+                .onErrorMap(DataPipelineClient::isTimeout, e -> new PipelineTimeoutException())
                 .block();
+    }
+
+    // WebClient의 connectTimeout/responseTimeout 초과는 각각 ConnectTimeoutException,
+    // ReadTimeoutException(io.netty.handler.timeout.TimeoutException)으로 전달되며,
+    // 둘 다 원본 예외를 감싸는 WebClientRequestException의 cause로 담겨온다.
+    private static boolean isTimeout(Throwable e) {
+        Throwable cause = e.getCause();
+        return cause instanceof TimeoutException || cause instanceof ConnectTimeoutException;
     }
 }

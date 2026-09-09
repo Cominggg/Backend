@@ -3,7 +3,7 @@ server:
 
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{traceId:-          }] [%X{userId:-anonymous}] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS, Asia/Seoul} [%X{traceId:-          }] [%X{userId:-anonymous}] %-5level %logger{36} - %msg%n"
 
 spring:
   application:
