@@ -12,9 +12,13 @@ import com.Coming.Backend.post.dto.PostDetailResponse;
 import com.Coming.Backend.post.dto.PostEntityTagResponse;
 import com.Coming.Backend.post.dto.PostSummaryResponse;
 import com.Coming.Backend.post.dto.PostUpdateRequest;
+import com.Coming.Backend.post.dto.RecommendCountResponse;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
 import com.Coming.Backend.post.entity.PostEntityTag;
+import com.Coming.Backend.post.entity.PostRecommend;
+import com.Coming.Backend.post.exception.AlreadyRecommendedException;
+import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
 import com.Coming.Backend.post.repository.PostEntityTagRepository;
@@ -24,6 +28,7 @@ import com.Coming.Backend.post.util.TiptapTextExtractor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -189,6 +194,40 @@ public class PostService {
         }
         postEntityTagRepository.deleteByPostId(id);
         postRepository.delete(post);
+    }
+
+    /**
+     * 게시글을 추천한다. 이미 추천한 게시글이면 AlreadyRecommendedException을 던진다.
+     */
+    @Transactional
+    public RecommendCountResponse recommend(Long userId, Long id) {
+        Post post = postRepository.findById(id).orElseThrow(PostNotFoundException::new);
+        if (postRecommendRepository.existsByUserIdAndPostId(userId, id)) {
+            throw new AlreadyRecommendedException();
+        }
+        try {
+            postRecommendRepository.save(PostRecommend.builder()
+                    .userId(userId)
+                    .postId(id)
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            throw new AlreadyRecommendedException();
+        }
+        postRepository.incrementRecommendCount(id);
+        return new RecommendCountResponse(post.getRecommendCount() + 1);
+    }
+
+    /**
+     * 게시글 추천을 취소한다. 추천한 적 없으면 NotRecommendedException을 던진다.
+     */
+    @Transactional
+    public RecommendCountResponse unrecommend(Long userId, Long id) {
+        Post post = postRepository.findById(id).orElseThrow(PostNotFoundException::new);
+        PostRecommend recommend = postRecommendRepository.findByUserIdAndPostId(userId, id)
+                .orElseThrow(NotRecommendedException::new);
+        postRecommendRepository.delete(recommend);
+        postRepository.decrementRecommendCount(id);
+        return new RecommendCountResponse(post.getRecommendCount() - 1);
     }
 
     private String writeContent(Object content) {

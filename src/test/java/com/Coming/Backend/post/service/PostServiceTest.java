@@ -22,10 +22,14 @@ import com.Coming.Backend.post.dto.PostCreateResponse;
 import com.Coming.Backend.post.dto.PostDetailResponse;
 import com.Coming.Backend.post.dto.PostSummaryResponse;
 import com.Coming.Backend.post.dto.PostUpdateRequest;
+import com.Coming.Backend.post.dto.RecommendCountResponse;
 import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
 import com.Coming.Backend.post.entity.PostEntityTag;
+import com.Coming.Backend.post.entity.PostRecommend;
+import com.Coming.Backend.post.exception.AlreadyRecommendedException;
+import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
 import com.Coming.Backend.post.repository.PostEntityTagRepository;
@@ -41,6 +45,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -483,5 +488,127 @@ class PostServiceTest {
         // then
         verify(postEntityTagRepository).deleteByPostId(POST_ID);
         verify(postRepository).delete(post);
+    }
+
+    // -------------------------------------------------------------------------
+    // recommend
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_post_not_found_exception_when_recommending_post_that_does_not_exist() {
+        // given
+        given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> postService.recommend(AUTHOR_ID, POST_ID))
+                .isInstanceOf(PostNotFoundException.class)
+                .hasMessage(ErrorCode.POST_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_throw_already_recommended_exception_when_user_already_recommended_post() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRecommendRepository.existsByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> postService.recommend(OTHER_USER_ID, POST_ID))
+                .isInstanceOf(AlreadyRecommendedException.class)
+                .hasMessage(ErrorCode.ALREADY_RECOMMENDED.getMessage());
+        verify(postRecommendRepository, never()).save(any(PostRecommend.class));
+    }
+
+    @Test
+    void should_throw_already_recommended_exception_when_save_violates_unique_constraint() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRecommendRepository.existsByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(false);
+        given(postRecommendRepository.save(any(PostRecommend.class)))
+                .willThrow(new DataIntegrityViolationException("duplicate"));
+
+        // when & then
+        assertThatThrownBy(() -> postService.recommend(OTHER_USER_ID, POST_ID))
+                .isInstanceOf(AlreadyRecommendedException.class)
+                .hasMessage(ErrorCode.ALREADY_RECOMMENDED.getMessage());
+        verify(postRepository, never()).incrementRecommendCount(POST_ID);
+    }
+
+    @Test
+    void should_save_recommend_and_return_incremented_count_when_user_has_not_recommended_post() {
+        // given
+        Post post = Post.builder()
+                .id(POST_ID)
+                .userId(AUTHOR_ID)
+                .category(PostCategory.FREE)
+                .title("제목")
+                .recommendCount(3L)
+                .build();
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRecommendRepository.existsByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(false);
+
+        // when
+        RecommendCountResponse response = postService.recommend(OTHER_USER_ID, POST_ID);
+
+        // then
+        assertThat(response.recommendCount()).isEqualTo(4L);
+        verify(postRecommendRepository).save(any(PostRecommend.class));
+        verify(postRepository).incrementRecommendCount(POST_ID);
+    }
+
+    // -------------------------------------------------------------------------
+    // unrecommend
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_post_not_found_exception_when_unrecommending_post_that_does_not_exist() {
+        // given
+        given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> postService.unrecommend(AUTHOR_ID, POST_ID))
+                .isInstanceOf(PostNotFoundException.class)
+                .hasMessage(ErrorCode.POST_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_throw_not_recommended_exception_when_user_has_not_recommended_post() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRecommendRepository.findByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> postService.unrecommend(OTHER_USER_ID, POST_ID))
+                .isInstanceOf(NotRecommendedException.class)
+                .hasMessage(ErrorCode.NOT_RECOMMENDED.getMessage());
+        verify(postRepository, never()).decrementRecommendCount(POST_ID);
+    }
+
+    @Test
+    void should_delete_recommend_and_return_decremented_count_when_user_has_recommended_post() {
+        // given
+        Post post = Post.builder()
+                .id(POST_ID)
+                .userId(AUTHOR_ID)
+                .category(PostCategory.FREE)
+                .title("제목")
+                .recommendCount(3L)
+                .build();
+        PostRecommend recommend = PostRecommend.builder()
+                .userId(OTHER_USER_ID)
+                .postId(POST_ID)
+                .build();
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRecommendRepository.findByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(Optional.of(recommend));
+
+        // when
+        RecommendCountResponse response = postService.unrecommend(OTHER_USER_ID, POST_ID);
+
+        // then
+        assertThat(response.recommendCount()).isEqualTo(2L);
+        verify(postRecommendRepository).delete(recommend);
+        verify(postRepository).decrementRecommendCount(POST_ID);
     }
 }

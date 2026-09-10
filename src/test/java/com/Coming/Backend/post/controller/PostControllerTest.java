@@ -22,7 +22,10 @@ import com.Coming.Backend.post.dto.PostCreateResponse;
 import com.Coming.Backend.post.dto.PostDetailResponse;
 import com.Coming.Backend.post.dto.PostSummaryResponse;
 import com.Coming.Backend.post.dto.PostUpdateRequest;
+import com.Coming.Backend.post.dto.RecommendCountResponse;
 import com.Coming.Backend.post.entity.PostCategory;
+import com.Coming.Backend.post.exception.AlreadyRecommendedException;
+import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
 import com.Coming.Backend.post.service.PostService;
@@ -233,6 +236,84 @@ class PostControllerTest {
         mockMvc.perform(delete("/api/posts/{id}", 999L).accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(ErrorCode.POST_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/posts/{id}/recommend
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_recommend_count_when_recommend_succeeds() throws Exception {
+        // given
+        given(postService.recommend(eq(USER_ID), eq(POST_ID))).willReturn(new RecommendCountResponse(4L));
+
+        // when & then
+        mockMvc.perform(post("/api/posts/{id}/recommend", POST_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recommendCount").value(4));
+    }
+
+    @Test
+    void should_return_404_when_post_not_found_on_recommend() throws Exception {
+        // given
+        given(postService.recommend(eq(USER_ID), eq(999L))).willThrow(new PostNotFoundException());
+
+        // when & then
+        mockMvc.perform(post("/api/posts/{id}/recommend", 999L).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.POST_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void should_return_409_when_post_already_recommended_on_recommend() throws Exception {
+        // given
+        given(postService.recommend(eq(USER_ID), eq(POST_ID))).willThrow(new AlreadyRecommendedException());
+
+        // when & then
+        mockMvc.perform(post("/api/posts/{id}/recommend", POST_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(ErrorCode.ALREADY_RECOMMENDED.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // DELETE /api/posts/{id}/recommend
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_recommend_count_when_unrecommend_succeeds() throws Exception {
+        // given
+        given(postService.unrecommend(eq(USER_ID), eq(POST_ID))).willReturn(new RecommendCountResponse(2L));
+
+        // when & then
+        mockMvc.perform(delete("/api/posts/{id}/recommend", POST_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recommendCount").value(2));
+    }
+
+    @Test
+    void should_return_404_when_post_not_found_on_unrecommend() throws Exception {
+        // given
+        given(postService.unrecommend(eq(USER_ID), eq(999L))).willThrow(new PostNotFoundException());
+
+        // when & then
+        mockMvc.perform(delete("/api/posts/{id}/recommend", 999L).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.POST_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void should_return_400_when_post_not_recommended_on_unrecommend() throws Exception {
+        // given
+        given(postService.unrecommend(eq(USER_ID), eq(POST_ID))).willThrow(new NotRecommendedException());
+
+        // when & then
+        mockMvc.perform(delete("/api/posts/{id}/recommend", POST_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.NOT_RECOMMENDED.name()))
                 .andExpect(jsonPath("$.message").exists());
     }
 }

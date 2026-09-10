@@ -6,6 +6,7 @@ import com.Coming.Backend.post.dto.PostCreateResponse;
 import com.Coming.Backend.post.dto.PostDetailResponse;
 import com.Coming.Backend.post.dto.PostSummaryResponse;
 import com.Coming.Backend.post.dto.PostUpdateRequest;
+import com.Coming.Backend.post.dto.RecommendCountResponse;
 import com.Coming.Backend.post.entity.PostCategory;
 import com.Coming.Backend.post.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -87,5 +88,25 @@ public class PostController {
             @PathVariable Long id) {
         postService.delete(userId, id);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "게시글 추천")
+    @ApiResponse(responseCode = "404", description = "POST_NOT_FOUND")
+    @ApiResponse(responseCode = "409", description = "ALREADY_RECOMMENDED")
+    @PostMapping("/{id}/recommend")
+    public ResponseEntity<RecommendCountResponse> recommend(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(postService.recommend(userId, id));
+    }
+
+    @Operation(summary = "게시글 추천 취소")
+    @ApiResponse(responseCode = "400", description = "NOT_RECOMMENDED")
+    @ApiResponse(responseCode = "404", description = "POST_NOT_FOUND")
+    @DeleteMapping("/{id}/recommend")
+    public ResponseEntity<RecommendCountResponse> unrecommend(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(postService.unrecommend(userId, id));
     }
 }
