@@ -38,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -169,6 +170,17 @@ public class PostService {
         };
         Pageable pageable = PageRequest.of(page, size, sortOrder);
         Page<Post> result = postRepository.findByEntityTag(entityType, entityId, pageable);
+        List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
+        return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+
+    /**
+     * 게시글 제목·본문·태그된 엔티티명을 통합 검색한다. 최신순 고정.
+     */
+    public PageResponse<PostSummaryResponse> search(String q, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        String likeQ = "%" + q.toLowerCase(Locale.ROOT) + "%";
+        Page<Post> result = postRepository.searchPosts(likeQ, pageable);
         List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
         return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }

@@ -29,4 +29,20 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     @Query("SELECT p FROM Post p WHERE p.id IN (SELECT t.postId FROM PostEntityTag t WHERE t.entityType = :entityType AND t.entityId = :entityId)")
     Page<Post> findByEntityTag(@Param("entityType") EntityType entityType, @Param("entityId") Long entityId, Pageable pageable);
+
+    @Query("""
+            SELECT p FROM Post p
+            WHERE LOWER(p.title) LIKE :q OR LOWER(p.contentText) LIKE :q
+            OR p.id IN (
+                SELECT t.postId FROM PostEntityTag t
+                WHERE (t.entityType = com.Coming.Backend.post.entity.EntityType.ARTIST
+                        AND t.entityId IN (SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q))
+                   OR (t.entityType = com.Coming.Backend.post.entity.EntityType.CONCERT
+                        AND t.entityId IN (SELECT c.id FROM Concert c WHERE LOWER(c.title) LIKE :q))
+                   OR (t.entityType = com.Coming.Backend.post.entity.EntityType.RELEASE
+                        AND t.entityId IN (SELECT r.id FROM ReleaseGroup r WHERE LOWER(r.title) LIKE :q))
+            )
+            ORDER BY p.createdAt DESC
+            """)
+    Page<Post> searchPosts(@Param("q") String q, Pageable pageable);
 }

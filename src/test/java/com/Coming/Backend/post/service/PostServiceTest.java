@@ -393,6 +393,43 @@ class PostServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // search
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_page_response_when_title_matches_search_query() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "IU 콘서트 후기", 3L);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
+        given(postRepository.searchPosts(eq("%iu%"), eq(pageable))).willReturn(page);
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.search("IU", 0, 20);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).title()).isEqualTo("IU 콘서트 후기");
+        verify(postRepository).searchPosts("%iu%", pageable);
+    }
+
+    @Test
+    void should_return_empty_content_when_no_search_result_found() {
+        // given
+        Pageable pageable = PageRequest.of(0, 20);
+        given(postRepository.searchPosts(eq("%없는검색어%"), eq(pageable))).willReturn(Page.empty(pageable));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.search("없는검색어", 0, 20);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+    }
+
+    // -------------------------------------------------------------------------
     // update
     // -------------------------------------------------------------------------
 
