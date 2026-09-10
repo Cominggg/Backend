@@ -1,0 +1,487 @@
+package com.Coming.Backend.post.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+import com.Coming.Backend.auth.entity.User;
+import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.common.exception.InvalidInputException;
+import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.post.dto.EntityCardResponse;
+import com.Coming.Backend.post.dto.EntityTagRequest;
+import com.Coming.Backend.post.dto.PostCreateRequest;
+import com.Coming.Backend.post.dto.PostCreateResponse;
+import com.Coming.Backend.post.dto.PostDetailResponse;
+import com.Coming.Backend.post.dto.PostSummaryResponse;
+import com.Coming.Backend.post.dto.PostUpdateRequest;
+import com.Coming.Backend.post.entity.EntityType;
+import com.Coming.Backend.post.entity.Post;
+import com.Coming.Backend.post.entity.PostCategory;
+import com.Coming.Backend.post.entity.PostEntityTag;
+import com.Coming.Backend.post.exception.PostForbiddenException;
+import com.Coming.Backend.post.exception.PostNotFoundException;
+import com.Coming.Backend.post.repository.PostEntityTagRepository;
+import com.Coming.Backend.post.repository.PostRecommendRepository;
+import com.Coming.Backend.post.repository.PostRepository;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
+
+@ExtendWith(MockitoExtension.class)
+class PostServiceTest {
+
+    @InjectMocks
+    private PostService postService;
+
+    @Mock
+    private PostRepository postRepository;
+
+    @Mock
+    private PostEntityTagRepository postEntityTagRepository;
+
+    @Mock
+    private PostRecommendRepository postRecommendRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private EntityLookupService entityLookupService;
+
+    private static final Long POST_ID = 10L;
+    private static final Long AUTHOR_ID = 1L;
+    private static final Long OTHER_USER_ID = 2L;
+
+    /**
+     * Spring이 실제로 @RequestBody를 역직렬화할 때 만드는 것과 동일한 형태(Map/List)의 Tiptap 문서.
+     * "안녕하세요" 텍스트 노드 하나를 포함한다.
+     */
+    private Map<String, Object> sampleContent() {
+        return Map.of(
+                "type", "doc",
+                "content", List.of(
+                        Map.of("type", "paragraph", "content", List.of(
+                                Map.of("type", "text", "text", "안녕하세요")
+                        ))
+                )
+        );
+    }
+
+    private Post buildPost(Long id, Long userId, PostCategory category, String title, long viewCount) {
+        return Post.builder()
+                .id(id)
+                .userId(userId)
+                .category(category)
+                .title(title)
+                .content("{\"type\":\"doc\"}")
+                .contentText("기존 텍스트")
+                .recommendCount(0L)
+                .viewCount(viewCount)
+                .build();
+    }
+
+    private User buildUser(Long id, String nickname) {
+        return User.builder().id(id).nickname(nickname).build();
+    }
+
+    // -------------------------------------------------------------------------
+    // create
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_invalid_input_exception_when_review_category_given_without_entity_tags() {
+        // given
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), null);
+
+        // when & then
+        assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_info_category_given_without_entity_tags() {
+        // given
+        PostCreateRequest request = new PostCreateRequest(PostCategory.INFO, "정보 제목", sampleContent(), List.of());
+
+        // when & then
+        assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+    }
+
+    @Test
+    void should_create_post_when_free_category_given_without_entity_tags() {
+        // given
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), null);
+        given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", POST_ID);
+            return saved;
+        });
+
+        // when
+        PostCreateResponse response = postService.create(AUTHOR_ID, request);
+
+        // then
+        assertThat(response.id()).isEqualTo(POST_ID);
+        ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
+        verify(postRepository).save(captor.capture());
+        assertThat(captor.getValue().getContent()).contains("\"type\":\"doc\"");
+        assertThat(captor.getValue().getContentText()).isEqualTo("안녕하세요");
+        verify(postEntityTagRepository, never()).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_save_entity_tags_when_review_category_given_with_entity_tags() {
+        // given
+        List<EntityTagRequest> tags = List.of(
+                new EntityTagRequest(EntityType.ARTIST, 1L),
+                new EntityTagRequest(EntityType.CONCERT, 2L)
+        );
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags);
+        given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", POST_ID);
+            return saved;
+        });
+
+        // when
+        PostCreateResponse response = postService.create(AUTHOR_ID, request);
+
+        // then
+        assertThat(response.id()).isEqualTo(POST_ID);
+        verify(postEntityTagRepository, times(2)).save(any(PostEntityTag.class));
+    }
+
+    // -------------------------------------------------------------------------
+    // getDetail
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_post_not_found_exception_when_post_does_not_exist() {
+        // given
+        given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> postService.getDetail(POST_ID, AUTHOR_ID))
+                .isInstanceOf(PostNotFoundException.class)
+                .hasMessage(ErrorCode.POST_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_increment_view_count_and_return_incremented_view_count_when_post_found() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 5L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, null);
+
+        // then
+        verify(postRepository).incrementViewCount(POST_ID);
+        assertThat(response.viewCount()).isEqualTo(6L);
+    }
+
+    @Test
+    void should_return_null_recommended_and_false_author_when_user_id_not_given() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, null);
+
+        // then
+        assertThat(response.isRecommended()).isNull();
+        assertThat(response.isAuthor()).isFalse();
+        verify(postRecommendRepository, never()).existsByUserIdAndPostId(any(), any());
+    }
+
+    @Test
+    void should_return_true_author_when_user_id_matches_post_author() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+        given(postRecommendRepository.existsByUserIdAndPostId(AUTHOR_ID, POST_ID)).willReturn(false);
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, AUTHOR_ID);
+
+        // then
+        assertThat(response.isAuthor()).isTrue();
+    }
+
+    @Test
+    void should_return_true_recommended_when_user_has_recommended_post() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+        given(postRecommendRepository.existsByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(true);
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, OTHER_USER_ID);
+
+        // then
+        assertThat(response.isRecommended()).isTrue();
+    }
+
+    @Test
+    void should_return_false_recommended_when_user_has_not_recommended_post() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+        given(postRecommendRepository.existsByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(false);
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, OTHER_USER_ID);
+
+        // then
+        assertThat(response.isRecommended()).isFalse();
+    }
+
+    @Test
+    void should_map_entity_tags_using_entity_lookup_service_when_post_found() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        PostEntityTag tag = PostEntityTag.builder()
+                .postId(POST_ID)
+                .entityType(EntityType.ARTIST)
+                .entityId(1L)
+                .build();
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg");
+        EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
+
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(tag));
+        given(entityLookupService.findCards(List.of(key))).willReturn(Map.of(key, card));
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, null);
+
+        // then
+        assertThat(response.entityTags()).hasSize(1);
+        assertThat(response.entityTags().get(0).entityType()).isEqualTo(EntityType.ARTIST);
+        assertThat(response.entityTags().get(0).entityId()).isEqualTo(1L);
+        assertThat(response.entityTags().get(0).title()).isEqualTo("IU");
+    }
+
+    // -------------------------------------------------------------------------
+    // getList
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_page_response_when_getting_list() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 3L);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
+        given(postRepository.findPosts(isNull(), eq(pageable))).willReturn(page);
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getList(null, 0, 20);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).title()).isEqualTo("제목");
+        assertThat(response.page()).isEqualTo(0);
+        assertThat(response.size()).isEqualTo(20);
+        assertThat(response.totalElements()).isEqualTo(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // update
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_post_not_found_exception_when_updating_post_that_does_not_exist() {
+        // given
+        given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null);
+
+        // when & then
+        assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
+                .isInstanceOf(PostNotFoundException.class)
+                .hasMessage(ErrorCode.POST_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_throw_post_forbidden_exception_when_updater_is_not_author() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null);
+
+        // when & then
+        assertThatThrownBy(() -> postService.update(OTHER_USER_ID, POST_ID, request))
+                .isInstanceOf(PostForbiddenException.class)
+                .hasMessage(ErrorCode.FORBIDDEN.getMessage());
+    }
+
+    @Test
+    void should_update_title_and_content_when_given_in_request() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "기존 제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", sampleContent(), null);
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        assertThat(post.getTitle()).isEqualTo("새 제목");
+        assertThat(post.getContent()).contains("\"type\":\"doc\"");
+        assertThat(post.getContentText()).isEqualTo("안녕하세요");
+    }
+
+    @Test
+    void should_keep_existing_title_and_content_when_null_in_request() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "기존 제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null);
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        assertThat(post.getTitle()).isEqualTo("기존 제목");
+        assertThat(post.getContent()).isEqualTo("{\"type\":\"doc\"}");
+    }
+
+    @Test
+    void should_not_touch_entity_tags_when_entity_tags_is_null_in_request() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null);
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        verify(postEntityTagRepository, never()).deleteByPostId(POST_ID);
+        verify(postEntityTagRepository, never()).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_replace_entity_tags_when_entity_tags_given_in_request() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        List<EntityTagRequest> newTags = List.of(
+                new EntityTagRequest(EntityType.ARTIST, 1L),
+                new EntityTagRequest(EntityType.CONCERT, 2L)
+        );
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, newTags);
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        verify(postEntityTagRepository).deleteByPostId(POST_ID);
+        verify(postEntityTagRepository, times(2)).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_effective_category_requires_tags_and_existing_tags_empty() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
+        PostUpdateRequest request = new PostUpdateRequest(PostCategory.REVIEW, null, null, null);
+
+        // when & then
+        assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        assertThat(post.getCategory()).isEqualTo(PostCategory.FREE);
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_effective_category_requires_tags_and_request_tags_empty() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, List.of());
+
+        // when & then
+        assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // delete
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_post_not_found_exception_when_deleting_post_that_does_not_exist() {
+        // given
+        given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> postService.delete(AUTHOR_ID, POST_ID))
+                .isInstanceOf(PostNotFoundException.class)
+                .hasMessage(ErrorCode.POST_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_throw_post_forbidden_exception_when_deleter_is_not_author() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+
+        // when & then
+        assertThatThrownBy(() -> postService.delete(OTHER_USER_ID, POST_ID))
+                .isInstanceOf(PostForbiddenException.class)
+                .hasMessage(ErrorCode.FORBIDDEN.getMessage());
+    }
+
+    @Test
+    void should_delete_post_and_entity_tags_when_author_deletes() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+
+        // when
+        postService.delete(AUTHOR_ID, POST_ID);
+
+        // then
+        verify(postEntityTagRepository).deleteByPostId(POST_ID);
+        verify(postRepository).delete(post);
+    }
+}

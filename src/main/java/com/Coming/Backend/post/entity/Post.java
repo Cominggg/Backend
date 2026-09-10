@@ -51,4 +51,15 @@ public class Post extends BaseTimeEntity {
 
     @Column(name = "view_count", nullable = false)
     private Long viewCount;
+
+    public boolean isAuthoredBy(Long userId) {
+        return userId != null && this.userId.equals(userId);
+    }
+
+    public void update(PostCategory category, String title, String content, String contentText) {
+        if (category != null) this.category = category;
+        if (title != null) this.title = title;
+        if (content != null) this.content = content;
+        if (contentText != null) this.contentText = contentText;
+    }
 }
