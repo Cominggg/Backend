@@ -13,6 +13,7 @@ import com.Coming.Backend.post.dto.PostEntityTagResponse;
 import com.Coming.Backend.post.dto.PostSummaryResponse;
 import com.Coming.Backend.post.dto.PostUpdateRequest;
 import com.Coming.Backend.post.dto.RecommendCountResponse;
+import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
 import com.Coming.Backend.post.entity.PostEntityTag;
@@ -32,6 +33,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -152,6 +154,23 @@ public class PostService {
                 post.getViewCount(),
                 post.getCreatedAt()
         )).toList();
+    }
+
+    /**
+     * 특정 엔티티(공연·아티스트·발매)에 태그된 게시글을 백링크로 조회한다.
+     *
+     * @param sort "recommend"(추천순) 또는 "latest"(최신순). 그 외 값이면 InvalidInputException.
+     */
+    public PageResponse<PostSummaryResponse> getBacklinks(EntityType entityType, Long entityId, String sort, int page, int size) {
+        Sort sortOrder = switch (sort) {
+            case "recommend" -> Sort.by(Sort.Direction.DESC, "recommendCount");
+            case "latest" -> Sort.by(Sort.Direction.DESC, "createdAt");
+            default -> throw new InvalidInputException();
+        };
+        Pageable pageable = PageRequest.of(page, size, sortOrder);
+        Page<Post> result = postRepository.findByEntityTag(entityType, entityId, pageable);
+        List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
+        return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
 
     /**

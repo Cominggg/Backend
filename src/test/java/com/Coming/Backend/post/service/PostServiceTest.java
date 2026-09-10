@@ -50,6 +50,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -325,6 +326,70 @@ class PostServiceTest {
         assertThat(response.page()).isEqualTo(0);
         assertThat(response.size()).isEqualTo(20);
         assertThat(response.totalElements()).isEqualTo(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // getBacklinks
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_page_response_sorted_by_recommend_count_when_sort_is_recommend() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 3L);
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "recommendCount"));
+        Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
+        given(postRepository.findByEntityTag(eq(EntityType.ARTIST), eq(1L), eq(pageable))).willReturn(page);
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getBacklinks(EntityType.ARTIST, 1L, "recommend", 0, 20);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).title()).isEqualTo("제목");
+        verify(postRepository).findByEntityTag(EntityType.ARTIST, 1L, pageable);
+    }
+
+    @Test
+    void should_return_page_response_sorted_by_created_at_when_sort_is_latest() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 3L);
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
+        given(postRepository.findByEntityTag(eq(EntityType.CONCERT), eq(2L), eq(pageable))).willReturn(page);
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getBacklinks(EntityType.CONCERT, 2L, "latest", 0, 20);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        verify(postRepository).findByEntityTag(EntityType.CONCERT, 2L, pageable);
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_sort_is_not_allowed_value() {
+        // when & then
+        assertThatThrownBy(() -> postService.getBacklinks(EntityType.ARTIST, 1L, "oldest", 0, 20))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        verify(postRepository, never()).findByEntityTag(any(), any(), any());
+    }
+
+    @Test
+    void should_return_empty_content_when_no_backlinks_found() {
+        // given
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        given(postRepository.findByEntityTag(eq(EntityType.RELEASE), eq(3L), eq(pageable))).willReturn(Page.empty(pageable));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getBacklinks(EntityType.RELEASE, 3L, "latest", 0, 20);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
     }
 
     // -------------------------------------------------------------------------

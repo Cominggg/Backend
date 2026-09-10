@@ -1,5 +1,6 @@
 package com.Coming.Backend.post.repository;
 
+import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
 import org.springframework.data.domain.Page;
@@ -25,4 +26,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Modifying
     @Query("UPDATE Post p SET p.recommendCount = p.recommendCount - 1 WHERE p.id = :id")
     void decrementRecommendCount(@Param("id") Long id);
+
+    @Query("SELECT p FROM Post p WHERE p.id IN (SELECT t.postId FROM PostEntityTag t WHERE t.entityType = :entityType AND t.entityId = :entityId)")
+    Page<Post> findByEntityTag(@Param("entityType") EntityType entityType, @Param("entityId") Long entityId, Pageable pageable);
 }
