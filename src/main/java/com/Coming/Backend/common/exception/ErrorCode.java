@@ -49,6 +49,11 @@ public enum ErrorCode {
     INVALID_INQUIRY_STATUS(HttpStatus.BAD_REQUEST, "변경 불가능한 문의 상태입니다."),
     TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 대상입니다."),
 
+    // Post
+    POST_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."),
+    ALREADY_RECOMMENDED(HttpStatus.CONFLICT, "이미 추천한 게시글입니다."),
+    NOT_RECOMMENDED(HttpStatus.BAD_REQUEST, "추천하지 않은 게시글입니다."),
+
     // Pipeline
     PIPELINE_NOT_FOUND(HttpStatus.NOT_FOUND, "Data 파이프라인에서 해당 리소스를 찾을 수 없습니다."),
     PIPELINE_CONFLICT(HttpStatus.CONFLICT, "이미 처리 중인 수집 요청입니다. 잠시 후 다시 확인해주세요."),
