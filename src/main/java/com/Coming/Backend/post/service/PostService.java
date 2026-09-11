@@ -21,6 +21,7 @@ import com.Coming.Backend.post.entity.PostEntityTag;
 import com.Coming.Backend.post.entity.PostRecommend;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
+import com.Coming.Backend.post.exception.PostContentTooLongException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
 import com.Coming.Backend.post.repository.EntityTagCount;
@@ -62,6 +63,8 @@ public class PostService {
      */
     private final ObjectMapper contentObjectMapper = new ObjectMapper();
 
+    private static final int MAX_CONTENT_TEXT_LENGTH = 10000;
+
     /**
      * 게시글을 생성한다.
      * entityTags가 가리키는 엔티티의 실존 여부는 검증하지 않는다 — 삭제된 참조와 동일하게
@@ -71,12 +74,15 @@ public class PostService {
     public PostCreateResponse create(Long userId, PostCreateRequest request) {
         List<EntityTagRequest> tags = request.entityTags() == null ? List.of() : request.entityTags();
 
+        String contentText = TiptapTextExtractor.extract(request.content());
+        validateContentTextLength(contentText);
+
         Post post = Post.builder()
                 .userId(userId)
                 .category(request.category())
                 .title(request.title())
                 .content(writeContent(request.content()))
-                .contentText(TiptapTextExtractor.extract(request.content()))
+                .contentText(contentText)
                 .recommendCount(0L)
                 .viewCount(0L)
                 .build();
@@ -232,8 +238,11 @@ public class PostService {
             throw new PostForbiddenException();
         }
 
-        String content = request.content() != null ? writeContent(request.content()) : null;
         String contentText = request.content() != null ? TiptapTextExtractor.extract(request.content()) : null;
+        if (contentText != null) {
+            validateContentTextLength(contentText);
+        }
+        String content = request.content() != null ? writeContent(request.content()) : null;
         post.update(request.category(), request.title(), content, contentText);
 
         if (request.entityTags() != null) {
@@ -287,6 +296,12 @@ public class PostService {
         postRecommendRepository.delete(recommend);
         postRepository.decrementRecommendCount(id);
         return new RecommendCountResponse(post.getRecommendCount() - 1);
+    }
+
+    private void validateContentTextLength(String contentText) {
+        if (contentText.length() > MAX_CONTENT_TEXT_LENGTH) {
+            throw new PostContentTooLongException();
+        }
     }
 
     private String writeContent(Object content) {

@@ -53,6 +53,7 @@ public enum ErrorCode {
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."),
     ALREADY_RECOMMENDED(HttpStatus.CONFLICT, "이미 추천한 게시글입니다."),
     NOT_RECOMMENDED(HttpStatus.BAD_REQUEST, "추천하지 않은 게시글입니다."),
+    POST_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "본문은 10000자를 초과할 수 없습니다."),
 
     // Pipeline
     PIPELINE_NOT_FOUND(HttpStatus.NOT_FOUND, "Data 파이프라인에서 해당 리소스를 찾을 수 없습니다."),
