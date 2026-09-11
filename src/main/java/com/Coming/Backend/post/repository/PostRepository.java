@@ -33,6 +33,10 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("UPDATE Post p SET p.recommendCount = p.recommendCount - 1 WHERE p.id = :id")
     void decrementRecommendCount(@Param("id") Long id);
 
+    @Modifying
+    @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.id = :id")
+    void incrementCommentCount(@Param("id") Long id);
+
     @Query("SELECT p FROM Post p WHERE p.id IN (SELECT t.postId FROM PostEntityTag t WHERE t.entityType = :entityType AND t.entityId = :entityId)")
     Page<Post> findByEntityTag(@Param("entityType") EntityType entityType, @Param("entityId") Long entityId, Pageable pageable);
 
