@@ -164,6 +164,20 @@ class PostCommentControllerTest {
     }
 
     @Test
+    void should_return_400_when_content_exceeds_max_length_on_create() throws Exception {
+        // given
+        CommentCreateRequest request = new CommentCreateRequest("가".repeat(501), null);
+
+        // when & then
+        mockMvc.perform(post("/api/posts/{postId}/comments", POST_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
     void should_return_404_when_post_not_found_on_create() throws Exception {
         // given
         CommentCreateRequest request = new CommentCreateRequest("좋은 글이네요", null);
