@@ -23,6 +23,8 @@ import com.Coming.Backend.post.dto.PostDetailResponse;
 import com.Coming.Backend.post.dto.PostSummaryResponse;
 import com.Coming.Backend.post.dto.PostUpdateRequest;
 import com.Coming.Backend.post.dto.RecommendCountResponse;
+import com.Coming.Backend.post.dto.TrendingTagResponse;
+import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.PostCategory;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
@@ -178,6 +180,45 @@ class PostControllerTest {
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/posts/popular
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_popular_posts_when_default_params_given() throws Exception {
+        // given
+        PostSummaryResponse summary = new PostSummaryResponse(
+                POST_ID, "IU", PostCategory.FREE, "인기 게시글", List.of(), 10L, 0L, LocalDateTime.now());
+        given(postService.getPopular(eq(7), eq(5))).willReturn(List.of(summary));
+
+        // when & then
+        mockMvc.perform(get("/api/posts/popular").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].id").value(POST_ID))
+                .andExpect(jsonPath("$[0].title").value("인기 게시글"));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/posts/trending-tags
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_trending_tags_when_default_params_given() throws Exception {
+        // given
+        TrendingTagResponse tag = new TrendingTagResponse(EntityType.ARTIST, 1L, "IU", 5L);
+        given(postService.getTrendingTags(eq(7), eq(10))).willReturn(List.of(tag));
+
+        // when & then
+        mockMvc.perform(get("/api/posts/trending-tags").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].entityType").value("ARTIST"))
+                .andExpect(jsonPath("$[0].entityId").value(1))
+                .andExpect(jsonPath("$[0].title").value("IU"))
+                .andExpect(jsonPath("$[0].count").value(5));
     }
 
     // -------------------------------------------------------------------------

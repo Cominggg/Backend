@@ -10,10 +10,16 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 public interface PostRepository extends JpaRepository<Post, Long> {
 
     @Query("SELECT p FROM Post p WHERE (:category IS NULL OR p.category = :category) ORDER BY p.createdAt DESC")
     Page<Post> findPosts(@Param("category") PostCategory category, Pageable pageable);
+
+    @Query("SELECT p FROM Post p WHERE p.createdAt >= :since ORDER BY p.recommendCount DESC, p.createdAt DESC")
+    List<Post> findPopularPosts(@Param("since") LocalDateTime since, Pageable pageable);
 
     @Modifying
     @Query("UPDATE Post p SET p.viewCount = p.viewCount + 1 WHERE p.id = :id")

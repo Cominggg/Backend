@@ -23,6 +23,7 @@ import com.Coming.Backend.post.dto.PostDetailResponse;
 import com.Coming.Backend.post.dto.PostSummaryResponse;
 import com.Coming.Backend.post.dto.PostUpdateRequest;
 import com.Coming.Backend.post.dto.RecommendCountResponse;
+import com.Coming.Backend.post.dto.TrendingTagResponse;
 import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
@@ -32,9 +33,11 @@ import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
+import com.Coming.Backend.post.repository.EntityTagCount;
 import com.Coming.Backend.post.repository.PostEntityTagRepository;
 import com.Coming.Backend.post.repository.PostRecommendRepository;
 import com.Coming.Backend.post.repository.PostRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -404,6 +407,101 @@ class PostServiceTest {
         // then
         assertThat(response.content()).isEmpty();
         assertThat(response.totalElements()).isZero();
+    }
+
+    // -------------------------------------------------------------------------
+    // getPopular
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_summary_responses_when_popular_posts_found() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "인기 게시글", 10L);
+        Pageable pageable = PageRequest.of(0, 5);
+        given(postRepository.findPopularPosts(any(LocalDateTime.class), eq(pageable))).willReturn(List.of(post));
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        List<PostSummaryResponse> response = postService.getPopular(7, 5);
+
+        // then
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).title()).isEqualTo("인기 게시글");
+    }
+
+    @Test
+    void should_return_empty_list_when_no_popular_posts_found() {
+        // given
+        Pageable pageable = PageRequest.of(0, 5);
+        given(postRepository.findPopularPosts(any(LocalDateTime.class), eq(pageable))).willReturn(List.of());
+
+        // when
+        List<PostSummaryResponse> response = postService.getPopular(7, 5);
+
+        // then
+        assertThat(response).isEmpty();
+        verify(postEntityTagRepository, never()).findByPostIdIn(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // getTrendingTags
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_trending_tags_when_entity_tags_found() {
+        // given
+        Pageable pageable = PageRequest.of(0, 10);
+        EntityTagCount count = new EntityTagCount(EntityType.ARTIST, 1L, 3L);
+        EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg");
+        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable))).willReturn(List.of(count));
+        given(entityLookupService.findCards(List.of(key))).willReturn(Map.of(key, card));
+
+        // when
+        List<TrendingTagResponse> response = postService.getTrendingTags(7, 10);
+
+        // then
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).entityType()).isEqualTo(EntityType.ARTIST);
+        assertThat(response.get(0).entityId()).isEqualTo(1L);
+        assertThat(response.get(0).title()).isEqualTo("IU");
+        assertThat(response.get(0).count()).isEqualTo(3L);
+    }
+
+    @Test
+    void should_return_empty_list_when_no_trending_tags_found() {
+        // given
+        Pageable pageable = PageRequest.of(0, 10);
+        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable))).willReturn(List.of());
+
+        // when
+        List<TrendingTagResponse> response = postService.getTrendingTags(7, 10);
+
+        // then
+        assertThat(response).isEmpty();
+        verify(entityLookupService, never()).findCards(any());
+    }
+
+    @Test
+    void should_filter_out_trending_tag_when_entity_reference_is_deleted() {
+        // given
+        Pageable pageable = PageRequest.of(0, 10);
+        EntityTagCount aliveCount = new EntityTagCount(EntityType.ARTIST, 1L, 3L);
+        EntityTagCount deletedCount = new EntityTagCount(EntityType.CONCERT, 2L, 2L);
+        EntityLookupService.EntityKey aliveKey = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
+        EntityLookupService.EntityKey deletedKey = new EntityLookupService.EntityKey(EntityType.CONCERT, 2L);
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg");
+        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable)))
+                .willReturn(List.of(aliveCount, deletedCount));
+        given(entityLookupService.findCards(List.of(aliveKey, deletedKey))).willReturn(Map.of(aliveKey, card));
+
+        // when
+        List<TrendingTagResponse> response = postService.getTrendingTags(7, 10);
+
+        // then
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).entityId()).isEqualTo(1L);
     }
 
     // -------------------------------------------------------------------------

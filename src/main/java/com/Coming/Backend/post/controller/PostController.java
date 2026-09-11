@@ -7,6 +7,7 @@ import com.Coming.Backend.post.dto.PostDetailResponse;
 import com.Coming.Backend.post.dto.PostSummaryResponse;
 import com.Coming.Backend.post.dto.PostUpdateRequest;
 import com.Coming.Backend.post.dto.RecommendCountResponse;
+import com.Coming.Backend.post.dto.TrendingTagResponse;
 import com.Coming.Backend.post.entity.PostCategory;
 import com.Coming.Backend.post.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @Tag(name = "Post")
 @Validated
@@ -63,6 +66,22 @@ public class PostController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return ResponseEntity.ok(postService.getList(category, page, size));
+    }
+
+    @Operation(summary = "이번 주 인기 게시글 조회")
+    @GetMapping("/popular")
+    public ResponseEntity<List<PostSummaryResponse>> getPopular(
+            @RequestParam(defaultValue = "7") @Min(1) int days,
+            @RequestParam(defaultValue = "5") @Min(1) @Max(100) int limit) {
+        return ResponseEntity.ok(postService.getPopular(days, limit));
+    }
+
+    @Operation(summary = "최근 많이 언급된 태그 조회")
+    @GetMapping("/trending-tags")
+    public ResponseEntity<List<TrendingTagResponse>> getTrendingTags(
+            @RequestParam(defaultValue = "7") @Min(1) int days,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int limit) {
+        return ResponseEntity.ok(postService.getTrendingTags(days, limit));
     }
 
     @Operation(summary = "게시글 수정")

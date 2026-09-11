@@ -13,6 +13,7 @@ import com.Coming.Backend.post.dto.PostEntityTagResponse;
 import com.Coming.Backend.post.dto.PostSummaryResponse;
 import com.Coming.Backend.post.dto.PostUpdateRequest;
 import com.Coming.Backend.post.dto.RecommendCountResponse;
+import com.Coming.Backend.post.dto.TrendingTagResponse;
 import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
@@ -22,6 +23,7 @@ import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
+import com.Coming.Backend.post.repository.EntityTagCount;
 import com.Coming.Backend.post.repository.PostEntityTagRepository;
 import com.Coming.Backend.post.repository.PostRecommendRepository;
 import com.Coming.Backend.post.repository.PostRepository;
@@ -37,6 +39,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -171,6 +174,39 @@ public class PostService {
         Page<Post> result = postRepository.findByEntityTag(entityType, entityId, pageable);
         List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
         return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+
+    /**
+     * 최근 N일 이내 작성된 게시글을 추천수 내림차순으로 상위 K개 조회한다.
+     */
+    public List<PostSummaryResponse> getPopular(int days, int limit) {
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+        List<Post> posts = postRepository.findPopularPosts(since, PageRequest.of(0, limit));
+        return toSummaryResponses(posts);
+    }
+
+    /**
+     * 최근 N일 이내 작성된 게시글에 태그된 엔티티를 언급 빈도 내림차순으로 상위 K개 조회한다.
+     */
+    public List<TrendingTagResponse> getTrendingTags(int days, int limit) {
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+        List<EntityTagCount> counts = postEntityTagRepository.findTrendingEntityTags(since, PageRequest.of(0, limit));
+        if (counts.isEmpty()) {
+            return List.of();
+        }
+
+        List<EntityLookupService.EntityKey> keys = counts.stream()
+                .map(count -> new EntityLookupService.EntityKey(count.entityType(), count.entityId()))
+                .toList();
+        Map<EntityLookupService.EntityKey, EntityCardResponse> cards = entityLookupService.findCards(keys);
+
+        return counts.stream()
+                .filter(count -> cards.containsKey(new EntityLookupService.EntityKey(count.entityType(), count.entityId())))
+                .map(count -> {
+                    EntityCardResponse card = cards.get(new EntityLookupService.EntityKey(count.entityType(), count.entityId()));
+                    return new TrendingTagResponse(count.entityType(), count.entityId(), card.title(), count.count());
+                })
+                .toList();
     }
 
     /**
