@@ -1,11 +1,13 @@
 package com.Coming.Backend.post.controller;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -17,6 +19,7 @@ import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.post.dto.EntityTagRequest;
 import com.Coming.Backend.post.dto.PostCreateRequest;
 import com.Coming.Backend.post.dto.PostCreateResponse;
 import com.Coming.Backend.post.dto.PostDetailResponse;
@@ -35,6 +38,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -95,6 +99,12 @@ class PostControllerTest {
         return Map.of("type", "doc", "content", List.of());
     }
 
+    private List<EntityTagRequest> entityTags(int count) {
+        return IntStream.rangeClosed(1, count)
+                .mapToObj(i -> new EntityTagRequest(EntityType.ARTIST, (long) i))
+                .toList();
+    }
+
     // -------------------------------------------------------------------------
     // POST /api/posts
     // -------------------------------------------------------------------------
@@ -126,6 +136,35 @@ class PostControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void should_return_400_when_create_request_has_more_than_10_entity_tags() throws Exception {
+        // given
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), entityTags(11));
+
+        // when & then
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").value(containsString("태그는 10개를 초과할 수 없습니다")));
+    }
+
+    @Test
+    void should_return_201_when_create_request_has_exactly_10_entity_tags() throws Exception {
+        // given
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), entityTags(10));
+        given(postService.create(eq(USER_ID), any(PostCreateRequest.class))).willReturn(new PostCreateResponse(POST_ID));
+
+        // when & then
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(POST_ID));
+        verify(postService).create(eq(USER_ID), any(PostCreateRequest.class));
     }
 
     // -------------------------------------------------------------------------
@@ -252,6 +291,20 @@ class PostControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.name()))
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void should_return_400_when_update_request_has_more_than_10_entity_tags() throws Exception {
+        // given
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, entityTags(11));
+
+        // when & then
+        mockMvc.perform(patch("/api/posts/{id}", POST_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").value(containsString("태그는 10개를 초과할 수 없습니다")));
     }
 
     // -------------------------------------------------------------------------

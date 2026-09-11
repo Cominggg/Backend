@@ -31,6 +31,7 @@ import com.Coming.Backend.post.entity.PostEntityTag;
 import com.Coming.Backend.post.entity.PostRecommend;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
+import com.Coming.Backend.post.exception.PostContentTooLongException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
 import com.Coming.Backend.post.repository.EntityTagCount;
@@ -91,6 +92,20 @@ class PostServiceTest {
                 "content", List.of(
                         Map.of("type", "paragraph", "content", List.of(
                                 Map.of("type", "text", "text", "안녕하세요")
+                        ))
+                )
+        );
+    }
+
+    /**
+     * "a"를 length만큼 반복한 텍스트 노드 하나를 포함한 Tiptap 문서. contentText 길이를 정확히 통제하기 위해 사용한다.
+     */
+    private Map<String, Object> contentWithLength(int length) {
+        return Map.of(
+                "type", "doc",
+                "content", List.of(
+                        Map.of("type", "paragraph", "content", List.of(
+                                Map.of("type", "text", "text", "a".repeat(length))
                         ))
                 )
         );
@@ -195,6 +210,36 @@ class PostServiceTest {
         // then
         assertThat(response.id()).isEqualTo(POST_ID);
         verify(postEntityTagRepository, times(2)).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_create_post_when_content_text_length_is_exactly_max_length() {
+        // given
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목", contentWithLength(10000), null);
+        given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", POST_ID);
+            return saved;
+        });
+
+        // when
+        PostCreateResponse response = postService.create(AUTHOR_ID, request);
+
+        // then
+        assertThat(response.id()).isEqualTo(POST_ID);
+        verify(postRepository).save(any(Post.class));
+    }
+
+    @Test
+    void should_throw_content_too_long_exception_when_content_text_length_exceeds_max_length_on_create() {
+        // given
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목", contentWithLength(10001), null);
+
+        // when & then
+        assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
+                .isInstanceOf(PostContentTooLongException.class)
+                .hasMessage(ErrorCode.POST_CONTENT_TOO_LONG.getMessage());
+        verify(postRepository, never()).save(any(Post.class));
     }
 
     // -------------------------------------------------------------------------
@@ -647,6 +692,36 @@ class PostServiceTest {
 
         // then
         assertThat(post.getCategory()).isEqualTo(PostCategory.REVIEW);
+    }
+
+    @Test
+    void should_update_content_when_content_text_length_is_exactly_max_length() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "기존 제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, contentWithLength(10000), null);
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        assertThat(post.getContentText()).hasSize(10000);
+    }
+
+    @Test
+    void should_throw_content_too_long_exception_and_keep_existing_fields_when_content_text_length_exceeds_max_length_on_update() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "기존 제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", contentWithLength(10001), null);
+
+        // when & then
+        assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
+                .isInstanceOf(PostContentTooLongException.class)
+                .hasMessage(ErrorCode.POST_CONTENT_TOO_LONG.getMessage());
+        assertThat(post.getTitle()).isEqualTo("기존 제목");
+        assertThat(post.getContent()).isEqualTo("{\"type\":\"doc\"}");
+        assertThat(post.getContentText()).isEqualTo("기존 텍스트");
     }
 
     // -------------------------------------------------------------------------
