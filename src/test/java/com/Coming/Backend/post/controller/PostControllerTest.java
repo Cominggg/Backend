@@ -176,7 +176,7 @@ class PostControllerTest {
         // given
         PostDetailResponse detail = new PostDetailResponse(
                 POST_ID, "IU", PostCategory.FREE, "제목", sampleContent(),
-                List.of(), 0L, 1L, null, true, LocalDateTime.now(), LocalDateTime.now()
+                List.of(), 0L, 1L, 0L, null, true, LocalDateTime.now(), LocalDateTime.now()
         );
         given(postService.getDetail(eq(POST_ID), eq(USER_ID))).willReturn(detail);
 

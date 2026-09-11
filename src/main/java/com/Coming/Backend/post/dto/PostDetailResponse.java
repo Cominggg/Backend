@@ -14,6 +14,7 @@ public record PostDetailResponse(
         List<PostEntityTagResponse> entityTags,
         Long recommendCount,
         Long viewCount,
+        Long commentCount,
         Boolean isRecommended,
         boolean isAuthor,
         LocalDateTime createdAt,

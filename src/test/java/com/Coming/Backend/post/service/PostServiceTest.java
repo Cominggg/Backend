@@ -121,6 +121,7 @@ class PostServiceTest {
                 .contentText("기존 텍스트")
                 .recommendCount(0L)
                 .viewCount(viewCount)
+                .commentCount(0L)
                 .build();
     }
 

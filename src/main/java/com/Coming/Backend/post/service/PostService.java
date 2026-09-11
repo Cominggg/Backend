@@ -120,6 +120,7 @@ public class PostService {
                 entityTags,
                 post.getRecommendCount(),
                 post.getViewCount() + 1,
+                post.getCommentCount(),
                 isRecommended,
                 post.isAuthoredBy(userId),
                 post.getCreatedAt(),

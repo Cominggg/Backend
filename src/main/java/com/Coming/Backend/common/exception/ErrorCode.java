@@ -55,6 +55,12 @@ public enum ErrorCode {
     NOT_RECOMMENDED(HttpStatus.BAD_REQUEST, "추천하지 않은 게시글입니다."),
     POST_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "본문은 10000자를 초과할 수 없습니다."),
 
+    // Comment
+    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 댓글입니다."),
+    INVALID_REPLY_DEPTH(HttpStatus.BAD_REQUEST, "답글에는 답글을 작성할 수 없습니다."),
+    ALREADY_LIKED(HttpStatus.CONFLICT, "이미 좋아요한 댓글입니다."),
+    NOT_LIKED(HttpStatus.BAD_REQUEST, "좋아요하지 않은 댓글입니다."),
+
     // Pipeline
     PIPELINE_NOT_FOUND(HttpStatus.NOT_FOUND, "Data 파이프라인에서 해당 리소스를 찾을 수 없습니다."),
     PIPELINE_CONFLICT(HttpStatus.CONFLICT, "이미 처리 중인 수집 요청입니다. 잠시 후 다시 확인해주세요."),
