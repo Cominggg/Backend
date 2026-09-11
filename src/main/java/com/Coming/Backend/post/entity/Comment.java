@@ -43,6 +43,8 @@ public class Comment extends BaseCreatedEntity {
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted;
 
+    private static final String DELETED_CONTENT_PLACEHOLDER = "삭제된 댓글입니다";
+
     public boolean isAuthoredBy(Long userId) {
         return userId != null && this.userId.equals(userId);
     }
@@ -53,5 +55,26 @@ public class Comment extends BaseCreatedEntity {
 
     public void softDelete() {
         this.deleted = true;
+    }
+
+    /**
+     * 소프트 삭제된 댓글은 본문 대신 플레이스홀더를 노출한다.
+     */
+    public String getDisplayContent() {
+        return deleted ? DELETED_CONTENT_PLACEHOLDER : content;
+    }
+
+    /**
+     * 소프트 삭제된 댓글은 좋아요 수를 0으로 노출한다.
+     */
+    public Long getDisplayLikeCount() {
+        return deleted ? 0L : likeCount;
+    }
+
+    /**
+     * 소프트 삭제된 댓글은 작성자 정보를 노출하지 않는다(isAuthoredBy와 달리 삭제 여부까지 반영).
+     */
+    public boolean isVisibleAuthor(Long userId) {
+        return !deleted && isAuthoredBy(userId);
     }
 }

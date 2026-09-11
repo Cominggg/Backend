@@ -38,8 +38,6 @@ import java.util.stream.Stream;
 @Transactional(readOnly = true)
 public class CommentService {
 
-    private static final String DELETED_CONTENT_PLACEHOLDER = "삭제된 댓글입니다";
-
     private final CommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final PostRepository postRepository;
@@ -51,23 +49,27 @@ public class CommentService {
      * @param userId 인증 사용자 ID. null이면 isLiked는 null, isAuthor는 false로 반환된다.
      */
     public PageResponse<CommentResponse> getComments(Long postId, Long userId, int page, int size) {
-        postRepository.findById(postId).orElseThrow(PostNotFoundException::new);
+        if (!postRepository.existsById(postId)) {
+            throw new PostNotFoundException();
+        }
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Comment> topLevelPage = commentRepository.findTopLevelByPostId(postId, pageable);
         List<Comment> topLevelComments = topLevelPage.getContent();
 
         List<Long> topLevelIds = topLevelComments.stream().map(Comment::getId).toList();
-        Map<Long, List<Comment>> repliesByParentId = commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(topLevelIds)
-                .stream()
-                .collect(Collectors.groupingBy(Comment::getParentCommentId));
+        Map<Long, List<Comment>> repliesByParentId = topLevelIds.isEmpty()
+                ? Map.of()
+                : commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(topLevelIds).stream()
+                        .collect(Collectors.groupingBy(Comment::getParentCommentId));
 
-        List<Comment> allComments = Stream.concat(
+        // 소프트 삭제된 댓글은 닉네임·좋아요 여부를 노출하지 않으므로 배치 조회 대상에서 제외한다.
+        List<Comment> visibleComments = Stream.concat(
                 topLevelComments.stream(),
                 repliesByParentId.values().stream().flatMap(List::stream)
-        ).toList();
-        Map<Long, String> nicknameByUserId = findNicknames(allComments);
-        Set<Long> likedCommentIds = findLikedCommentIds(userId, allComments);
+        ).filter(comment -> !comment.isDeleted()).toList();
+        Map<Long, String> nicknameByUserId = findNicknames(visibleComments);
+        Set<Long> likedCommentIds = findLikedCommentIds(userId, visibleComments);
 
         List<CommentResponse> content = topLevelComments.stream()
                 .map(comment -> toResponse(comment, repliesByParentId.getOrDefault(comment.getId(), List.of()),
@@ -84,7 +86,9 @@ public class CommentService {
      */
     @Transactional
     public CommentCreateResponse create(Long userId, Long postId, CommentCreateRequest request) {
-        postRepository.findById(postId).orElseThrow(PostNotFoundException::new);
+        if (!postRepository.existsById(postId)) {
+            throw new PostNotFoundException();
+        }
 
         Long parentCommentId = request.parentCommentId();
         if (parentCommentId != null) {
@@ -105,6 +109,7 @@ public class CommentService {
                 .deleted(false)
                 .build();
         commentRepository.save(comment);
+        // commentCount는 생성 시에만 증가하는 단조 카운터다. 삭제는 항상 소프트 삭제(행 유지)라 감소시키지 않는다.
         postRepository.incrementCommentCount(postId);
 
         return new CommentCreateResponse(comment.getId());
@@ -163,17 +168,16 @@ public class CommentService {
                 .map(reply -> toResponse(reply, List.of(), userId, nicknameByUserId, likedCommentIds))
                 .toList();
 
-        if (comment.isDeleted()) {
-            return new CommentResponse(comment.getId(), null, false, DELETED_CONTENT_PLACEHOLDER, 0L, null,
-                    comment.getCreatedAt(), replyResponses);
-        }
+        String authorNickname = comment.isDeleted() ? null : nicknameByUserId.get(comment.getUserId());
+        Boolean isLiked = userId == null || comment.isDeleted() ? null : likedCommentIds.contains(comment.getId());
+
         return new CommentResponse(
                 comment.getId(),
-                nicknameByUserId.get(comment.getUserId()),
-                comment.isAuthoredBy(userId),
-                comment.getContent(),
-                comment.getLikeCount(),
-                userId == null ? null : likedCommentIds.contains(comment.getId()),
+                authorNickname,
+                comment.isVisibleAuthor(userId),
+                comment.getDisplayContent(),
+                comment.getDisplayLikeCount(),
+                isLiked,
                 comment.getCreatedAt(),
                 replyResponses
         );

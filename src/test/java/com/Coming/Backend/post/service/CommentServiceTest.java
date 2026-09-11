@@ -10,7 +10,6 @@ import com.Coming.Backend.post.dto.CommentLikeCountResponse;
 import com.Coming.Backend.post.dto.CommentResponse;
 import com.Coming.Backend.post.entity.Comment;
 import com.Coming.Backend.post.entity.CommentLike;
-import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.exception.AlreadyLikedException;
 import com.Coming.Backend.post.exception.CommentForbiddenException;
 import com.Coming.Backend.post.exception.CommentNotFoundException;
@@ -92,7 +91,7 @@ class CommentServiceTest {
     @Test
     void should_throw_post_not_found_exception_when_post_does_not_exist_on_get_comments() {
         // given
-        given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
+        given(postRepository.existsById(POST_ID)).willReturn(false);
 
         // when & then
         assertThatThrownBy(() -> commentService.getComments(POST_ID, null, 0, 20))
@@ -103,13 +102,12 @@ class CommentServiceTest {
     @Test
     void should_return_top_level_comments_with_nested_replies_when_comments_exist() {
         // given
-        Post post = Post.builder().id(POST_ID).build();
         Comment topComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "탑레벨 댓글", 2L, false);
         Comment reply = buildComment(REPLY_ID, POST_ID, OTHER_USER_ID, COMMENT_ID, "답글", 0L, false);
         Pageable pageable = PageRequest.of(0, 20);
         Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
 
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of(reply));
@@ -133,12 +131,11 @@ class CommentServiceTest {
     @Test
     void should_return_null_is_liked_and_false_is_author_when_user_id_not_given() {
         // given
-        Post post = Post.builder().id(POST_ID).build();
         Comment topComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 1L, false);
         Pageable pageable = PageRequest.of(0, 20);
         Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
 
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of());
@@ -156,12 +153,11 @@ class CommentServiceTest {
     @Test
     void should_mark_comment_as_liked_when_user_has_liked_it() {
         // given
-        Post post = Post.builder().id(POST_ID).build();
         Comment topComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 1L, false);
         Pageable pageable = PageRequest.of(0, 20);
         Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
 
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of());
@@ -179,19 +175,18 @@ class CommentServiceTest {
     @Test
     void should_replace_content_and_hide_author_when_comment_is_deleted() {
         // given
-        Post post = Post.builder().id(POST_ID).build();
         Comment deletedTopComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "삭제될 댓글", 3L, true);
         Comment reply = buildComment(REPLY_ID, POST_ID, OTHER_USER_ID, COMMENT_ID, "답글", 0L, false);
         Pageable pageable = PageRequest.of(0, 20);
         Page<Comment> topLevelPage = new PageImpl<>(List.of(deletedTopComment), pageable, 1);
 
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of(reply));
-        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID, OTHER_USER_ID)))
-                .willReturn(List.of(buildUser(AUTHOR_ID, "IU"), buildUser(OTHER_USER_ID, "뷔")));
-        given(commentLikeRepository.findLikedCommentIds(VIEWER_ID, List.of(COMMENT_ID, REPLY_ID)))
+        given(userRepository.findAllByIdIn(Set.of(OTHER_USER_ID)))
+                .willReturn(List.of(buildUser(OTHER_USER_ID, "뷔")));
+        given(commentLikeRepository.findLikedCommentIds(VIEWER_ID, List.of(REPLY_ID)))
                 .willReturn(List.of());
 
         // when
@@ -215,7 +210,7 @@ class CommentServiceTest {
     @Test
     void should_throw_post_not_found_exception_when_post_does_not_exist_on_create() {
         // given
-        given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
+        given(postRepository.existsById(POST_ID)).willReturn(false);
         CommentCreateRequest request = new CommentCreateRequest("내용", null);
 
         // when & then
@@ -227,8 +222,7 @@ class CommentServiceTest {
     @Test
     void should_save_top_level_comment_and_increment_comment_count_when_parent_comment_id_is_null() {
         // given
-        Post post = Post.builder().id(POST_ID).build();
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.save(any(Comment.class))).willAnswer(invocation -> {
             Comment saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", COMMENT_ID);
@@ -247,8 +241,7 @@ class CommentServiceTest {
     @Test
     void should_throw_comment_not_found_exception_when_parent_comment_does_not_exist() {
         // given
-        Post post = Post.builder().id(POST_ID).build();
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findById(PARENT_ID)).willReturn(Optional.empty());
         CommentCreateRequest request = new CommentCreateRequest("답글 내용", PARENT_ID);
 
@@ -263,9 +256,8 @@ class CommentServiceTest {
     @Test
     void should_throw_comment_not_found_exception_when_parent_comment_belongs_to_other_post() {
         // given
-        Post post = Post.builder().id(POST_ID).build();
         Comment parent = buildComment(PARENT_ID, OTHER_POST_ID, AUTHOR_ID, null, "다른 게시글 댓글", 0L, false);
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findById(PARENT_ID)).willReturn(Optional.of(parent));
         CommentCreateRequest request = new CommentCreateRequest("답글 내용", PARENT_ID);
 
@@ -278,9 +270,8 @@ class CommentServiceTest {
     @Test
     void should_throw_invalid_reply_depth_exception_when_parent_comment_is_already_a_reply() {
         // given
-        Post post = Post.builder().id(POST_ID).build();
         Comment parent = buildComment(PARENT_ID, POST_ID, AUTHOR_ID, COMMENT_ID, "이미 답글인 댓글", 0L, false);
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findById(PARENT_ID)).willReturn(Optional.of(parent));
         CommentCreateRequest request = new CommentCreateRequest("답글 내용", PARENT_ID);
 
