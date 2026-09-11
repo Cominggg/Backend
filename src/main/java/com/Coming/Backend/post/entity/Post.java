@@ -52,6 +52,9 @@ public class Post extends BaseTimeEntity {
     @Column(name = "view_count", nullable = false)
     private Long viewCount;
 
+    @Column(name = "comment_count", nullable = false)
+    private Long commentCount;
+
     public boolean isAuthoredBy(Long userId) {
         return userId != null && this.userId.equals(userId);
     }

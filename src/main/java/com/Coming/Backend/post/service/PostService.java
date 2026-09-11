@@ -85,6 +85,7 @@ public class PostService {
                 .contentText(contentText)
                 .recommendCount(0L)
                 .viewCount(0L)
+                .commentCount(0L)
                 .build();
         postRepository.save(post);
         saveEntityTags(post.getId(), tags);

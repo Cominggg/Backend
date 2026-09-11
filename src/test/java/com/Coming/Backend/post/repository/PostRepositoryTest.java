@@ -48,6 +48,7 @@ class PostRepositoryTest {
                 .contentText(contentText)
                 .recommendCount(0L)
                 .viewCount(0L)
+                .commentCount(0L)
                 .build();
     }
 
