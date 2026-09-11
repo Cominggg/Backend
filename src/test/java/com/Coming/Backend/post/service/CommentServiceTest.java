@@ -173,7 +173,7 @@ class CommentServiceTest {
     }
 
     @Test
-    void should_replace_content_and_hide_author_when_comment_is_deleted() {
+    void should_replace_content_but_show_nickname_and_like_count_when_comment_is_deleted() {
         // given
         Comment deletedTopComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "삭제될 댓글", 3L, true);
         Comment reply = buildComment(REPLY_ID, POST_ID, OTHER_USER_ID, COMMENT_ID, "답글", 0L, false);
@@ -184,8 +184,8 @@ class CommentServiceTest {
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of(reply));
-        given(userRepository.findAllByIdIn(Set.of(OTHER_USER_ID)))
-                .willReturn(List.of(buildUser(OTHER_USER_ID, "뷔")));
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID, OTHER_USER_ID)))
+                .willReturn(List.of(buildUser(AUTHOR_ID, "지민"), buildUser(OTHER_USER_ID, "뷔")));
         given(commentLikeRepository.findLikedCommentIds(VIEWER_ID, List.of(REPLY_ID)))
                 .willReturn(List.of());
 
@@ -195,8 +195,8 @@ class CommentServiceTest {
         // then
         CommentResponse topResponse = response.content().get(0);
         assertThat(topResponse.content()).isEqualTo("삭제된 댓글입니다");
-        assertThat(topResponse.authorNickname()).isNull();
-        assertThat(topResponse.likeCount()).isEqualTo(0L);
+        assertThat(topResponse.authorNickname()).isEqualTo("지민");
+        assertThat(topResponse.likeCount()).isEqualTo(3L);
         assertThat(topResponse.isLiked()).isNull();
         assertThat(topResponse.isAuthor()).isFalse();
         assertThat(topResponse.replies()).hasSize(1);

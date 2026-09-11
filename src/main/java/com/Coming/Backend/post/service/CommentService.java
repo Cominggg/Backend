@@ -63,13 +63,15 @@ public class CommentService {
                 : commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(topLevelIds).stream()
                         .collect(Collectors.groupingBy(Comment::getParentCommentId));
 
-        // 소프트 삭제된 댓글은 닉네임·좋아요 여부를 노출하지 않으므로 배치 조회 대상에서 제외한다.
-        List<Comment> visibleComments = Stream.concat(
+        List<Comment> allComments = Stream.concat(
                 topLevelComments.stream(),
                 repliesByParentId.values().stream().flatMap(List::stream)
-        ).filter(comment -> !comment.isDeleted()).toList();
-        Map<Long, String> nicknameByUserId = findNicknames(visibleComments);
-        Set<Long> likedCommentIds = findLikedCommentIds(userId, visibleComments);
+        ).toList();
+        Map<Long, String> nicknameByUserId = findNicknames(allComments);
+
+        // 소프트 삭제된 댓글은 좋아요 여부를 노출하지 않으므로 배치 조회 대상에서 제외한다.
+        List<Comment> notDeletedComments = allComments.stream().filter(comment -> !comment.isDeleted()).toList();
+        Set<Long> likedCommentIds = findLikedCommentIds(userId, notDeletedComments);
 
         List<CommentResponse> content = topLevelComments.stream()
                 .map(comment -> toResponse(comment, repliesByParentId.getOrDefault(comment.getId(), List.of()),
@@ -168,7 +170,7 @@ public class CommentService {
                 .map(reply -> toResponse(reply, List.of(), userId, nicknameByUserId, likedCommentIds))
                 .toList();
 
-        String authorNickname = comment.isDeleted() ? null : nicknameByUserId.get(comment.getUserId());
+        String authorNickname = nicknameByUserId.get(comment.getUserId());
         Boolean isLiked = userId == null || comment.isDeleted() ? null : likedCommentIds.contains(comment.getId());
 
         return new CommentResponse(
@@ -176,7 +178,7 @@ public class CommentService {
                 authorNickname,
                 comment.isVisibleAuthor(userId),
                 comment.getDisplayContent(),
-                comment.getDisplayLikeCount(),
+                comment.getLikeCount(),
                 isLiked,
                 comment.getCreatedAt(),
                 replyResponses
