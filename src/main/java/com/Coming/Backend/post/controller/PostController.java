@@ -40,7 +40,6 @@ public class PostController {
     private final PostService postService;
 
     @Operation(summary = "게시글 작성")
-    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (REVIEW/INFO 카테고리에 entityTags 없음)")
     @PostMapping
     public ResponseEntity<PostCreateResponse> create(
             @AuthenticationPrincipal Long userId,
@@ -67,7 +66,6 @@ public class PostController {
     }
 
     @Operation(summary = "게시글 수정")
-    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (REVIEW/INFO 카테고리에 entityTags 없음)")
     @ApiResponse(responseCode = "403", description = "FORBIDDEN (작성자 본인 아님)")
     @ApiResponse(responseCode = "404", description = "POST_NOT_FOUND")
     @PatchMapping("/{id}")

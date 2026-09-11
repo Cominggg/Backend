@@ -60,14 +60,13 @@ public class PostService {
     private final ObjectMapper contentObjectMapper = new ObjectMapper();
 
     /**
-     * 게시글을 생성한다. REVIEW·INFO 카테고리는 entityTags가 1개 이상 있어야 한다.
+     * 게시글을 생성한다.
      * entityTags가 가리키는 엔티티의 실존 여부는 검증하지 않는다 — 삭제된 참조와 동일하게
      * 조회 시점에 EntityLookupService가 조용히 제외한다.
      */
     @Transactional
     public PostCreateResponse create(Long userId, PostCreateRequest request) {
         List<EntityTagRequest> tags = request.entityTags() == null ? List.of() : request.entityTags();
-        validateEntityTagsRequired(request.category(), tags.size());
 
         Post post = Post.builder()
                 .userId(userId)
@@ -189,7 +188,6 @@ public class PostService {
      * 게시글을 수정한다. 작성자 본인만 수정할 수 있다.
      * category·title·content는 null이면 기존값을 유지하고, entityTags는 null이면 기존 태그를 유지한다.
      * entityTags가 주어지면 기존 태그를 전체 삭제 후 재삽입한다.
-     * 수정 후 최종 category가 REVIEW·INFO면 최종 entityTags가 1개 이상이어야 한다.
      */
     @Transactional
     public void update(Long userId, Long id, PostUpdateRequest request) {
@@ -197,12 +195,6 @@ public class PostService {
         if (!post.isAuthoredBy(userId)) {
             throw new PostForbiddenException();
         }
-
-        PostCategory effectiveCategory = request.category() != null ? request.category() : post.getCategory();
-        int effectiveTagCount = request.entityTags() != null
-                ? request.entityTags().size()
-                : postEntityTagRepository.findByPostId(id).size();
-        validateEntityTagsRequired(effectiveCategory, effectiveTagCount);
 
         String content = request.content() != null ? writeContent(request.content()) : null;
         String contentText = request.content() != null ? TiptapTextExtractor.extract(request.content()) : null;
@@ -274,13 +266,6 @@ public class PostService {
             return contentObjectMapper.readValue(content, Object.class);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("저장된 게시글 content가 유효한 JSON이 아닙니다.", e);
-        }
-    }
-
-    private void validateEntityTagsRequired(PostCategory category, int tagCount) {
-        boolean requiresTags = category == PostCategory.REVIEW || category == PostCategory.INFO;
-        if (requiresTags && tagCount == 0) {
-            throw new InvalidInputException();
         }
     }
 

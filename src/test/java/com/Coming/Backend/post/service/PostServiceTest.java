@@ -115,25 +115,39 @@ class PostServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_throw_invalid_input_exception_when_review_category_given_without_entity_tags() {
+    void should_create_post_when_review_category_given_without_entity_tags() {
         // given
         PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), null);
+        given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", POST_ID);
+            return saved;
+        });
 
-        // when & then
-        assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
-                .isInstanceOf(InvalidInputException.class)
-                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        // when
+        PostCreateResponse response = postService.create(AUTHOR_ID, request);
+
+        // then
+        assertThat(response.id()).isEqualTo(POST_ID);
+        verify(postEntityTagRepository, never()).save(any(PostEntityTag.class));
     }
 
     @Test
-    void should_throw_invalid_input_exception_when_info_category_given_without_entity_tags() {
+    void should_create_post_when_info_category_given_without_entity_tags() {
         // given
         PostCreateRequest request = new PostCreateRequest(PostCategory.INFO, "정보 제목", sampleContent(), List.of());
+        given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", POST_ID);
+            return saved;
+        });
 
-        // when & then
-        assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
-                .isInstanceOf(InvalidInputException.class)
-                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        // when
+        PostCreateResponse response = postService.create(AUTHOR_ID, request);
+
+        // then
+        assertThat(response.id()).isEqualTo(POST_ID);
+        verify(postEntityTagRepository, never()).save(any(PostEntityTag.class));
     }
 
     @Test
@@ -524,31 +538,17 @@ class PostServiceTest {
     }
 
     @Test
-    void should_throw_invalid_input_exception_when_effective_category_requires_tags_and_existing_tags_empty() {
+    void should_update_category_when_review_category_given_without_entity_tags() {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
         PostUpdateRequest request = new PostUpdateRequest(PostCategory.REVIEW, null, null, null);
 
-        // when & then
-        assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
-                .isInstanceOf(InvalidInputException.class)
-                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
-        assertThat(post.getCategory()).isEqualTo(PostCategory.FREE);
-    }
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
 
-    @Test
-    void should_throw_invalid_input_exception_when_effective_category_requires_tags_and_request_tags_empty() {
-        // given
-        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, List.of());
-
-        // when & then
-        assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
-                .isInstanceOf(InvalidInputException.class)
-                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        // then
+        assertThat(post.getCategory()).isEqualTo(PostCategory.REVIEW);
     }
 
     // -------------------------------------------------------------------------
