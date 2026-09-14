@@ -278,10 +278,7 @@ public class PostService {
         if (!post.isAuthoredBy(userId)) {
             throw new PostForbiddenException();
         }
-        List<Long> commentIds = commentRepository.findIdsByPostId(id);
-        if (!commentIds.isEmpty()) {
-            commentLikeRepository.deleteByCommentIdIn(commentIds);
-        }
+        commentLikeRepository.deleteByCommentPostId(id);
         commentRepository.deleteByPostId(id);
         postRecommendRepository.deleteByPostId(id);
         postEntityTagRepository.deleteByPostId(id);
@@ -315,9 +312,10 @@ public class PostService {
     @Transactional
     public RecommendCountResponse unrecommend(Long userId, Long id) {
         postRepository.findById(id).orElseThrow(PostNotFoundException::new);
-        PostRecommend recommend = postRecommendRepository.findByUserIdAndPostId(userId, id)
-                .orElseThrow(NotRecommendedException::new);
-        postRecommendRepository.delete(recommend);
+        long deletedCount = postRecommendRepository.deleteByUserIdAndPostId(userId, id);
+        if (deletedCount == 0) {
+            throw new NotRecommendedException();
+        }
         postRepository.decrementRecommendCount(id);
         return new RecommendCountResponse(postRepository.findRecommendCountById(id));
     }

@@ -829,7 +829,6 @@ class PostServiceTest {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        given(commentRepository.findIdsByPostId(POST_ID)).willReturn(List.of());
 
         // when
         postService.delete(AUTHOR_ID, POST_ID);
@@ -843,32 +842,15 @@ class PostServiceTest {
     void should_delete_comments_comment_likes_and_recommends_when_author_deletes_post() {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
-        List<Long> commentIds = List.of(1L, 2L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        given(commentRepository.findIdsByPostId(POST_ID)).willReturn(commentIds);
 
         // when
         postService.delete(AUTHOR_ID, POST_ID);
 
         // then
-        verify(commentLikeRepository).deleteByCommentIdIn(commentIds);
+        verify(commentLikeRepository).deleteByCommentPostId(POST_ID);
         verify(commentRepository).deleteByPostId(POST_ID);
         verify(postRecommendRepository).deleteByPostId(POST_ID);
-    }
-
-    @Test
-    void should_not_call_comment_like_delete_when_post_has_no_comments() {
-        // given
-        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
-        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        given(commentRepository.findIdsByPostId(POST_ID)).willReturn(List.of());
-
-        // when
-        postService.delete(AUTHOR_ID, POST_ID);
-
-        // then
-        verify(commentLikeRepository, never()).deleteByCommentIdIn(any());
-        verify(commentRepository).deleteByPostId(POST_ID);
     }
 
     // -------------------------------------------------------------------------
@@ -959,7 +941,7 @@ class PostServiceTest {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        given(postRecommendRepository.findByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(Optional.empty());
+        given(postRecommendRepository.deleteByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(0L);
 
         // when & then
         assertThatThrownBy(() -> postService.unrecommend(OTHER_USER_ID, POST_ID))
@@ -978,12 +960,8 @@ class PostServiceTest {
                 .title("제목")
                 .recommendCount(3L)
                 .build();
-        PostRecommend recommend = PostRecommend.builder()
-                .userId(OTHER_USER_ID)
-                .postId(POST_ID)
-                .build();
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        given(postRecommendRepository.findByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(Optional.of(recommend));
+        given(postRecommendRepository.deleteByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(1L);
         given(postRepository.findRecommendCountById(POST_ID)).willReturn(2L);
 
         // when
@@ -991,7 +969,7 @@ class PostServiceTest {
 
         // then
         assertThat(response.recommendCount()).isEqualTo(2L);
-        verify(postRecommendRepository).delete(recommend);
+        verify(postRecommendRepository).deleteByUserIdAndPostId(OTHER_USER_ID, POST_ID);
         verify(postRepository).decrementRecommendCount(POST_ID);
     }
 }
