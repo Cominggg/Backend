@@ -153,6 +153,21 @@ class PostControllerTest {
     }
 
     @Test
+    void should_return_400_when_create_request_has_null_entity_tag_element() throws Exception {
+        // given: EntityTagRequest 대신 null이 섞인 요청을 직접 JSON으로 구성한다.
+        String requestJson = """
+                {"category":"FREE","title":"자유 제목","content":{"type":"doc","content":[]},"entityTags":[null]}
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
+    }
+
+    @Test
     void should_return_201_when_create_request_has_exactly_10_entity_tags() throws Exception {
         // given
         PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), entityTags(10));
@@ -291,6 +306,19 @@ class PostControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.name()))
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void should_return_400_when_update_request_has_blank_title() throws Exception {
+        // given
+        PostUpdateRequest request = new PostUpdateRequest(null, "   ", null, null);
+
+        // when & then
+        mockMvc.perform(patch("/api/posts/{id}", POST_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
     }
 
     @Test

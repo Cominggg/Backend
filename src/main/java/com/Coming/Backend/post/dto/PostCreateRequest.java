@@ -20,6 +20,6 @@ public record PostCreateRequest(
         Object content,
 
         @Size(max = 10, message = "태그는 10개를 초과할 수 없습니다")
-        List<@Valid EntityTagRequest> entityTags
+        List<@NotNull @Valid EntityTagRequest> entityTags
 ) {
 }
