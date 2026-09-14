@@ -70,6 +70,12 @@ public class PostService {
     private static final int MAX_CONTENT_TEXT_LENGTH = 10000;
 
     /**
+     * content 원본(jsonb 직렬화 문자열) 크기 상한. contentText는 텍스트 노드만 추출한 값이라
+     * 구조만 방대한 JSON으로 MAX_CONTENT_TEXT_LENGTH 검증을 우회할 수 있어 별도로 제한한다.
+     */
+    private static final int MAX_CONTENT_LENGTH = 50000;
+
+    /**
      * 게시글을 생성한다.
      * entityTags가 가리키는 엔티티의 실존 여부는 검증하지 않는다 — 삭제된 참조와 동일하게
      * 조회 시점에 EntityLookupService가 조용히 제외한다.
@@ -80,12 +86,14 @@ public class PostService {
 
         String contentText = TiptapTextExtractor.extract(request.content());
         validateContentTextLength(contentText);
+        String content = writeContent(request.content());
+        validateContentLength(content);
 
         Post post = Post.builder()
                 .userId(userId)
                 .category(request.category())
                 .title(request.title())
-                .content(writeContent(request.content()))
+                .content(content)
                 .contentText(contentText)
                 .recommendCount(0L)
                 .viewCount(0L)
@@ -226,7 +234,7 @@ public class PostService {
      */
     public PageResponse<PostSummaryResponse> search(String q, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        String likeQ = "%" + q.toLowerCase(Locale.ROOT) + "%";
+        String likeQ = "%" + escapeLikeWildcards(q.toLowerCase(Locale.ROOT)) + "%";
         Page<Post> result = postRepository.searchPosts(likeQ, pageable);
         List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
         return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
@@ -249,6 +257,9 @@ public class PostService {
             validateContentTextLength(contentText);
         }
         String content = request.content() != null ? writeContent(request.content()) : null;
+        if (content != null) {
+            validateContentLength(content);
+        }
         post.update(request.category(), request.title(), content, contentText);
 
         if (request.entityTags() != null) {
@@ -317,6 +328,18 @@ public class PostService {
         }
     }
 
+    private void validateContentLength(String content) {
+        if (content.length() > MAX_CONTENT_LENGTH) {
+            throw new PostContentTooLongException();
+        }
+    }
+
+    private String escapeLikeWildcards(String q) {
+        return q.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+    }
+
     private String writeContent(Object content) {
         try {
             return contentObjectMapper.writeValueAsString(content);
@@ -334,7 +357,7 @@ public class PostService {
     }
 
     private void saveEntityTags(Long postId, List<EntityTagRequest> tags) {
-        tags.forEach(tag -> postEntityTagRepository.save(PostEntityTag.builder()
+        tags.stream().distinct().forEach(tag -> postEntityTagRepository.save(PostEntityTag.builder()
                 .postId(postId)
                 .entityType(tag.entityType())
                 .entityId(tag.entityId())

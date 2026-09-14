@@ -120,4 +120,17 @@ class MentionServiceTest {
         // then
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void should_escape_like_wildcards_when_query_contains_percent_and_underscore() {
+        // given
+        given(concertRepository.searchByTitleForMention(any(), eq("%50\\%\\_off%"), any(Pageable.class)))
+                .willReturn(List.of());
+
+        // when
+        mentionService.search(EntityType.CONCERT, "50%_off", LIMIT);
+
+        // then
+        verify(concertRepository).searchByTitleForMention(any(), eq("%50\\%\\_off%"), any(Pageable.class));
+    }
 }

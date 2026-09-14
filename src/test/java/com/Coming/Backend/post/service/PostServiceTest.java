@@ -119,6 +119,23 @@ class PostServiceTest {
         );
     }
 
+    /**
+     * 텍스트 노드는 짧지만(contentText 검증 통과), attrs에 padding을 채워 직렬화된 JSON 문자열 자체는
+     * 크게 만든 Tiptap 문서. content 원본 크기 상한 검증용.
+     */
+    private Map<String, Object> contentWithLargeStructureAndShortText(int paddingLength) {
+        return Map.of(
+                "type", "doc",
+                "content", List.of(
+                        Map.of("type", "paragraph",
+                                "attrs", Map.of("padding", "x".repeat(paddingLength)),
+                                "content", List.of(
+                                        Map.of("type", "text", "text", "안녕하세요")
+                                ))
+                )
+        );
+    }
+
     private Post buildPost(Long id, Long userId, PostCategory category, String title, long viewCount) {
         return Post.builder()
                 .id(id)
@@ -222,6 +239,27 @@ class PostServiceTest {
     }
 
     @Test
+    void should_deduplicate_entity_tags_when_duplicate_tags_given_on_create() {
+        // given
+        List<EntityTagRequest> tags = List.of(
+                new EntityTagRequest(EntityType.ARTIST, 1L),
+                new EntityTagRequest(EntityType.ARTIST, 1L)
+        );
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags);
+        given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", POST_ID);
+            return saved;
+        });
+
+        // when
+        postService.create(AUTHOR_ID, request);
+
+        // then
+        verify(postEntityTagRepository, times(1)).save(any(PostEntityTag.class));
+    }
+
+    @Test
     void should_create_post_when_content_text_length_is_exactly_max_length() {
         // given
         PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목", contentWithLength(10000), null);
@@ -243,6 +281,19 @@ class PostServiceTest {
     void should_throw_content_too_long_exception_when_content_text_length_exceeds_max_length_on_create() {
         // given
         PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목", contentWithLength(10001), null);
+
+        // when & then
+        assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
+                .isInstanceOf(PostContentTooLongException.class)
+                .hasMessage(ErrorCode.POST_CONTENT_TOO_LONG.getMessage());
+        verify(postRepository, never()).save(any(Post.class));
+    }
+
+    @Test
+    void should_throw_content_too_long_exception_when_raw_content_size_exceeds_limit_despite_short_text_on_create() {
+        // given: contentText는 10000자 제한을 통과할 만큼 짧지만, 구조(attrs)만 방대해 직렬화된 content가 50000자를 초과한다.
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목",
+                contentWithLargeStructureAndShortText(60000), null);
 
         // when & then
         assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
@@ -593,6 +644,19 @@ class PostServiceTest {
         // then
         assertThat(response.content()).isEmpty();
         assertThat(response.totalElements()).isZero();
+    }
+
+    @Test
+    void should_escape_like_wildcards_when_search_query_contains_percent_and_underscore() {
+        // given
+        Pageable pageable = PageRequest.of(0, 20);
+        given(postRepository.searchPosts(eq("%50\\%\\_off%"), eq(pageable))).willReturn(Page.empty(pageable));
+
+        // when
+        postService.search("50%_off", 0, 20);
+
+        // then
+        verify(postRepository).searchPosts("%50\\%\\_off%", pageable);
     }
 
     // -------------------------------------------------------------------------

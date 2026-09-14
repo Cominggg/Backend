@@ -72,6 +72,12 @@ public class MentionService {
     }
 
     private String toLikePattern(String q) {
-        return "%" + q.toLowerCase(Locale.ROOT) + "%";
+        return "%" + escapeLikeWildcards(q.toLowerCase(Locale.ROOT)) + "%";
+    }
+
+    private String escapeLikeWildcards(String q) {
+        return q.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 }
