@@ -109,7 +109,7 @@ class CommentServiceTest {
 
         given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
-        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(COMMENT_ID)))
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of(reply));
         given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID, OTHER_USER_ID)))
                 .willReturn(List.of(buildUser(AUTHOR_ID, "IU"), buildUser(OTHER_USER_ID, "뷔")));
@@ -137,7 +137,7 @@ class CommentServiceTest {
 
         given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
-        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(COMMENT_ID)))
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of());
         given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
 
@@ -159,7 +159,7 @@ class CommentServiceTest {
 
         given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
-        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(COMMENT_ID)))
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of());
         given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
         given(commentLikeRepository.findLikedCommentIds(VIEWER_ID, List.of(COMMENT_ID)))
@@ -182,7 +182,7 @@ class CommentServiceTest {
 
         given(postRepository.existsById(POST_ID)).willReturn(true);
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
-        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(COMMENT_ID)))
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of(reply));
         given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID, OTHER_USER_ID)))
                 .willReturn(List.of(buildUser(AUTHOR_ID, "지민"), buildUser(OTHER_USER_ID, "뷔")));

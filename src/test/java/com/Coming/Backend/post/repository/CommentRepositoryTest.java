@@ -81,7 +81,7 @@ class CommentRepositoryTest {
         Comment secondReply = commentRepository.save(buildComment(POST_ID, parent.getId(), "두번째 답글"));
 
         // when
-        List<Comment> replies = commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of(parent.getId()));
+        List<Comment> replies = commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(parent.getId()));
 
         // then
         assertThat(replies).extracting(Comment::getId)
@@ -94,7 +94,7 @@ class CommentRepositoryTest {
         commentRepository.save(buildComment(POST_ID, null, "댓글"));
 
         // when
-        List<Comment> replies = commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(List.of());
+        List<Comment> replies = commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of());
 
         // then
         assertThat(replies).isEmpty();
@@ -149,5 +149,67 @@ class CommentRepositoryTest {
 
         // then
         assertThat(likedIds).isEmpty();
+    }
+
+    @Test
+    void should_return_only_comment_ids_belonging_to_post_when_finding_ids_by_post_id() {
+        // given
+        Comment first = commentRepository.save(buildComment(POST_ID, null, "댓글1"));
+        Comment second = commentRepository.save(buildComment(POST_ID, first.getId(), "댓글2"));
+        commentRepository.save(buildComment(OTHER_POST_ID, null, "다른 게시글 댓글"));
+
+        // when
+        List<Long> ids = commentRepository.findIdsByPostId(POST_ID);
+
+        // then
+        assertThat(ids).containsExactlyInAnyOrder(first.getId(), second.getId());
+    }
+
+    @Test
+    void should_delete_only_comments_belonging_to_post_when_deleting_by_post_id() {
+        // given
+        Comment target = commentRepository.save(buildComment(POST_ID, null, "삭제될 댓글"));
+        Comment other = commentRepository.save(buildComment(OTHER_POST_ID, null, "유지될 댓글"));
+
+        // when
+        commentRepository.deleteByPostId(POST_ID);
+        entityManager.flush();
+        entityManager.clear();
+
+        // then
+        assertThat(commentRepository.findById(target.getId())).isEmpty();
+        assertThat(commentRepository.findById(other.getId())).isPresent();
+    }
+
+    @Test
+    void should_delete_only_likes_for_given_comment_ids_when_deleting_by_comment_id_in() {
+        // given
+        Comment target = commentRepository.save(buildComment(POST_ID, null, "댓글"));
+        Comment other = commentRepository.save(buildComment(POST_ID, null, "다른 댓글"));
+        CommentLike targetLike = commentLikeRepository.save(
+                CommentLike.builder().userId(AUTHOR_ID).commentId(target.getId()).build());
+        CommentLike otherLike = commentLikeRepository.save(
+                CommentLike.builder().userId(AUTHOR_ID).commentId(other.getId()).build());
+
+        // when
+        commentLikeRepository.deleteByCommentIdIn(List.of(target.getId()));
+        entityManager.flush();
+        entityManager.clear();
+
+        // then
+        assertThat(commentLikeRepository.findById(targetLike.getId())).isEmpty();
+        assertThat(commentLikeRepository.findById(otherLike.getId())).isPresent();
+    }
+
+    @Test
+    void should_return_current_like_count_when_finding_like_count_by_id() {
+        // given
+        Comment comment = commentRepository.save(buildComment(POST_ID, null, "댓글", 3L));
+
+        // when
+        Long likeCount = commentRepository.findLikeCountById(comment.getId());
+
+        // then
+        assertThat(likeCount).isEqualTo(3L);
     }
 }

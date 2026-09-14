@@ -60,7 +60,7 @@ public class CommentService {
         List<Long> topLevelIds = topLevelComments.stream().map(Comment::getId).toList();
         Map<Long, List<Comment>> repliesByParentId = topLevelIds.isEmpty()
                 ? Map.of()
-                : commentRepository.findByParentCommentIdInOrderByCreatedAtAsc(topLevelIds).stream()
+                : commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(topLevelIds).stream()
                         .collect(Collectors.groupingBy(Comment::getParentCommentId));
 
         List<Comment> allComments = Stream.concat(

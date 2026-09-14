@@ -9,4 +9,6 @@ public interface PostRecommendRepository extends JpaRepository<PostRecommend, Lo
     boolean existsByUserIdAndPostId(Long userId, Long postId);
 
     Optional<PostRecommend> findByUserIdAndPostId(Long userId, Long postId);
+
+    void deleteByPostId(Long postId);
 }

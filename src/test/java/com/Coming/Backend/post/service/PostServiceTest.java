@@ -34,6 +34,8 @@ import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostContentTooLongException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
+import com.Coming.Backend.post.repository.CommentLikeRepository;
+import com.Coming.Backend.post.repository.CommentRepository;
 import com.Coming.Backend.post.repository.EntityTagCount;
 import com.Coming.Backend.post.repository.PostEntityTagRepository;
 import com.Coming.Backend.post.repository.PostRecommendRepository;
@@ -71,6 +73,12 @@ class PostServiceTest {
 
     @Mock
     private PostRecommendRepository postRecommendRepository;
+
+    @Mock
+    private CommentRepository commentRepository;
+
+    @Mock
+    private CommentLikeRepository commentLikeRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -757,6 +765,7 @@ class PostServiceTest {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(commentRepository.findIdsByPostId(POST_ID)).willReturn(List.of());
 
         // when
         postService.delete(AUTHOR_ID, POST_ID);
@@ -764,6 +773,38 @@ class PostServiceTest {
         // then
         verify(postEntityTagRepository).deleteByPostId(POST_ID);
         verify(postRepository).delete(post);
+    }
+
+    @Test
+    void should_delete_comments_comment_likes_and_recommends_when_author_deletes_post() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        List<Long> commentIds = List.of(1L, 2L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(commentRepository.findIdsByPostId(POST_ID)).willReturn(commentIds);
+
+        // when
+        postService.delete(AUTHOR_ID, POST_ID);
+
+        // then
+        verify(commentLikeRepository).deleteByCommentIdIn(commentIds);
+        verify(commentRepository).deleteByPostId(POST_ID);
+        verify(postRecommendRepository).deleteByPostId(POST_ID);
+    }
+
+    @Test
+    void should_not_call_comment_like_delete_when_post_has_no_comments() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(commentRepository.findIdsByPostId(POST_ID)).willReturn(List.of());
+
+        // when
+        postService.delete(AUTHOR_ID, POST_ID);
+
+        // then
+        verify(commentLikeRepository, never()).deleteByCommentIdIn(any());
+        verify(commentRepository).deleteByPostId(POST_ID);
     }
 
     // -------------------------------------------------------------------------

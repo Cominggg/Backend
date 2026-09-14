@@ -12,10 +12,15 @@ import org.springframework.data.repository.query.Param;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
-    @Query("SELECT c FROM Comment c WHERE c.postId = :postId AND c.parentCommentId IS NULL ORDER BY c.createdAt ASC")
+    @Query("SELECT c FROM Comment c WHERE c.postId = :postId AND c.parentCommentId IS NULL ORDER BY c.createdAt ASC, c.id ASC")
     Page<Comment> findTopLevelByPostId(@Param("postId") Long postId, Pageable pageable);
 
-    List<Comment> findByParentCommentIdInOrderByCreatedAtAsc(Collection<Long> parentCommentIds);
+    List<Comment> findByParentCommentIdInOrderByCreatedAtAscIdAsc(Collection<Long> parentCommentIds);
+
+    @Query("SELECT c.id FROM Comment c WHERE c.postId = :postId")
+    List<Long> findIdsByPostId(@Param("postId") Long postId);
+
+    void deleteByPostId(Long postId);
 
     @Modifying
     @Query("UPDATE Comment c SET c.likeCount = c.likeCount + 1 WHERE c.id = :id")
@@ -24,4 +29,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Modifying
     @Query("UPDATE Comment c SET c.likeCount = c.likeCount - 1 WHERE c.id = :id")
     void decrementLikeCount(@Param("id") Long id);
+
+    @Query("SELECT c.likeCount FROM Comment c WHERE c.id = :id")
+    Long findLikeCountById(@Param("id") Long id);
 }

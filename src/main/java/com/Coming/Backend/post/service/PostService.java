@@ -24,6 +24,8 @@ import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostContentTooLongException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
+import com.Coming.Backend.post.repository.CommentLikeRepository;
+import com.Coming.Backend.post.repository.CommentRepository;
 import com.Coming.Backend.post.repository.EntityTagCount;
 import com.Coming.Backend.post.repository.PostEntityTagRepository;
 import com.Coming.Backend.post.repository.PostRecommendRepository;
@@ -54,6 +56,8 @@ public class PostService {
     private final PostRepository postRepository;
     private final PostEntityTagRepository postEntityTagRepository;
     private final PostRecommendRepository postRecommendRepository;
+    private final CommentRepository commentRepository;
+    private final CommentLikeRepository commentLikeRepository;
     private final UserRepository userRepository;
     private final EntityLookupService entityLookupService;
 
@@ -255,6 +259,7 @@ public class PostService {
 
     /**
      * 게시글을 삭제한다. 작성자 본인만 삭제할 수 있다.
+     * 게시글이 사라지면 그 밑의 댓글·좋아요·추천은 다시 보여줄 곳이 없으므로 함께 물리 삭제한다.
      */
     @Transactional
     public void delete(Long userId, Long id) {
@@ -262,6 +267,12 @@ public class PostService {
         if (!post.isAuthoredBy(userId)) {
             throw new PostForbiddenException();
         }
+        List<Long> commentIds = commentRepository.findIdsByPostId(id);
+        if (!commentIds.isEmpty()) {
+            commentLikeRepository.deleteByCommentIdIn(commentIds);
+        }
+        commentRepository.deleteByPostId(id);
+        postRecommendRepository.deleteByPostId(id);
         postEntityTagRepository.deleteByPostId(id);
         postRepository.delete(post);
     }
