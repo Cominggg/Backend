@@ -136,6 +136,9 @@ public class CommentService {
     @Transactional
     public CommentLikeCountResponse like(Long userId, Long commentId) {
         Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
+        if (comment.isDeleted()) {
+            throw new CommentNotFoundException();
+        }
         if (commentLikeRepository.existsByUserIdAndCommentId(userId, commentId)) {
             throw new AlreadyLikedException();
         }
@@ -148,7 +151,7 @@ public class CommentService {
             throw new AlreadyLikedException();
         }
         commentRepository.incrementLikeCount(commentId);
-        return new CommentLikeCountResponse(comment.getLikeCount() + 1);
+        return new CommentLikeCountResponse(commentRepository.findLikeCountById(commentId));
     }
 
     /**
@@ -157,11 +160,14 @@ public class CommentService {
     @Transactional
     public CommentLikeCountResponse unlike(Long userId, Long commentId) {
         Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
+        if (comment.isDeleted()) {
+            throw new CommentNotFoundException();
+        }
         CommentLike like = commentLikeRepository.findByUserIdAndCommentId(userId, commentId)
                 .orElseThrow(NotLikedException::new);
         commentLikeRepository.delete(like);
         commentRepository.decrementLikeCount(commentId);
-        return new CommentLikeCountResponse(comment.getLikeCount() - 1);
+        return new CommentLikeCountResponse(commentRepository.findLikeCountById(commentId));
     }
 
     private CommentResponse toResponse(Comment comment, List<Comment> replies, Long userId,

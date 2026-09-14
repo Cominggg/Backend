@@ -293,7 +293,7 @@ public class PostService {
      */
     @Transactional
     public RecommendCountResponse recommend(Long userId, Long id) {
-        Post post = postRepository.findById(id).orElseThrow(PostNotFoundException::new);
+        postRepository.findById(id).orElseThrow(PostNotFoundException::new);
         if (postRecommendRepository.existsByUserIdAndPostId(userId, id)) {
             throw new AlreadyRecommendedException();
         }
@@ -306,7 +306,7 @@ public class PostService {
             throw new AlreadyRecommendedException();
         }
         postRepository.incrementRecommendCount(id);
-        return new RecommendCountResponse(post.getRecommendCount() + 1);
+        return new RecommendCountResponse(postRepository.findRecommendCountById(id));
     }
 
     /**
@@ -314,12 +314,12 @@ public class PostService {
      */
     @Transactional
     public RecommendCountResponse unrecommend(Long userId, Long id) {
-        Post post = postRepository.findById(id).orElseThrow(PostNotFoundException::new);
+        postRepository.findById(id).orElseThrow(PostNotFoundException::new);
         PostRecommend recommend = postRecommendRepository.findByUserIdAndPostId(userId, id)
                 .orElseThrow(NotRecommendedException::new);
         postRecommendRepository.delete(recommend);
         postRepository.decrementRecommendCount(id);
-        return new RecommendCountResponse(post.getRecommendCount() - 1);
+        return new RecommendCountResponse(postRepository.findRecommendCountById(id));
     }
 
     private void validateContentTextLength(String contentText) {

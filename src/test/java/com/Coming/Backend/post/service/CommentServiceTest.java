@@ -354,11 +354,26 @@ class CommentServiceTest {
     }
 
     @Test
+    void should_throw_comment_not_found_exception_when_liking_deleted_comment() {
+        // given
+        Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "삭제된 댓글", 5L, true);
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+
+        // when & then
+        assertThatThrownBy(() -> commentService.like(OTHER_USER_ID, COMMENT_ID))
+                .isInstanceOf(CommentNotFoundException.class)
+                .hasMessage(ErrorCode.COMMENT_NOT_FOUND.getMessage());
+        verify(commentLikeRepository, never()).save(any(CommentLike.class));
+        verify(commentRepository, never()).incrementLikeCount(any());
+    }
+
+    @Test
     void should_increment_like_count_and_return_incremented_count_when_user_has_not_liked_comment() {
         // given
         Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 5L, false);
         given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
         given(commentLikeRepository.existsByUserIdAndCommentId(OTHER_USER_ID, COMMENT_ID)).willReturn(false);
+        given(commentRepository.findLikeCountById(COMMENT_ID)).willReturn(6L);
 
         // when
         CommentLikeCountResponse response = commentService.like(OTHER_USER_ID, COMMENT_ID);
@@ -400,12 +415,27 @@ class CommentServiceTest {
     }
 
     @Test
+    void should_throw_comment_not_found_exception_when_unliking_deleted_comment() {
+        // given
+        Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "삭제된 댓글", 5L, true);
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+
+        // when & then
+        assertThatThrownBy(() -> commentService.unlike(OTHER_USER_ID, COMMENT_ID))
+                .isInstanceOf(CommentNotFoundException.class)
+                .hasMessage(ErrorCode.COMMENT_NOT_FOUND.getMessage());
+        verify(commentLikeRepository, never()).delete(any(CommentLike.class));
+        verify(commentRepository, never()).decrementLikeCount(any());
+    }
+
+    @Test
     void should_decrement_like_count_and_return_decremented_count_when_user_has_liked_comment() {
         // given
         Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 5L, false);
         CommentLike like = CommentLike.builder().userId(OTHER_USER_ID).commentId(COMMENT_ID).build();
         given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
         given(commentLikeRepository.findByUserIdAndCommentId(OTHER_USER_ID, COMMENT_ID)).willReturn(Optional.of(like));
+        given(commentRepository.findLikeCountById(COMMENT_ID)).willReturn(4L);
 
         // when
         CommentLikeCountResponse response = commentService.unlike(OTHER_USER_ID, COMMENT_ID);

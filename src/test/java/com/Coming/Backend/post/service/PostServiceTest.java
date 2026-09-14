@@ -928,6 +928,7 @@ class PostServiceTest {
                 .build();
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postRecommendRepository.existsByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(false);
+        given(postRepository.findRecommendCountById(POST_ID)).willReturn(4L);
 
         // when
         RecommendCountResponse response = postService.recommend(OTHER_USER_ID, POST_ID);
@@ -983,6 +984,7 @@ class PostServiceTest {
                 .build();
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postRecommendRepository.findByUserIdAndPostId(OTHER_USER_ID, POST_ID)).willReturn(Optional.of(recommend));
+        given(postRepository.findRecommendCountById(POST_ID)).willReturn(2L);
 
         // when
         RecommendCountResponse response = postService.unrecommend(OTHER_USER_ID, POST_ID);

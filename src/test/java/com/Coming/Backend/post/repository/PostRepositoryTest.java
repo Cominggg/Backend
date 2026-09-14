@@ -111,6 +111,28 @@ class PostRepositoryTest {
     }
 
     @Test
+    void should_return_current_recommend_count_when_finding_recommend_count_by_id() {
+        // given
+        Post post = Post.builder()
+                .userId(AUTHOR_ID)
+                .category(PostCategory.FREE)
+                .title("제목")
+                .content("{\"type\":\"doc\"}")
+                .contentText("내용")
+                .recommendCount(5L)
+                .viewCount(0L)
+                .commentCount(0L)
+                .build();
+        Post saved = postRepository.save(post);
+
+        // when
+        Long recommendCount = postRepository.findRecommendCountById(saved.getId());
+
+        // then
+        assertThat(recommendCount).isEqualTo(5L);
+    }
+
+    @Test
     void should_return_posts_ordered_by_created_at_desc_when_multiple_posts_match() throws InterruptedException {
         // given
         Post olderPost = postRepository.save(buildPost("아이유 1번째 글", "내용"));
