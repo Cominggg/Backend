@@ -40,7 +40,21 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.id = :id")
     void incrementCommentCount(@Param("id") Long id);
 
-    @Query("SELECT p FROM Post p WHERE p.id IN (SELECT t.postId FROM PostEntityTag t WHERE t.entityType = :entityType AND t.entityId = :entityId)")
+    /**
+     * RELEASE 조회 시, 해당 릴리즈에 속한 트랙(Track.releaseGroupId)이 태그된 게시글도 함께 포함한다.
+     * 트랙 앵커가 앨범 상세 페이지로 귀결되는 구조(`/releases/{releaseGroupId}#track-{id}`)이므로,
+     * 트랙을 언급한 글도 해당 앨범의 관련 게시글로 노출되어야 사용자에게 자연스럽다.
+     */
+    @Query("""
+            SELECT p FROM Post p
+            WHERE p.id IN (
+                SELECT t.postId FROM PostEntityTag t
+                WHERE (t.entityType = :entityType AND t.entityId = :entityId)
+                   OR (:entityType = com.Coming.Backend.post.entity.EntityType.RELEASE
+                        AND t.entityType = com.Coming.Backend.post.entity.EntityType.TRACK
+                        AND t.entityId IN (SELECT tr.id FROM Track tr WHERE tr.releaseGroupId = :entityId))
+            )
+            """)
     Page<Post> findByEntityTag(@Param("entityType") EntityType entityType, @Param("entityId") Long entityId, Pageable pageable);
 
     @Query("""

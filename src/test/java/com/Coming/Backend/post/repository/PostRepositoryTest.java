@@ -138,6 +138,51 @@ class PostRepositoryTest {
     }
 
     @Test
+    void should_return_post_when_tagged_track_belongs_to_release() {
+        // given
+        Long releaseGroupId = 1L;
+        Track track = trackRepository.save(Track.builder()
+                .releaseGroupId(releaseGroupId)
+                .title("LILAC")
+                .position(1)
+                .build());
+        Post post = postRepository.save(buildPost("이 앨범의 이 곡이 좋아요", "명곡이다"));
+        postEntityTagRepository.save(PostEntityTag.builder()
+                .postId(post.getId())
+                .entityType(EntityType.TRACK)
+                .entityId(track.getId())
+                .build());
+
+        // when
+        Page<Post> result = postRepository.findByEntityTag(EntityType.RELEASE, releaseGroupId, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
+    }
+
+    @Test
+    void should_not_return_post_when_tagged_track_belongs_to_other_release() {
+        // given
+        Track track = trackRepository.save(Track.builder()
+                .releaseGroupId(2L)
+                .title("다른 앨범 트랙")
+                .position(1)
+                .build());
+        Post post = postRepository.save(buildPost("다른 앨범 곡 얘기", "내용"));
+        postEntityTagRepository.save(PostEntityTag.builder()
+                .postId(post.getId())
+                .entityType(EntityType.TRACK)
+                .entityId(track.getId())
+                .build());
+
+        // when
+        Page<Post> result = postRepository.findByEntityTag(EntityType.RELEASE, 1L, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId).doesNotContain(post.getId());
+    }
+
+    @Test
     void should_return_current_recommend_count_when_finding_recommend_count_by_id() {
         // given
         Post post = Post.builder()
