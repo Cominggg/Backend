@@ -7,6 +7,7 @@ public record EntityCardResponse(
         Long id,
         String title,
         String subtitle,
-        String thumbnailUrl
+        String thumbnailUrl,
+        Long releaseGroupId
 ) {
 }

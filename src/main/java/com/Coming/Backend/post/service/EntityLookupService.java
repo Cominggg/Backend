@@ -61,15 +61,15 @@ public class EntityLookupService {
 
     EntityCardResponse toCard(Concert concert) {
         String subtitle = concert.getStartDate() + " · " + concert.getVenueName();
-        return new EntityCardResponse(EntityType.CONCERT, concert.getId(), concert.getTitle(), subtitle, concert.getPosterUrl());
+        return new EntityCardResponse(EntityType.CONCERT, concert.getId(), concert.getTitle(), subtitle, concert.getPosterUrl(), null);
     }
 
     EntityCardResponse toCard(Artist artist) {
-        return new EntityCardResponse(EntityType.ARTIST, artist.getId(), artist.getName(), null, artist.getImageUrl());
+        return new EntityCardResponse(EntityType.ARTIST, artist.getId(), artist.getName(), null, artist.getImageUrl(), null);
     }
 
     EntityCardResponse toCard(ReleaseGroup release, String artistName) {
-        return new EntityCardResponse(EntityType.RELEASE, release.getId(), release.getTitle(), artistName, release.getCoverUrl());
+        return new EntityCardResponse(EntityType.RELEASE, release.getId(), release.getTitle(), artistName, release.getCoverUrl(), null);
     }
 
     public record EntityKey(EntityType type, Long id) {

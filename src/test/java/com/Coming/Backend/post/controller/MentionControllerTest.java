@@ -55,7 +55,7 @@ class MentionControllerTest {
     void should_return_200_with_entity_card_list_when_valid_request_given() throws Exception {
         // given
         EntityCardResponse card = new EntityCardResponse(
-                EntityType.CONCERT, CONCERT_ID, "아이유 콘서트", "2025-10-01 · 올림픽공원", null);
+                EntityType.CONCERT, CONCERT_ID, "아이유 콘서트", "2025-10-01 · 올림픽공원", null, null);
         given(mentionService.search(eq(EntityType.CONCERT), eq("아이유"), eq(0), eq(20)))
                 .willReturn(PageResponse.from(new PageImpl<>(List.of(card))));
 

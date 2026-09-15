@@ -61,7 +61,7 @@ class MentionServiceTest {
         // given
         String q = "아이유";
         Concert concert = Concert.builder().id(CONCERT_ID).title("아이유 콘서트").build();
-        EntityCardResponse card = new EntityCardResponse(EntityType.CONCERT, CONCERT_ID, "아이유 콘서트", null, null);
+        EntityCardResponse card = new EntityCardResponse(EntityType.CONCERT, CONCERT_ID, "아이유 콘서트", null, null, null);
         Page<Concert> concertPage = new PageImpl<>(List.of(concert), PageRequest.of(PAGE, SIZE), 1);
         given(concertRepository.searchByTitleForMention(any(), eq("%아이유%"), any(Pageable.class)))
                 .willReturn(concertPage);
@@ -85,7 +85,7 @@ class MentionServiceTest {
         String q = "아이유";
         Artist artist = Artist.builder().id(ARTIST_ID).name("아이유").build();
         Page<Artist> page = new PageImpl<>(List.of(artist));
-        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, ARTIST_ID, "아이유", null, null);
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, ARTIST_ID, "아이유", null, null, null);
         given(artistRepository.findByNameOrAliasContainingIgnoreCase(eq(q), any(Pageable.class))).willReturn(page);
         given(entityLookupService.toCard(artist)).willReturn(card);
 
@@ -104,7 +104,7 @@ class MentionServiceTest {
         ReleaseGroup release = ReleaseGroup.builder().id(RELEASE_ID).artistId(RELEASE_ARTIST_ID).title("LILAC").build();
         Artist releaseArtist = Artist.builder().id(RELEASE_ARTIST_ID).name("IU").build();
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release));
-        EntityCardResponse card = new EntityCardResponse(EntityType.RELEASE, RELEASE_ID, "LILAC", "IU", null);
+        EntityCardResponse card = new EntityCardResponse(EntityType.RELEASE, RELEASE_ID, "LILAC", "IU", null, null);
         given(releaseGroupRepository.searchReleases(eq(null), eq(null), eq(null), eq("%lilac%"), any(Pageable.class)))
                 .willReturn(page);
         given(artistRepository.findAllById(eq(Set.of(RELEASE_ARTIST_ID)))).willReturn(List.of(releaseArtist));

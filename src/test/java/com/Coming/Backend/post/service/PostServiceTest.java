@@ -407,7 +407,7 @@ class PostServiceTest {
                 .entityType(EntityType.ARTIST)
                 .entityId(1L)
                 .build();
-        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg");
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
         EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
 
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
@@ -559,7 +559,7 @@ class PostServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         EntityTagCount count = new EntityTagCount(EntityType.ARTIST, 1L, 3L);
         EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
-        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg");
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
         given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable))).willReturn(List.of(count));
         given(entityLookupService.findCards(List.of(key))).willReturn(Map.of(key, card));
 
@@ -596,7 +596,7 @@ class PostServiceTest {
         EntityTagCount deletedCount = new EntityTagCount(EntityType.CONCERT, 2L, 2L);
         EntityLookupService.EntityKey aliveKey = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
         EntityLookupService.EntityKey deletedKey = new EntityLookupService.EntityKey(EntityType.CONCERT, 2L);
-        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg");
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
         given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable)))
                 .willReturn(List.of(aliveCount, deletedCount));
         given(entityLookupService.findCards(List.of(aliveKey, deletedKey))).willReturn(Map.of(aliveKey, card));
