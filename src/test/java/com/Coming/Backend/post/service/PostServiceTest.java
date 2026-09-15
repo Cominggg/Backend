@@ -407,7 +407,7 @@ class PostServiceTest {
                 .entityType(EntityType.ARTIST)
                 .entityId(1L)
                 .build();
-        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg");
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
         EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
 
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
@@ -423,6 +423,33 @@ class PostServiceTest {
         assertThat(response.entityTags().get(0).entityType()).isEqualTo(EntityType.ARTIST);
         assertThat(response.entityTags().get(0).entityId()).isEqualTo(1L);
         assertThat(response.entityTags().get(0).title()).isEqualTo("IU");
+    }
+
+    @Test
+    void should_include_release_group_id_when_entity_tag_is_track() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        PostEntityTag tag = PostEntityTag.builder()
+                .postId(POST_ID)
+                .entityType(EntityType.TRACK)
+                .entityId(200L)
+                .build();
+        EntityCardResponse card = new EntityCardResponse(EntityType.TRACK, 200L, "라일락", "IU · LILAC", null, 100L);
+        EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.TRACK, 200L);
+
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(tag));
+        given(entityLookupService.findCards(List.of(key))).willReturn(Map.of(key, card));
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, null);
+
+        // then
+        assertThat(response.entityTags()).hasSize(1);
+        assertThat(response.entityTags().get(0).entityType()).isEqualTo(EntityType.TRACK);
+        assertThat(response.entityTags().get(0).title()).isEqualTo("라일락");
+        assertThat(response.entityTags().get(0).releaseGroupId()).isEqualTo(100L);
     }
 
     // -------------------------------------------------------------------------
@@ -559,7 +586,7 @@ class PostServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         EntityTagCount count = new EntityTagCount(EntityType.ARTIST, 1L, 3L);
         EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
-        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg");
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
         given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable))).willReturn(List.of(count));
         given(entityLookupService.findCards(List.of(key))).willReturn(Map.of(key, card));
 
@@ -596,7 +623,7 @@ class PostServiceTest {
         EntityTagCount deletedCount = new EntityTagCount(EntityType.CONCERT, 2L, 2L);
         EntityLookupService.EntityKey aliveKey = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
         EntityLookupService.EntityKey deletedKey = new EntityLookupService.EntityKey(EntityType.CONCERT, 2L);
-        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg");
+        EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
         given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable)))
                 .willReturn(List.of(aliveCount, deletedCount));
         given(entityLookupService.findCards(List.of(aliveKey, deletedKey))).willReturn(Map.of(aliveKey, card));
@@ -657,6 +684,24 @@ class PostServiceTest {
 
         // then
         verify(postRepository).searchPosts("%50\\%\\_off%", pageable);
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_search_query_length_is_less_than_two() {
+        // when & then
+        assertThatThrownBy(() -> postService.search("a", 0, 20))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        verify(postRepository, never()).searchPosts(any(), any());
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_trimmed_search_query_length_is_less_than_two() {
+        // when & then
+        assertThatThrownBy(() -> postService.search("  a  ", 0, 20))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        verify(postRepository, never()).searchPosts(any(), any());
     }
 
     // -------------------------------------------------------------------------
