@@ -425,6 +425,33 @@ class PostServiceTest {
         assertThat(response.entityTags().get(0).title()).isEqualTo("IU");
     }
 
+    @Test
+    void should_include_release_group_id_when_entity_tag_is_track() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        PostEntityTag tag = PostEntityTag.builder()
+                .postId(POST_ID)
+                .entityType(EntityType.TRACK)
+                .entityId(200L)
+                .build();
+        EntityCardResponse card = new EntityCardResponse(EntityType.TRACK, 200L, "라일락", "IU · LILAC", null, 100L);
+        EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.TRACK, 200L);
+
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(tag));
+        given(entityLookupService.findCards(List.of(key))).willReturn(Map.of(key, card));
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, null);
+
+        // then
+        assertThat(response.entityTags()).hasSize(1);
+        assertThat(response.entityTags().get(0).entityType()).isEqualTo(EntityType.TRACK);
+        assertThat(response.entityTags().get(0).title()).isEqualTo("라일락");
+        assertThat(response.entityTags().get(0).releaseGroupId()).isEqualTo(100L);
+    }
+
     // -------------------------------------------------------------------------
     // getList
     // -------------------------------------------------------------------------
