@@ -14,9 +14,12 @@ import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.release.entity.ReleaseGroup;
+import com.Coming.Backend.release.entity.Track;
 import com.Coming.Backend.release.repository.ReleaseGroupRepository;
+import com.Coming.Backend.release.repository.TrackRepository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -47,6 +50,9 @@ class MentionServiceTest {
     private ReleaseGroupRepository releaseGroupRepository;
 
     @Mock
+    private TrackRepository trackRepository;
+
+    @Mock
     private EntityLookupService entityLookupService;
 
     private static final int PAGE = 0;
@@ -55,6 +61,7 @@ class MentionServiceTest {
     private static final Long ARTIST_ID = 10L;
     private static final Long RELEASE_ID = 100L;
     private static final Long RELEASE_ARTIST_ID = 20L;
+    private static final Long TRACK_ID = 200L;
 
     @Test
     void should_return_concert_cards_when_type_is_CONCERT() {
@@ -115,6 +122,24 @@ class MentionServiceTest {
 
         // then
         verify(artistRepository).findAllById(eq(Set.of(RELEASE_ARTIST_ID)));
+        assertThat(result.content()).containsExactly(card);
+    }
+
+    @Test
+    void should_return_track_cards_when_type_is_TRACK() {
+        // given
+        String q = "라일락";
+        Track track = Track.builder().id(TRACK_ID).releaseGroupId(RELEASE_ID).title("라일락").position(1).build();
+        Page<Track> trackPage = new PageImpl<>(List.of(track));
+        EntityCardResponse card = new EntityCardResponse(EntityType.TRACK, TRACK_ID, "라일락", "IU · LILAC", null, RELEASE_ID);
+        given(trackRepository.searchByTitleForMention(eq("%라일락%"), any(Pageable.class))).willReturn(trackPage);
+        given(entityLookupService.toTrackCardsById(List.of(track))).willReturn(Map.of(TRACK_ID, card));
+
+        // when
+        PageResponse<EntityCardResponse> result = mentionService.search(EntityType.TRACK, q, PAGE, SIZE);
+
+        // then
+        verify(trackRepository).searchByTitleForMention(eq("%라일락%"), any(Pageable.class));
         assertThat(result.content()).containsExactly(card);
     }
 

@@ -8,6 +8,7 @@ public record EntityCardResponse(
         String title,
         String subtitle,
         String thumbnailUrl,
+        // TRACK 타입에서만 채워진다 (트랙이 속한 앨범 id). 그 외 타입은 항상 null.
         Long releaseGroupId
 ) {
 }

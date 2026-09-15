@@ -9,7 +9,9 @@ import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.release.entity.ReleaseGroup;
+import com.Coming.Backend.release.entity.Track;
 import com.Coming.Backend.release.repository.ReleaseGroupRepository;
+import com.Coming.Backend.release.repository.TrackRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -36,6 +38,7 @@ public class MentionService {
     private final ConcertRepository concertRepository;
     private final ArtistRepository artistRepository;
     private final ReleaseGroupRepository releaseGroupRepository;
+    private final TrackRepository trackRepository;
     private final EntityLookupService entityLookupService;
 
     /**
@@ -47,6 +50,7 @@ public class MentionService {
             case CONCERT -> searchConcerts(q, PageRequest.of(page, size));
             case ARTIST -> searchArtists(q, PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id")));
             case RELEASE -> searchReleases(q, PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id")));
+            case TRACK -> searchTracks(q, PageRequest.of(page, size));
         };
     }
 
@@ -70,6 +74,12 @@ public class MentionService {
         return PageResponse.from(
                 releases.map(release -> entityLookupService.toCard(release, artistNames.get(release.getArtistId())))
         );
+    }
+
+    private PageResponse<EntityCardResponse> searchTracks(String q, Pageable pageable) {
+        Page<Track> tracks = trackRepository.searchByTitleForMention(toLikePattern(q), pageable);
+        Map<Long, EntityCardResponse> cardsByTrackId = entityLookupService.toTrackCardsById(tracks.getContent());
+        return PageResponse.from(tracks.map(track -> cardsByTrackId.get(track.getId())));
     }
 
     private String toLikePattern(String q) {
