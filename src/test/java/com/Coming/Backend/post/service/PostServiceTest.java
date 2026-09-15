@@ -659,6 +659,24 @@ class PostServiceTest {
         verify(postRepository).searchPosts("%50\\%\\_off%", pageable);
     }
 
+    @Test
+    void should_throw_invalid_input_exception_when_search_query_length_is_less_than_two() {
+        // when & then
+        assertThatThrownBy(() -> postService.search("a", 0, 20))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        verify(postRepository, never()).searchPosts(any(), any());
+    }
+
+    @Test
+    void should_throw_invalid_input_exception_when_trimmed_search_query_length_is_less_than_two() {
+        // when & then
+        assertThatThrownBy(() -> postService.search("  a  ", 0, 20))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
+        verify(postRepository, never()).searchPosts(any(), any());
+    }
+
     // -------------------------------------------------------------------------
     // update
     // -------------------------------------------------------------------------

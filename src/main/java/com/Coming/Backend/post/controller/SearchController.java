@@ -27,7 +27,7 @@ public class SearchController {
     private final PostService postService;
 
     @Operation(summary = "게시글 통합 검색")
-    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (q 공백)")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (q 공백 또는 trim 후 2자 미만)")
     @GetMapping
     public ResponseEntity<PageResponse<PostSummaryResponse>> search(
             @RequestParam @NotBlank String q,
