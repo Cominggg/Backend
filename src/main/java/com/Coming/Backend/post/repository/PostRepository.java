@@ -54,6 +54,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
                         AND t.entityId IN (SELECT c.id FROM Concert c WHERE LOWER(c.title) LIKE :q))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.RELEASE
                         AND t.entityId IN (SELECT r.id FROM ReleaseGroup r WHERE LOWER(r.title) LIKE :q))
+                   OR (t.entityType = com.Coming.Backend.post.entity.EntityType.TRACK
+                        AND t.entityId IN (SELECT tr.id FROM Track tr WHERE LOWER(tr.title) LIKE :q))
             )
             ORDER BY p.createdAt DESC
             """)

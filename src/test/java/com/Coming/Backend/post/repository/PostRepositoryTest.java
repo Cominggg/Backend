@@ -8,6 +8,8 @@ import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
 import com.Coming.Backend.post.entity.PostEntityTag;
+import com.Coming.Backend.release.entity.Track;
+import com.Coming.Backend.release.repository.TrackRepository;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -32,6 +34,9 @@ class PostRepositoryTest {
 
     @Autowired
     private ArtistRepository artistRepository;
+
+    @Autowired
+    private TrackRepository trackRepository;
 
     private static final Long AUTHOR_ID = 1L;
 
@@ -93,6 +98,28 @@ class PostRepositoryTest {
 
         // when
         Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
+    }
+
+    @Test
+    void should_return_post_when_tagged_track_title_matches_search_query() {
+        // given
+        Track track = trackRepository.save(Track.builder()
+                .releaseGroupId(1L)
+                .title("LILAC")
+                .position(1)
+                .build());
+        Post post = postRepository.save(buildPost("이 곡 좋아요", "요즘 계속 듣는 중"));
+        postEntityTagRepository.save(PostEntityTag.builder()
+                .postId(post.getId())
+                .entityType(EntityType.TRACK)
+                .entityId(track.getId())
+                .build());
+
+        // when
+        Page<Post> result = postRepository.searchPosts(likeQuery("LILAC"), PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
