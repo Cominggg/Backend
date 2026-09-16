@@ -12,4 +12,6 @@ public interface PolicyNotificationTargetRepository extends JpaRepository<Policy
     List<PolicyNotificationTarget> findByPolicyId(Long policyId);
 
     Page<PolicyNotificationTarget> findByPolicyIdAndStatus(Long policyId, NotificationStatus status, Pageable pageable);
+
+    List<PolicyNotificationTarget> findByStatusAndRetryCountLessThan(NotificationStatus status, int retryCount);
 }

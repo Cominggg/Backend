@@ -12,6 +12,7 @@ import com.Coming.Backend.policy.dto.PolicyRegisterRequest;
 import com.Coming.Backend.policy.dto.PolicyResponse;
 import com.Coming.Backend.policy.entity.PolicyDocument;
 import com.Coming.Backend.policy.entity.PolicyType;
+import com.Coming.Backend.policy.event.PolicyRegisteredEvent;
 import com.Coming.Backend.policy.exception.PolicyVersionDuplicateException;
 import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class PolicyServiceTest {
@@ -29,6 +31,9 @@ class PolicyServiceTest {
 
     @Mock
     private PolicyDocumentRepository policyDocumentRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private static final PolicyType POLICY_TYPE = PolicyType.TERMS;
     private static final String VERSION = "1.0.0";
@@ -76,6 +81,7 @@ class PolicyServiceTest {
         assertThat(result.changeSummary()).isEqualTo(request.changeSummary());
         assertThat(result.detailUrl()).isEqualTo(request.detailUrl());
         assertThat(result.requiresReconsent()).isTrue();
+        verify(eventPublisher).publishEvent(new PolicyRegisteredEvent(1L));
     }
 
     @Test
@@ -90,5 +96,6 @@ class PolicyServiceTest {
                 .isInstanceOf(PolicyVersionDuplicateException.class)
                 .hasMessage(ErrorCode.POLICY_VERSION_DUPLICATE.getMessage());
         verify(policyDocumentRepository, never()).save(any(PolicyDocument.class));
+        verify(eventPublisher, never()).publishEvent(any());
     }
 }
