@@ -57,6 +57,7 @@ public enum ErrorCode {
 
     // Policy
     POLICY_VERSION_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 정책 버전입니다."),
+    POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 정책입니다."),
 
     // Common
     RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."),

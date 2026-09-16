@@ -9,7 +9,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -51,26 +50,13 @@ public class User extends BaseTimeEntity {
     @Column(name = "birth_year")
     private Integer birthYear;
 
-    @Column(name = "agreed_terms")
-    private Boolean agreedTerms;
-
-    @Column(name = "agreed_privacy")
-    private Boolean agreedPrivacy;
-
     @Column(name = "agreed_marketing")
     private Boolean agreedMarketing;
 
-    @Column(name = "agreed_at")
-    private LocalDateTime agreedAt;
-
-    public void completeRegistration(String nickname, int birthYear,
-            boolean agreedTerms, boolean agreedPrivacy, boolean agreedMarketing) {
+    public void completeRegistration(String nickname, int birthYear, boolean agreedMarketing) {
         this.nickname = nickname;
         this.birthYear = birthYear;
-        this.agreedTerms = agreedTerms;
-        this.agreedPrivacy = agreedPrivacy;
         this.agreedMarketing = agreedMarketing;
-        this.agreedAt = LocalDateTime.now();
         this.role = UserRole.USER;
     }
 
@@ -96,9 +82,6 @@ public class User extends BaseTimeEntity {
         this.role = UserRole.PENDING;
         this.nickname = null;
         this.birthYear = null;
-        this.agreedTerms = null;
-        this.agreedPrivacy = null;
         this.agreedMarketing = null;
-        this.agreedAt = null;
     }
 }

@@ -24,9 +24,15 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
+import com.Coming.Backend.policy.entity.PolicyDocument;
+import com.Coming.Backend.policy.entity.PolicyType;
+import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
+import com.Coming.Backend.policy.repository.UserPolicyAgreementRepository;
+import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -58,6 +64,12 @@ class AuthServiceRegisterTest {
     @Mock
     private InquiryRepository inquiryRepository;
 
+    @Mock
+    private PolicyDocumentRepository policyDocumentRepository;
+
+    @Mock
+    private UserPolicyAgreementRepository userPolicyAgreementRepository;
+
     private static final Long USER_ID = 1L;
     private static final String NEW_ACCESS_TOKEN = "new-access-token";
 
@@ -72,6 +84,18 @@ class AuthServiceRegisterTest {
                 .build();
     }
 
+    private PolicyDocument buildPolicyDocument(PolicyType type) {
+        return PolicyDocument.builder()
+                .id(type == PolicyType.TERMS ? 1L : 2L)
+                .type(type)
+                .version("1.0.0")
+                .effectiveDate(LocalDate.of(2026, 1, 1))
+                .changeSummary("변경 요약")
+                .detailUrl("https://coming.example.com/policy")
+                .requiresReconsent(false)
+                .build();
+    }
+
     // -------------------------------------------------------------------------
     // register
     // -------------------------------------------------------------------------
@@ -83,6 +107,12 @@ class AuthServiceRegisterTest {
         User user = buildPendingUser();
         given(userRepository.existsByNickname("IU")).willReturn(false);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(policyDocumentRepository.findFirstByTypeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+                ArgumentMatchers.eq(PolicyType.TERMS), ArgumentMatchers.any(LocalDate.class)))
+                .willReturn(Optional.of(buildPolicyDocument(PolicyType.TERMS)));
+        given(policyDocumentRepository.findFirstByTypeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+                ArgumentMatchers.eq(PolicyType.PRIVACY), ArgumentMatchers.any(LocalDate.class)))
+                .willReturn(Optional.of(buildPolicyDocument(PolicyType.PRIVACY)));
         given(jwtProvider.generateAccessToken(USER_ID, UserRole.USER.name())).willReturn(NEW_ACCESS_TOKEN);
 
         // when
