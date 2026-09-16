@@ -112,7 +112,7 @@ class MentionServiceTest {
         Artist releaseArtist = Artist.builder().id(RELEASE_ARTIST_ID).name("IU").build();
         Page<ReleaseGroup> page = new PageImpl<>(List.of(release));
         EntityCardResponse card = new EntityCardResponse(EntityType.RELEASE, RELEASE_ID, "LILAC", "IU", null, null);
-        given(releaseGroupRepository.searchReleases(eq(null), eq(null), eq(null), eq("%lilac%"), any(Pageable.class)))
+        given(releaseGroupRepository.searchByTitleForMention(eq("%lilac%"), any(Pageable.class)))
                 .willReturn(page);
         given(artistRepository.findAllById(eq(Set.of(RELEASE_ARTIST_ID)))).willReturn(List.of(releaseArtist));
         given(entityLookupService.toCard(release, "IU")).willReturn(card);

@@ -49,7 +49,7 @@ public class MentionService {
         return switch (type) {
             case CONCERT -> searchConcerts(q, PageRequest.of(page, size));
             case ARTIST -> searchArtists(q, PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id")));
-            case RELEASE -> searchReleases(q, PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id")));
+            case RELEASE -> searchReleases(q, PageRequest.of(page, size));
             case TRACK -> searchTracks(q, PageRequest.of(page, size));
         };
     }
@@ -67,7 +67,7 @@ public class MentionService {
 
     private PageResponse<EntityCardResponse> searchReleases(String q, Pageable pageable) {
         Page<ReleaseGroup> releases = releaseGroupRepository
-                .searchReleases(null, null, null, toLikePattern(q), pageable);
+                .searchByTitleForMention(toLikePattern(q), pageable);
         Map<Long, String> artistNames = artistRepository.findAllById(
                 releases.getContent().stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet())
         ).stream().collect(Collectors.toMap(Artist::getId, Artist::getName));
