@@ -33,7 +33,7 @@ class PolicyNotificationJobTriggerTest {
     private Job policyNotificationJob;
 
     @Test
-    void should_start_job_with_policy_id_when_policy_registered_event_given() throws Exception {
+    void should_run_job_with_policy_id_when_policy_registered_event_given() throws Exception {
         // given
         given(policyNotificationJob.getJobParametersIncrementer()).willReturn(new RunIdIncrementer());
         PolicyRegisteredEvent event = new PolicyRegisteredEvent(1L);
@@ -43,15 +43,15 @@ class PolicyNotificationJobTriggerTest {
 
         // then
         ArgumentCaptor<JobParameters> jobParametersCaptor = ArgumentCaptor.forClass(JobParameters.class);
-        verify(jobOperator).start(eq(policyNotificationJob), jobParametersCaptor.capture());
+        verify(jobOperator).run(eq(policyNotificationJob), jobParametersCaptor.capture());
         assertThat(jobParametersCaptor.getValue().getLong("policyId")).isEqualTo(1L);
     }
 
     @Test
-    void should_not_throw_exception_when_job_operator_start_throws_exception() throws Exception {
+    void should_not_throw_exception_when_job_operator_run_throws_exception() throws Exception {
         // given
         given(policyNotificationJob.getJobParametersIncrementer()).willReturn(new RunIdIncrementer());
-        willThrow(new RuntimeException("job launch failed")).given(jobOperator).start(any(Job.class), any(JobParameters.class));
+        willThrow(new RuntimeException("job launch failed")).given(jobOperator).run(any(Job.class), any(JobParameters.class));
         PolicyRegisteredEvent event = new PolicyRegisteredEvent(1L);
 
         // when & then
