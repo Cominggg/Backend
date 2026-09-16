@@ -43,4 +43,14 @@ public class PolicyNotificationTarget extends BaseCreatedEntity {
 
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
+
+    public void markSent() {
+        this.status = NotificationStatus.SENT;
+        this.sentAt = LocalDateTime.now();
+    }
+
+    public void markFailed() {
+        this.status = NotificationStatus.FAILED;
+        this.retryCount += 1;
+    }
 }
