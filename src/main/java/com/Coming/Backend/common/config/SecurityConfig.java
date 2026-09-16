@@ -121,7 +121,8 @@ public class SecurityConfig {
                                     "/api/calendar",
                                     "/api/mentions/search",
                                     "/api/posts/**",
-                                    "/api/search"
+                                    "/api/search",
+                                    "/api/entities/**"
                             ).permitAll()
                             .requestMatchers("/api/admin/**").hasRole("ADMIN")
                             .requestMatchers("/api/auth/register").hasRole("PENDING")

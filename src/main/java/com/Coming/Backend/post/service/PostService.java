@@ -75,6 +75,8 @@ public class PostService {
      */
     private static final int MAX_CONTENT_LENGTH = 50000;
 
+    private static final int MIN_SEARCH_QUERY_LENGTH = 2;
+
     /**
      * 게시글을 생성한다.
      * entityTags가 가리키는 엔티티의 실존 여부는 검증하지 않는다 — 삭제된 참조와 동일하게
@@ -231,10 +233,16 @@ public class PostService {
 
     /**
      * 게시글 제목·본문·태그된 엔티티명을 통합 검색한다. 최신순 고정.
+     *
+     * @param q trim 후 2자 미만이면 InvalidInputException.
      */
     public PageResponse<PostSummaryResponse> search(String q, int page, int size) {
+        String trimmedQ = q.trim();
+        if (trimmedQ.length() < MIN_SEARCH_QUERY_LENGTH) {
+            throw new InvalidInputException();
+        }
         Pageable pageable = PageRequest.of(page, size);
-        String likeQ = "%" + escapeLikeWildcards(q.toLowerCase(Locale.ROOT)) + "%";
+        String likeQ = "%" + escapeLikeWildcards(trimmedQ.toLowerCase(Locale.ROOT)) + "%";
         Page<Post> result = postRepository.searchPosts(likeQ, pageable);
         List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
         return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());

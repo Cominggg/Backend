@@ -12,7 +12,9 @@ import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.service.EntityLookupService.EntityKey;
 import com.Coming.Backend.release.entity.ReleaseGroup;
+import com.Coming.Backend.release.entity.Track;
 import com.Coming.Backend.release.repository.ReleaseGroupRepository;
+import com.Coming.Backend.release.repository.TrackRepository;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -40,10 +42,14 @@ class EntityLookupServiceTest {
     @Mock
     private ReleaseGroupRepository releaseGroupRepository;
 
+    @Mock
+    private TrackRepository trackRepository;
+
     private static final Long CONCERT_ID = 1L;
     private static final Long ARTIST_ID = 10L;
     private static final Long RELEASE_ID = 100L;
     private static final Long RELEASE_ARTIST_ID = 20L;
+    private static final Long TRACK_ID = 200L;
 
     private Concert buildConcert(Long id) {
         return Concert.builder()
@@ -70,6 +76,15 @@ class EntityLookupServiceTest {
                 .artistId(artistId)
                 .title("LILAC")
                 .coverUrl("https://example.com/release-" + id + ".jpg")
+                .build();
+    }
+
+    private Track buildTrack(Long id, Long releaseGroupId) {
+        return Track.builder()
+                .id(id)
+                .releaseGroupId(releaseGroupId)
+                .title("라일락")
+                .position(1)
                 .build();
     }
 
@@ -121,6 +136,45 @@ class EntityLookupServiceTest {
         EntityCardResponse card = result.get(new EntityKey(EntityType.RELEASE, RELEASE_ID));
         assertThat(card.subtitle()).isEqualTo("IU");
         assertThat(card.thumbnailUrl()).isEqualTo("https://example.com/release-100.jpg");
+    }
+
+    @Test
+    void should_fill_subtitle_with_artist_and_album_and_thumbnail_with_cover_url_when_track_key_given() {
+        // given
+        Track track = buildTrack(TRACK_ID, RELEASE_ID);
+        ReleaseGroup releaseGroup = buildReleaseGroup(RELEASE_ID, RELEASE_ARTIST_ID);
+        Artist artist = buildArtist(RELEASE_ARTIST_ID, "IU");
+        given(trackRepository.findAllById(any())).willReturn(List.of(track));
+        given(releaseGroupRepository.findAllById(any())).willReturn(List.of(releaseGroup));
+        given(artistRepository.findAllById(any())).willReturn(List.of(artist));
+
+        // when
+        Map<EntityKey, EntityCardResponse> result =
+                entityLookupService.findCards(List.of(new EntityKey(EntityType.TRACK, TRACK_ID)));
+
+        // then
+        EntityCardResponse card = result.get(new EntityKey(EntityType.TRACK, TRACK_ID));
+        assertThat(card.subtitle()).isEqualTo("IU · LILAC");
+        assertThat(card.thumbnailUrl()).isEqualTo("https://example.com/release-100.jpg");
+    }
+
+    @Test
+    void should_fill_only_title_when_track_release_group_not_found() {
+        // given
+        Track track = buildTrack(TRACK_ID, RELEASE_ID);
+        given(trackRepository.findAllById(any())).willReturn(List.of(track));
+        given(releaseGroupRepository.findAllById(any())).willReturn(List.of());
+
+        // when
+        Map<EntityKey, EntityCardResponse> result =
+                entityLookupService.findCards(List.of(new EntityKey(EntityType.TRACK, TRACK_ID)));
+
+        // then
+        EntityCardResponse card = result.get(new EntityKey(EntityType.TRACK, TRACK_ID));
+        assertThat(card.title()).isEqualTo("라일락");
+        assertThat(card.subtitle()).isNull();
+        assertThat(card.thumbnailUrl()).isNull();
+        assertThat(card.releaseGroupId()).isNull();
     }
 
     @Test
