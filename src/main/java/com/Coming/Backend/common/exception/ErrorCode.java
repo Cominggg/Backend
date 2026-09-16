@@ -55,6 +55,9 @@ public enum ErrorCode {
     PIPELINE_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Data 파이프라인 서버 오류가 발생했습니다."),
     PIPELINE_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "Data 파이프라인 응답이 지연되고 있습니다. 잠시 후 다시 확인해주세요."),
 
+    // Policy
+    POLICY_VERSION_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 정책 버전입니다."),
+
     // Common
     RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."),
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),
