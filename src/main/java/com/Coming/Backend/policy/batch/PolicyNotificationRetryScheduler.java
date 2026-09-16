@@ -5,7 +5,6 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.policy.entity.NotificationStatus;
 import com.Coming.Backend.policy.entity.PolicyDocument;
 import com.Coming.Backend.policy.entity.PolicyNotificationTarget;
-import com.Coming.Backend.policy.mail.PolicyNoticeMailSender;
 import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
 import com.Coming.Backend.policy.repository.PolicyNotificationTargetRepository;
 import java.util.List;
@@ -28,7 +27,7 @@ public class PolicyNotificationRetryScheduler {
     private final PolicyNotificationTargetRepository policyNotificationTargetRepository;
     private final UserRepository userRepository;
     private final PolicyDocumentRepository policyDocumentRepository;
-    private final PolicyNoticeMailSender policyNoticeMailSender;
+    private final PolicyNotificationSender policyNotificationSender;
 
     @Scheduled(fixedRate = 3_600_000)
     @Transactional
@@ -46,21 +45,11 @@ public class PolicyNotificationRetryScheduler {
 
     private void retryOne(PolicyNotificationTarget target) {
         User user = userRepository.findById(target.getUserId()).orElse(null);
-        if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
-            target.markFailed();
-            return;
-        }
         PolicyDocument policyDocument = policyDocumentRepository.findById(target.getPolicyId()).orElse(null);
         if (policyDocument == null) {
             target.markFailed();
             return;
         }
-        try {
-            policyNoticeMailSender.send(user.getEmail(), policyDocument);
-            target.markSent();
-        } catch (Exception e) {
-            log.warn("정책 알림 재시도 실패 — targetId: {}", target.getId(), e);
-            target.markFailed();
-        }
+        policyNotificationSender.sendAndMark(target, user, policyDocument);
     }
 }

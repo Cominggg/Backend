@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -22,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class PolicyServiceTest {
@@ -68,7 +70,7 @@ class PolicyServiceTest {
         PolicyDocument savedPolicyDocument = buildPolicyDocument(1L, request);
 
         given(policyDocumentRepository.existsByTypeAndVersion(POLICY_TYPE, VERSION)).willReturn(false);
-        given(policyDocumentRepository.save(any(PolicyDocument.class))).willReturn(savedPolicyDocument);
+        given(policyDocumentRepository.saveAndFlush(any(PolicyDocument.class))).willReturn(savedPolicyDocument);
 
         // when
         PolicyResponse result = policyService.registerPolicy(request);
@@ -95,7 +97,23 @@ class PolicyServiceTest {
         assertThatThrownBy(() -> policyService.registerPolicy(request))
                 .isInstanceOf(PolicyVersionDuplicateException.class)
                 .hasMessage(ErrorCode.POLICY_VERSION_DUPLICATE.getMessage());
-        verify(policyDocumentRepository, never()).save(any(PolicyDocument.class));
+        verify(policyDocumentRepository, never()).saveAndFlush(any(PolicyDocument.class));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void should_throw_policy_version_duplicate_exception_when_concurrent_insert_violates_unique_constraint() {
+        // given
+        PolicyRegisterRequest request = buildRequest();
+
+        given(policyDocumentRepository.existsByTypeAndVersion(POLICY_TYPE, VERSION)).willReturn(false);
+        willThrow(new DataIntegrityViolationException("duplicate key"))
+                .given(policyDocumentRepository).saveAndFlush(any(PolicyDocument.class));
+
+        // when & then
+        assertThatThrownBy(() -> policyService.registerPolicy(request))
+                .isInstanceOf(PolicyVersionDuplicateException.class)
+                .hasMessage(ErrorCode.POLICY_VERSION_DUPLICATE.getMessage());
         verify(eventPublisher, never()).publishEvent(any());
     }
 }

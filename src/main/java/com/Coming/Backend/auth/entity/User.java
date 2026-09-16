@@ -77,6 +77,10 @@ public class User extends BaseTimeEntity {
         this.email = email;
     }
 
+    public boolean hasNoEmail() {
+        return email == null || email.isBlank();
+    }
+
     public void reactivate() {
         this.status = UserStatus.ACTIVE;
         this.role = UserRole.PENDING;

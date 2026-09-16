@@ -3,7 +3,6 @@ package com.Coming.Backend.policy.batch;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -16,7 +15,6 @@ import com.Coming.Backend.policy.entity.NotificationStatus;
 import com.Coming.Backend.policy.entity.PolicyDocument;
 import com.Coming.Backend.policy.entity.PolicyNotificationTarget;
 import com.Coming.Backend.policy.entity.PolicyType;
-import com.Coming.Backend.policy.mail.PolicyNoticeMailSender;
 import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
 import com.Coming.Backend.policy.repository.PolicyNotificationTargetRepository;
 import java.time.LocalDate;
@@ -45,7 +43,7 @@ class PolicyNotificationRetrySchedulerTest {
     private PolicyDocumentRepository policyDocumentRepository;
 
     @Mock
-    private PolicyNoticeMailSender policyNoticeMailSender;
+    private PolicyNotificationSender policyNotificationSender;
 
     private static final Long POLICY_ID = 1L;
 
@@ -95,49 +93,11 @@ class PolicyNotificationRetrySchedulerTest {
         policyNotificationRetryScheduler.retryFailedNotifications();
 
         // then
-        verifyNoInteractions(userRepository, policyDocumentRepository, policyNoticeMailSender);
+        verifyNoInteractions(userRepository, policyDocumentRepository, policyNotificationSender);
     }
 
     @Test
-    void should_mark_sent_when_retry_succeeds() {
-        // given
-        PolicyNotificationTarget target = buildTarget(1L);
-        User user = buildUser(1L, "iu@coming.com");
-        PolicyDocument policyDocument = buildPolicyDocument();
-
-        given(policyNotificationTargetRepository.findByStatusAndRetryCountLessThan(NotificationStatus.FAILED, 3))
-                .willReturn(List.of(target));
-        given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        given(policyDocumentRepository.findById(POLICY_ID)).willReturn(Optional.of(policyDocument));
-
-        // when
-        policyNotificationRetryScheduler.retryFailedNotifications();
-
-        // then
-        assertThat(target.getStatus()).isEqualTo(NotificationStatus.SENT);
-        verify(policyNoticeMailSender).send("iu@coming.com", policyDocument);
-    }
-
-    @Test
-    void should_mark_failed_when_user_not_found() {
-        // given
-        PolicyNotificationTarget target = buildTarget(1L);
-
-        given(policyNotificationTargetRepository.findByStatusAndRetryCountLessThan(NotificationStatus.FAILED, 3))
-                .willReturn(List.of(target));
-        given(userRepository.findById(1L)).willReturn(Optional.empty());
-
-        // when
-        policyNotificationRetryScheduler.retryFailedNotifications();
-
-        // then
-        assertThat(target.getStatus()).isEqualTo(NotificationStatus.FAILED);
-        assertThat(target.getRetryCount()).isEqualTo(2);
-        verify(policyNoticeMailSender, never()).send(any(), any());
-    }
-
-    @Test
-    void should_mark_failed_when_policy_document_not_found() {
+    void should_mark_failed_without_calling_sender_when_policy_document_not_found_given() {
         // given
         PolicyNotificationTarget target = buildTarget(1L);
         User user = buildUser(1L, "iu@coming.com");
@@ -153,11 +113,11 @@ class PolicyNotificationRetrySchedulerTest {
         // then
         assertThat(target.getStatus()).isEqualTo(NotificationStatus.FAILED);
         assertThat(target.getRetryCount()).isEqualTo(2);
-        verify(policyNoticeMailSender, never()).send(any(), any());
+        verify(policyNotificationSender, never()).sendAndMark(any(), any(), any());
     }
 
     @Test
-    void should_mark_failed_and_increment_retry_count_when_mail_send_throws_exception() {
+    void should_call_sender_with_found_user_and_policy_document_when_both_exist_given() {
         // given
         PolicyNotificationTarget target = buildTarget(1L);
         User user = buildUser(1L, "iu@coming.com");
@@ -167,13 +127,29 @@ class PolicyNotificationRetrySchedulerTest {
                 .willReturn(List.of(target));
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
         given(policyDocumentRepository.findById(POLICY_ID)).willReturn(Optional.of(policyDocument));
-        willThrow(new RuntimeException("smtp down")).given(policyNoticeMailSender).send("iu@coming.com", policyDocument);
 
         // when
         policyNotificationRetryScheduler.retryFailedNotifications();
 
         // then
-        assertThat(target.getStatus()).isEqualTo(NotificationStatus.FAILED);
-        assertThat(target.getRetryCount()).isEqualTo(2);
+        verify(policyNotificationSender).sendAndMark(target, user, policyDocument);
+    }
+
+    @Test
+    void should_call_sender_with_null_user_when_user_not_found_but_policy_document_found_given() {
+        // given
+        PolicyNotificationTarget target = buildTarget(1L);
+        PolicyDocument policyDocument = buildPolicyDocument();
+
+        given(policyNotificationTargetRepository.findByStatusAndRetryCountLessThan(NotificationStatus.FAILED, 3))
+                .willReturn(List.of(target));
+        given(userRepository.findById(1L)).willReturn(Optional.empty());
+        given(policyDocumentRepository.findById(POLICY_ID)).willReturn(Optional.of(policyDocument));
+
+        // when
+        policyNotificationRetryScheduler.retryFailedNotifications();
+
+        // then
+        verify(policyNotificationSender).sendAndMark(target, null, policyDocument);
     }
 }

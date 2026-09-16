@@ -1,10 +1,8 @@
 package com.Coming.Backend.policy.batch;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -16,12 +14,13 @@ import com.Coming.Backend.policy.entity.NotificationStatus;
 import com.Coming.Backend.policy.entity.PolicyDocument;
 import com.Coming.Backend.policy.entity.PolicyNotificationTarget;
 import com.Coming.Backend.policy.entity.PolicyType;
-import com.Coming.Backend.policy.mail.PolicyNoticeMailSender;
+import com.Coming.Backend.policy.exception.PolicyNotFoundException;
 import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -40,7 +39,7 @@ class PolicyNotificationMailProcessorTest {
     private PolicyDocumentRepository policyDocumentRepository;
 
     @Mock
-    private PolicyNoticeMailSender policyNoticeMailSender;
+    private PolicyNotificationSender policyNotificationSender;
 
     private static final Long POLICY_ID = 1L;
 
@@ -81,7 +80,7 @@ class PolicyNotificationMailProcessorTest {
     }
 
     @Test
-    void should_mark_sent_when_user_with_email_given() {
+    void should_call_sender_with_found_user_when_user_exists_given() {
         // given
         ReflectionTestUtils.setField(policyNotificationMailProcessor, "policyId", POLICY_ID);
         PolicyNotificationTarget target = buildTarget(1L);
@@ -91,66 +90,36 @@ class PolicyNotificationMailProcessorTest {
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
         given(policyDocumentRepository.findById(POLICY_ID)).willReturn(Optional.of(policyDocument));
 
+        ArgumentCaptor<PolicyNotificationTarget> targetCaptor = ArgumentCaptor.forClass(PolicyNotificationTarget.class);
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        ArgumentCaptor<PolicyDocument> policyDocumentCaptor = ArgumentCaptor.forClass(PolicyDocument.class);
+
         // when
         PolicyNotificationTarget result = policyNotificationMailProcessor.process(target);
 
         // then
-        assertThat(result.getStatus()).isEqualTo(NotificationStatus.SENT);
-        assertThat(result.getSentAt()).isNotNull();
-        verify(policyNoticeMailSender).send("iu@coming.com", policyDocument);
+        assertThat(result).isSameAs(target);
+        verify(policyNotificationSender).sendAndMark(targetCaptor.capture(), userCaptor.capture(), policyDocumentCaptor.capture());
+        assertThat(targetCaptor.getValue()).isSameAs(target);
+        assertThat(userCaptor.getValue()).isSameAs(user);
+        assertThat(policyDocumentCaptor.getValue()).isSameAs(policyDocument);
     }
 
     @Test
-    void should_mark_failed_when_user_not_found_given() {
+    void should_call_sender_with_null_user_when_user_not_found_given() {
         // given
         ReflectionTestUtils.setField(policyNotificationMailProcessor, "policyId", POLICY_ID);
         PolicyNotificationTarget target = buildTarget(1L);
+        PolicyDocument policyDocument = buildPolicyDocument();
 
         given(userRepository.findById(1L)).willReturn(Optional.empty());
-
-        // when
-        PolicyNotificationTarget result = policyNotificationMailProcessor.process(target);
-
-        // then
-        assertThat(result.getStatus()).isEqualTo(NotificationStatus.FAILED);
-        verify(policyNoticeMailSender, never()).send(any(), any());
-    }
-
-    @Test
-    void should_mark_failed_when_user_email_is_null_given() {
-        // given
-        ReflectionTestUtils.setField(policyNotificationMailProcessor, "policyId", POLICY_ID);
-        PolicyNotificationTarget target = buildTarget(1L);
-        User user = buildUser(1L, null);
-
-        given(userRepository.findById(1L)).willReturn(Optional.of(user));
-
-        // when
-        PolicyNotificationTarget result = policyNotificationMailProcessor.process(target);
-
-        // then
-        assertThat(result.getStatus()).isEqualTo(NotificationStatus.FAILED);
-        verify(policyNoticeMailSender, never()).send(any(), any());
-    }
-
-    @Test
-    void should_mark_failed_and_increment_retry_count_when_mail_send_throws_exception_given() {
-        // given
-        ReflectionTestUtils.setField(policyNotificationMailProcessor, "policyId", POLICY_ID);
-        PolicyNotificationTarget target = buildTarget(1L);
-        User user = buildUser(1L, "iu@coming.com");
-        PolicyDocument policyDocument = buildPolicyDocument();
-
-        given(userRepository.findById(1L)).willReturn(Optional.of(user));
         given(policyDocumentRepository.findById(POLICY_ID)).willReturn(Optional.of(policyDocument));
-        willThrow(new RuntimeException("smtp down")).given(policyNoticeMailSender).send("iu@coming.com", policyDocument);
 
         // when
-        PolicyNotificationTarget result = policyNotificationMailProcessor.process(target);
+        policyNotificationMailProcessor.process(target);
 
         // then
-        assertThat(result.getStatus()).isEqualTo(NotificationStatus.FAILED);
-        assertThat(result.getRetryCount()).isEqualTo(1);
+        verify(policyNotificationSender).sendAndMark(target, null, policyDocument);
     }
 
     @Test
@@ -169,5 +138,19 @@ class PolicyNotificationMailProcessorTest {
 
         // then
         verify(policyDocumentRepository, times(1)).findById(POLICY_ID);
+    }
+
+    @Test
+    void should_throw_policy_not_found_exception_when_policy_document_not_found_given() {
+        // given
+        ReflectionTestUtils.setField(policyNotificationMailProcessor, "policyId", POLICY_ID);
+        PolicyNotificationTarget target = buildTarget(1L);
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(buildUser(1L, "iu@coming.com")));
+        given(policyDocumentRepository.findById(POLICY_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> policyNotificationMailProcessor.process(target))
+                .isInstanceOf(PolicyNotFoundException.class);
     }
 }

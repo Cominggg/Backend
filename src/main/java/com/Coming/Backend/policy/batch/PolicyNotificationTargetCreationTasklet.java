@@ -42,7 +42,7 @@ public class PolicyNotificationTargetCreationTasklet implements Tasklet {
             if (existingTargetUserIds.contains(user.getId())) {
                 continue;
             }
-            if (user.getEmail() == null || user.getEmail().isBlank()) {
+            if (user.hasNoEmail()) {
                 log.warn("이메일이 없어 정책 알림 대상에서 제외 — userId: {}", user.getId());
                 continue;
             }

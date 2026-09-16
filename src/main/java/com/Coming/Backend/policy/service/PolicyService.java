@@ -8,6 +8,7 @@ import com.Coming.Backend.policy.exception.PolicyVersionDuplicateException;
 import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +38,12 @@ public class PolicyService {
                 .detailUrl(request.detailUrl())
                 .requiresReconsent(Boolean.TRUE.equals(request.requiresReconsent()))
                 .build();
-        PolicyDocument saved = policyDocumentRepository.save(policyDocument);
+        PolicyDocument saved;
+        try {
+            saved = policyDocumentRepository.saveAndFlush(policyDocument);
+        } catch (DataIntegrityViolationException e) {
+            throw new PolicyVersionDuplicateException();
+        }
         eventPublisher.publishEvent(new PolicyRegisteredEvent(saved.getId()));
         return PolicyResponse.from(saved);
     }
