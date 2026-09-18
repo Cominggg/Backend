@@ -35,6 +35,10 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query("UPDATE Concert c SET c.viewCount = c.viewCount + 1 WHERE c.id = :id")
     void incrementViewCount(@Param("id") Long id);
 
+    @Query(value = "SELECT c FROM Concert c WHERE c.status NOT IN :hidden AND LOWER(c.title) LIKE :q ORDER BY c.startDate DESC, c.id DESC",
+            countQuery = "SELECT COUNT(c) FROM Concert c WHERE c.status NOT IN :hidden AND LOWER(c.title) LIKE :q")
+    Page<Concert> searchByTitleForMention(@Param("hidden") Collection<ConcertStatus> hidden, @Param("q") String q, Pageable pageable);
+
     @Query("SELECT c FROM Concert c WHERE c.startDate <= :lastDay AND c.endDate >= :firstDay AND c.status NOT IN :hidden ORDER BY c.startDate ASC")
     List<Concert> findByDateRange(@Param("firstDay") LocalDate firstDay, @Param("lastDay") LocalDate lastDay, @Param("hidden") Collection<ConcertStatus> hidden);
 

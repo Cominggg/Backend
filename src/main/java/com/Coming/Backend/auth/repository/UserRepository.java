@@ -1,6 +1,7 @@
 package com.Coming.Backend.auth.repository;
 
 import com.Coming.Backend.auth.entity.User;
+import com.Coming.Backend.auth.entity.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
@@ -14,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findAllByIdIn(Collection<Long> ids);
 
     boolean existsByNickname(String nickname);
+
+    List<User> findByStatus(UserStatus status);
 }
