@@ -3,3 +3,8 @@ discord:
     5xx-url: ${DISCORD_WEBHOOK_5XX_URL}
     4xx-url: ${DISCORD_WEBHOOK_4XX_URL}
     inquiry-url: ${DISCORD_WEBHOOK_INQUIRY_URL}
+
+spring:
+  mail:
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
