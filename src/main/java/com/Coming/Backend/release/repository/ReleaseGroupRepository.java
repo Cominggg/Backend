@@ -65,4 +65,8 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
                                        @Param("type") String type,
                                        @Param("q") String q,
                                        Pageable pageable);
+
+    @Query(value = "SELECT r FROM ReleaseGroup r WHERE LOWER(r.title) LIKE :q ESCAPE '\\' ORDER BY r.id ASC",
+            countQuery = "SELECT COUNT(r) FROM ReleaseGroup r WHERE LOWER(r.title) LIKE :q ESCAPE '\\'")
+    Page<ReleaseGroup> searchByTitleForMention(@Param("q") String q, Pageable pageable);
 }

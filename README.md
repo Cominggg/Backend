@@ -156,8 +156,9 @@ open -a Docker && docker start redis   # Docker 데몬이 꺼져 있으면 먼�
   <img src=".github/deploy-architecture.png" alt="배포 아키텍처" width="800" />
 </p>
 
-- **CI** (`ci.yml`): PR 생성 시 PostgreSQL·Redis 컨테이너를 띄워 전체 테스트 실행 + Docker 이미지 빌드 검증
-- **CD** (`cd.yml`): `main` 브랜치 push 시 Docker 이미지를 GHCR에 push하고, Lightsail 인스턴스로 SSH 접속해 `scripts/deploy.sh` 실행
+- 작업 브랜치 → `develop` PR/병합 → (여러 작업 누적 후) `develop` → `main` PR/병합 순으로 운영 서버에 배포됩니다.
+- **CI** (`ci.yml`): `main`/`develop`으로의 PR 생성 시 PostgreSQL·Redis 컨테이너를 띄워 전체 테스트 실행 + Docker 이미지 빌드 검증
+- **CD** (`cd.yml`): `main` 브랜치 push(= `develop` → `main` 병합) 시 Docker 이미지를 GHCR에 push하고, Lightsail 인스턴스로 SSH 접속해 `scripts/deploy.sh` 실행
 - Nginx가 `be-blue`(:8080)/`be-green`(:8081) 중 활성 슬롯으로만 트래픽을 전달하고, Redis는 두 슬롯이 공유합니다. Data Pipeline(`data`)도 같은 Docker Compose에 포함되어 별도 인스턴스 없이 함께 배포됩니다.
 - 배포 시 standby 슬롯에 새 이미지를 pull → `/actuator/health` 체크 통과 → Nginx upstream 전환 → 이전 슬롯 정지 순으로 무중단 배포합니다.
 - DB는 별도 Lightsail 인스턴스(Managed PostgreSQL)로 분리되어 두 슬롯이 공통으로 바라보고, 4xx/5xx 에러·공연 데이터 수집 결과·문의 접수는 각각 Discord Webhook으로 알림됩니다.
