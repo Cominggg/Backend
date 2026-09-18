@@ -70,8 +70,11 @@ spring:
       mail:
         smtp:
           auth: true
+          connectiontimeout: 5000
+          timeout: 10000
           starttls:
             enable: true
+            required: true
 
   batch:
     job:

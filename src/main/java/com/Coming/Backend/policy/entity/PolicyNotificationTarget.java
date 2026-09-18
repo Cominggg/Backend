@@ -50,7 +50,9 @@ public class PolicyNotificationTarget extends BaseCreatedEntity {
     }
 
     public void markFailed() {
+        if (this.status == NotificationStatus.FAILED) {
+            this.retryCount += 1;
+        }
         this.status = NotificationStatus.FAILED;
-        this.retryCount += 1;
     }
 }

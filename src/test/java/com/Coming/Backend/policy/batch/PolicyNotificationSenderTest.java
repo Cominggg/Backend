@@ -115,9 +115,32 @@ class PolicyNotificationSenderTest {
     }
 
     @Test
-    void should_mark_failed_and_increment_retry_count_when_send_throws_exception_given() {
+    void should_mark_failed_without_incrementing_retry_count_when_initial_send_throws_exception_given() {
         // given
         PolicyNotificationTarget target = buildTarget();
+        User user = buildUser(1L, "iu@coming.com");
+        PolicyDocument policyDocument = buildPolicyDocument();
+
+        willThrow(new RuntimeException("smtp down")).given(policyNoticeMailSender).send("iu@coming.com", policyDocument);
+
+        // when
+        policyNotificationSender.sendAndMark(target, user, policyDocument);
+
+        // then
+        assertThat(target.getStatus()).isEqualTo(NotificationStatus.FAILED);
+        assertThat(target.getRetryCount()).isEqualTo(0);
+    }
+
+    @Test
+    void should_mark_failed_and_increment_retry_count_when_already_failed_send_throws_exception_again_given() {
+        // given
+        PolicyNotificationTarget target = PolicyNotificationTarget.builder()
+                .id(10L)
+                .policyId(POLICY_ID)
+                .userId(1L)
+                .status(NotificationStatus.FAILED)
+                .retryCount(0)
+                .build();
         User user = buildUser(1L, "iu@coming.com");
         PolicyDocument policyDocument = buildPolicyDocument();
 

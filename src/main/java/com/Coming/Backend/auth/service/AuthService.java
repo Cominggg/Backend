@@ -140,9 +140,9 @@ public class AuthService {
                 request.birthYear(),
                 Boolean.TRUE.equals(request.agreedMarketing())
         );
-        recordPolicyAgreement(userId, PolicyType.TERMS);
-        recordPolicyAgreement(userId, PolicyType.PRIVACY);
         try {
+            recordPolicyAgreement(userId, PolicyType.TERMS);
+            recordPolicyAgreement(userId, PolicyType.PRIVACY);
             userRepository.flush();
         } catch (DataIntegrityViolationException e) {
             throw new NicknameDuplicateException();
