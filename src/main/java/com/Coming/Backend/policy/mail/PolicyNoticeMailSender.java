@@ -4,8 +4,10 @@ import com.Coming.Backend.policy.entity.PolicyDocument;
 import com.Coming.Backend.policy.entity.PolicyType;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import java.io.UnsupportedEncodingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -17,6 +19,9 @@ import org.thymeleaf.context.Context;
 public class PolicyNoticeMailSender {
 
     private static final String TEMPLATE_NAME = "mail/policy-change-notice";
+    private static final String FROM_NAME = "커밍";
+    private static final String LOGO_CONTENT_ID = "coming-logo";
+    private static final String LOGO_PATH = "mail-assets/logo.png";
 
     private final JavaMailSender javaMailSender;
     private final TemplateEngine templateEngine;
@@ -32,19 +37,20 @@ public class PolicyNoticeMailSender {
     public void send(String toEmail, PolicyDocument policyDocument) {
         try {
             MimeMessage message = javaMailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(toEmail);
-            helper.setFrom(fromAddress);
+            helper.setFrom(fromAddress, FROM_NAME);
             helper.setSubject(buildSubject(policyDocument));
             helper.setText(renderHtml(policyDocument), true);
+            helper.addInline(LOGO_CONTENT_ID, new ClassPathResource(LOGO_PATH));
             javaMailSender.send(message);
-        } catch (MessagingException e) {
+        } catch (MessagingException | UnsupportedEncodingException e) {
             throw new IllegalStateException("정책 변경 고지 메일 메시지 생성에 실패했습니다.", e);
         }
     }
 
     private String buildSubject(PolicyDocument policyDocument) {
-        return "[Coming] " + labelOf(policyDocument.getType()) + " 변경 안내";
+        return "[커밍] " + labelOf(policyDocument.getType()) + " 변경 안내";
     }
 
     private String renderHtml(PolicyDocument policyDocument) {
@@ -56,6 +62,7 @@ public class PolicyNoticeMailSender {
         context.setVariable("detailUrl", policyDocument.getDetailUrl());
         context.setVariable("requiresReconsent", policyDocument.isRequiresReconsent());
         context.setVariable("fromAddress", fromAddress);
+        context.setVariable("logoContentId", LOGO_CONTENT_ID);
         return templateEngine.process(TEMPLATE_NAME, context);
     }
 
