@@ -36,7 +36,6 @@ public class PolicyService {
                 .effectiveDate(request.effectiveDate())
                 .changeSummary(request.changeSummary())
                 .detailUrl(request.detailUrl())
-                .requiresReconsent(Boolean.TRUE.equals(request.requiresReconsent()))
                 .build();
         PolicyDocument saved;
         try {

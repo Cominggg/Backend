@@ -22,9 +22,6 @@ public record PolicyRegisterRequest(
 
         @NotBlank
         @Size(max = 500)
-        String detailUrl,
-
-        @NotNull
-        Boolean requiresReconsent
+        String detailUrl
 ) {
 }

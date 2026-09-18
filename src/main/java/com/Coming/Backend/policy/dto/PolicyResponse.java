@@ -10,8 +10,7 @@ public record PolicyResponse(
         String version,
         LocalDate effectiveDate,
         String changeSummary,
-        String detailUrl,
-        boolean requiresReconsent
+        String detailUrl
 ) {
     public static PolicyResponse from(PolicyDocument policyDocument) {
         return new PolicyResponse(
@@ -20,8 +19,7 @@ public record PolicyResponse(
                 policyDocument.getVersion(),
                 policyDocument.getEffectiveDate(),
                 policyDocument.getChangeSummary(),
-                policyDocument.getDetailUrl(),
-                policyDocument.isRequiresReconsent()
+                policyDocument.getDetailUrl()
         );
     }
 }

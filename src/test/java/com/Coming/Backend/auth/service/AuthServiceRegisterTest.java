@@ -92,7 +92,6 @@ class AuthServiceRegisterTest {
                 .effectiveDate(LocalDate.of(2026, 1, 1))
                 .changeSummary("변경 요약")
                 .detailUrl("https://coming.example.com/policy")
-                .requiresReconsent(false)
                 .build();
     }
 

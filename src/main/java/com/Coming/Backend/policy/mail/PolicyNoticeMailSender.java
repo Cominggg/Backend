@@ -60,7 +60,6 @@ public class PolicyNoticeMailSender {
         context.setVariable("effectiveDate", policyDocument.getEffectiveDate());
         context.setVariable("changeSummary", policyDocument.getChangeSummary());
         context.setVariable("detailUrl", policyDocument.getDetailUrl());
-        context.setVariable("requiresReconsent", policyDocument.isRequiresReconsent());
         context.setVariable("fromAddress", fromAddress);
         context.setVariable("logoContentId", LOGO_CONTENT_ID);
         return templateEngine.process(TEMPLATE_NAME, context);

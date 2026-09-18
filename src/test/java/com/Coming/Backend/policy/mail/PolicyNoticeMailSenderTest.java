@@ -45,7 +45,6 @@ class PolicyNoticeMailSenderTest {
                 .effectiveDate(LocalDate.of(2026, 1, 1))
                 .changeSummary("개인정보 수집 항목 변경")
                 .detailUrl("https://coming.example.com/policy/1.0.0")
-                .requiresReconsent(true)
                 .build();
     }
 
@@ -88,7 +87,6 @@ class PolicyNoticeMailSenderTest {
         assertThat(capturedContext.getVariable("changeSummary")).isEqualTo(policyDocument.getChangeSummary());
         assertThat(capturedContext.getVariable("effectiveDate")).isEqualTo(policyDocument.getEffectiveDate());
         assertThat(capturedContext.getVariable("detailUrl")).isEqualTo(policyDocument.getDetailUrl());
-        assertThat(capturedContext.getVariable("requiresReconsent")).isEqualTo(policyDocument.isRequiresReconsent());
     }
 
     @Test

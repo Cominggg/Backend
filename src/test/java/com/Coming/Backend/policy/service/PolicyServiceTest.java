@@ -46,8 +46,7 @@ class PolicyServiceTest {
                 VERSION,
                 LocalDate.of(2026, 1, 1),
                 "이용약관 최초 등록",
-                "https://coming.example.com/policy/terms/1.0.0",
-                true
+                "https://coming.example.com/policy/terms/1.0.0"
         );
     }
 
@@ -59,7 +58,6 @@ class PolicyServiceTest {
                 .effectiveDate(request.effectiveDate())
                 .changeSummary(request.changeSummary())
                 .detailUrl(request.detailUrl())
-                .requiresReconsent(request.requiresReconsent())
                 .build();
     }
 
@@ -82,7 +80,6 @@ class PolicyServiceTest {
         assertThat(result.effectiveDate()).isEqualTo(request.effectiveDate());
         assertThat(result.changeSummary()).isEqualTo(request.changeSummary());
         assertThat(result.detailUrl()).isEqualTo(request.detailUrl());
-        assertThat(result.requiresReconsent()).isTrue();
         verify(eventPublisher).publishEvent(new PolicyRegisteredEvent(1L));
     }
 

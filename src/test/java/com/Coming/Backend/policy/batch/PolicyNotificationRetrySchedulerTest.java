@@ -69,7 +69,6 @@ class PolicyNotificationRetrySchedulerTest {
                 .effectiveDate(LocalDate.of(2026, 1, 1))
                 .changeSummary("이용약관 개정")
                 .detailUrl("https://coming.com/policy/terms/1.0")
-                .requiresReconsent(false)
                 .build();
     }
 

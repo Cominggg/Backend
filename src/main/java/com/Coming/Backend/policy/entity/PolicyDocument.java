@@ -43,7 +43,4 @@ public class PolicyDocument extends BaseCreatedEntity {
 
     @Column(name = "detail_url", nullable = false, length = 500)
     private String detailUrl;
-
-    @Column(name = "requires_reconsent", nullable = false)
-    private boolean requiresReconsent;
 }

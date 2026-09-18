@@ -117,7 +117,6 @@ class AuthServiceTest {
                 .effectiveDate(LocalDate.now())
                 .changeSummary("최초 시행")
                 .detailUrl("https://coming.example.com/policy")
-                .requiresReconsent(false)
                 .build();
     }
 
