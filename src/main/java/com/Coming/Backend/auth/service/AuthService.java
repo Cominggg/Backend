@@ -25,6 +25,14 @@ import com.Coming.Backend.auth.repository.TokenRepository;
 import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
+import com.Coming.Backend.policy.entity.PolicyDocument;
+import com.Coming.Backend.policy.entity.PolicyType;
+import com.Coming.Backend.policy.entity.UserPolicyAgreement;
+import com.Coming.Backend.policy.exception.PolicyNotFoundException;
+import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
+import com.Coming.Backend.policy.repository.UserPolicyAgreementRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -43,6 +51,8 @@ public class AuthService {
     private final UserFollowArtistRepository userFollowArtistRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
     private final InquiryRepository inquiryRepository;
+    private final PolicyDocumentRepository policyDocumentRepository;
+    private final UserPolicyAgreementRepository userPolicyAgreementRepository;
 
     /**
      * Refresh Token을 검증하고 새 Access Token과 새 Refresh Token을 발급한다.
@@ -128,11 +138,11 @@ public class AuthService {
         user.completeRegistration(
                 request.nickname(),
                 request.birthYear(),
-                request.agreedTerms(),
-                request.agreedPrivacy(),
                 Boolean.TRUE.equals(request.agreedMarketing())
         );
         try {
+            recordPolicyAgreement(userId, PolicyType.TERMS);
+            recordPolicyAgreement(userId, PolicyType.PRIVACY);
             userRepository.flush();
         } catch (DataIntegrityViolationException e) {
             throw new NicknameDuplicateException();
@@ -140,6 +150,25 @@ public class AuthService {
         String accessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
         log.info("회원가입 완료");
         return new TokenResponse(accessToken);
+    }
+
+    /**
+     * 현재 시행 중인 정책 버전에 대한 사용자 동의 이력을 기록한다. 이미 동의 이력이 있으면 건너뛴다(탈퇴 후 재가입 대비).
+     */
+    private void recordPolicyAgreement(Long userId, PolicyType type) {
+        PolicyDocument currentPolicy = policyDocumentRepository
+                .findFirstByTypeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(type, LocalDate.now())
+                .orElseThrow(PolicyNotFoundException::new);
+        if (userPolicyAgreementRepository.existsByUserIdAndPolicyId(userId, currentPolicy.getId())) {
+            return;
+        }
+        userPolicyAgreementRepository.save(
+                UserPolicyAgreement.builder()
+                        .userId(userId)
+                        .policyId(currentPolicy.getId())
+                        .agreedAt(LocalDateTime.now())
+                        .build()
+        );
     }
 
     private void validateRegisterRequest(RegisterRequest request) {

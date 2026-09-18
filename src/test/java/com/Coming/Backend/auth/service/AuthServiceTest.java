@@ -2,9 +2,14 @@ package com.Coming.Backend.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.groups.Tuple.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
@@ -29,9 +34,17 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
+import com.Coming.Backend.policy.entity.PolicyDocument;
+import com.Coming.Backend.policy.entity.PolicyType;
+import com.Coming.Backend.policy.entity.UserPolicyAgreement;
+import com.Coming.Backend.policy.exception.PolicyNotFoundException;
+import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
+import com.Coming.Backend.policy.repository.UserPolicyAgreementRepository;
+import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -63,6 +76,12 @@ class AuthServiceTest {
     @Mock
     private InquiryRepository inquiryRepository;
 
+    @Mock
+    private PolicyDocumentRepository policyDocumentRepository;
+
+    @Mock
+    private UserPolicyAgreementRepository userPolicyAgreementRepository;
+
     private static final Long USER_ID = 1L;
     private static final String REFRESH_TOKEN = "valid-refresh-token";
     private static final String NEW_REFRESH_TOKEN = "new-refresh-token";
@@ -77,6 +96,27 @@ class AuthServiceTest {
                 .status(UserStatus.ACTIVE)
                 .provider("google")
                 .providerId("google-123")
+                .build();
+    }
+
+    private User buildPendingUser() {
+        return User.builder()
+                .id(USER_ID)
+                .role(UserRole.PENDING)
+                .status(UserStatus.ACTIVE)
+                .provider("google")
+                .providerId("google-123")
+                .build();
+    }
+
+    private PolicyDocument buildPolicyDocument(Long policyId, PolicyType type) {
+        return PolicyDocument.builder()
+                .id(policyId)
+                .type(type)
+                .version("1.0")
+                .effectiveDate(LocalDate.now())
+                .changeSummary("최초 시행")
+                .detailUrl("https://coming.example.com/policy")
                 .build();
     }
 
@@ -329,21 +369,87 @@ class AuthServiceTest {
     @Test
     void should_throw_NicknameDuplicateException_when_nickname_conflict_occurs_on_register() {
         // given
-        User user = User.builder()
-                .id(USER_ID)
-                .role(UserRole.PENDING)
-                .status(UserStatus.ACTIVE)
-                .provider("google")
-                .providerId("google-123")
-                .build();
+        User user = buildPendingUser();
         RegisterRequest request = new RegisterRequest("IU", 1993, true, true, false);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(userRepository.existsByNickname("IU")).willReturn(false);
+        given(policyDocumentRepository.findFirstByTypeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+                any(PolicyType.class), any(LocalDate.class)))
+                .willReturn(Optional.of(buildPolicyDocument(10L, PolicyType.TERMS)));
         willThrow(DataIntegrityViolationException.class).given(userRepository).flush();
 
         // when & then
         assertThatThrownBy(() -> authService.register(USER_ID, request))
                 .isInstanceOf(NicknameDuplicateException.class)
                 .hasMessage(ErrorCode.NICKNAME_DUPLICATE.getMessage());
+    }
+
+    @Test
+    void should_save_user_policy_agreement_for_terms_and_privacy_when_register_succeeds() {
+        // given
+        User user = buildPendingUser();
+        RegisterRequest request = new RegisterRequest("IU", 1993, true, true, false);
+        PolicyDocument termsPolicy = buildPolicyDocument(10L, PolicyType.TERMS);
+        PolicyDocument privacyPolicy = buildPolicyDocument(20L, PolicyType.PRIVACY);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(userRepository.existsByNickname("IU")).willReturn(false);
+        given(policyDocumentRepository.findFirstByTypeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+                eq(PolicyType.TERMS), any(LocalDate.class)))
+                .willReturn(Optional.of(termsPolicy));
+        given(policyDocumentRepository.findFirstByTypeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+                eq(PolicyType.PRIVACY), any(LocalDate.class)))
+                .willReturn(Optional.of(privacyPolicy));
+
+        // when
+        authService.register(USER_ID, request);
+
+        // then
+        ArgumentCaptor<UserPolicyAgreement> captor = ArgumentCaptor.forClass(UserPolicyAgreement.class);
+        verify(userPolicyAgreementRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(UserPolicyAgreement::getUserId, UserPolicyAgreement::getPolicyId)
+                .containsExactlyInAnyOrder(tuple(USER_ID, 10L), tuple(USER_ID, 20L));
+    }
+
+    @Test
+    void should_not_save_user_policy_agreement_when_agreement_already_exists() {
+        // given
+        User user = buildPendingUser();
+        RegisterRequest request = new RegisterRequest("IU", 1993, true, true, false);
+        PolicyDocument termsPolicy = buildPolicyDocument(10L, PolicyType.TERMS);
+        PolicyDocument privacyPolicy = buildPolicyDocument(20L, PolicyType.PRIVACY);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(userRepository.existsByNickname("IU")).willReturn(false);
+        given(policyDocumentRepository.findFirstByTypeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+                eq(PolicyType.TERMS), any(LocalDate.class)))
+                .willReturn(Optional.of(termsPolicy));
+        given(policyDocumentRepository.findFirstByTypeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+                eq(PolicyType.PRIVACY), any(LocalDate.class)))
+                .willReturn(Optional.of(privacyPolicy));
+        given(userPolicyAgreementRepository.existsByUserIdAndPolicyId(USER_ID, 10L)).willReturn(true);
+        given(userPolicyAgreementRepository.existsByUserIdAndPolicyId(USER_ID, 20L)).willReturn(true);
+
+        // when
+        authService.register(USER_ID, request);
+
+        // then
+        verify(userPolicyAgreementRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_PolicyNotFoundException_when_no_current_policy_exists() {
+        // given
+        User user = buildPendingUser();
+        RegisterRequest request = new RegisterRequest("IU", 1993, true, true, false);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(userRepository.existsByNickname("IU")).willReturn(false);
+        given(policyDocumentRepository.findFirstByTypeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+                eq(PolicyType.TERMS), any(LocalDate.class)))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> authService.register(USER_ID, request))
+                .isInstanceOf(PolicyNotFoundException.class)
+                .hasMessage(ErrorCode.POLICY_NOT_FOUND.getMessage());
     }
 }

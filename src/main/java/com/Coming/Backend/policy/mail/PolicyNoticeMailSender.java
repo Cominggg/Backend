@@ -1,0 +1,71 @@
+package com.Coming.Backend.policy.mail;
+
+import com.Coming.Backend.policy.entity.PolicyDocument;
+import com.Coming.Backend.policy.entity.PolicyType;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import java.io.UnsupportedEncodingException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Component;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+
+@Component
+@RequiredArgsConstructor
+public class PolicyNoticeMailSender {
+
+    private static final String TEMPLATE_NAME = "mail/policy-change-notice";
+    private static final String FROM_NAME = "커밍";
+    private static final String LOGO_CONTENT_ID = "coming-logo";
+    private static final String LOGO_PATH = "mail-assets/logo.png";
+
+    private final JavaMailSender javaMailSender;
+    private final TemplateEngine templateEngine;
+
+    @Value("${spring.mail.username}")
+    private String fromAddress;
+
+    /**
+     * 정책 변경 고지 메일을 발송한다.
+     *
+     * @throws IllegalStateException 메일 메시지 생성에 실패한 경우
+     */
+    public void send(String toEmail, PolicyDocument policyDocument) {
+        try {
+            MimeMessage message = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(toEmail);
+            helper.setFrom(fromAddress, FROM_NAME);
+            helper.setSubject(buildSubject(policyDocument));
+            helper.setText(renderHtml(policyDocument), true);
+            helper.addInline(LOGO_CONTENT_ID, new ClassPathResource(LOGO_PATH));
+            javaMailSender.send(message);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            throw new IllegalStateException("정책 변경 고지 메일 메시지 생성에 실패했습니다.", e);
+        }
+    }
+
+    private String buildSubject(PolicyDocument policyDocument) {
+        return "[커밍] " + labelOf(policyDocument.getType()) + " 변경 안내";
+    }
+
+    private String renderHtml(PolicyDocument policyDocument) {
+        Context context = new Context();
+        context.setVariable("policyTypeLabel", labelOf(policyDocument.getType()));
+        context.setVariable("version", policyDocument.getVersion());
+        context.setVariable("effectiveDate", policyDocument.getEffectiveDate());
+        context.setVariable("changeSummary", policyDocument.getChangeSummary());
+        context.setVariable("detailUrl", policyDocument.getDetailUrl());
+        context.setVariable("fromAddress", fromAddress);
+        context.setVariable("logoContentId", LOGO_CONTENT_ID);
+        return templateEngine.process(TEMPLATE_NAME, context);
+    }
+
+    private String labelOf(PolicyType type) {
+        return type == PolicyType.TERMS ? "이용약관" : "개인정보처리방침";
+    }
+}
