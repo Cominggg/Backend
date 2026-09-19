@@ -68,6 +68,7 @@ public enum ErrorCode {
     REPORT_DETAIL_REQUIRED(HttpStatus.BAD_REQUEST, "기타 사유는 상세 내용을 입력해야 합니다."),
     REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 신고 대상입니다."),
     REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 신고한 대상입니다."),
+    REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 신고입니다."),
 
     // Pipeline
     PIPELINE_NOT_FOUND(HttpStatus.NOT_FOUND, "Data 파이프라인에서 해당 리소스를 찾을 수 없습니다."),

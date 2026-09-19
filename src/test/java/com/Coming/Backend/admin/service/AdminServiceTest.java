@@ -21,6 +21,9 @@ import com.Coming.Backend.admin.dto.AdminNoticeDetailResponse;
 import com.Coming.Backend.admin.dto.AdminNoticeListItemResponse;
 import com.Coming.Backend.admin.dto.AdminNoticeUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
+import com.Coming.Backend.admin.dto.AdminReportDetailResponse;
+import com.Coming.Backend.admin.dto.AdminReportListItemResponse;
+import com.Coming.Backend.admin.dto.AdminReportStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
@@ -68,6 +71,14 @@ import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import com.Coming.Backend.notice.entity.Notice;
 import com.Coming.Backend.notice.exception.NoticeNotFoundException;
 import com.Coming.Backend.notice.repository.NoticeRepository;
+import com.Coming.Backend.post.service.CommentService;
+import com.Coming.Backend.post.service.PostService;
+import com.Coming.Backend.report.entity.Report;
+import com.Coming.Backend.report.entity.ReportReason;
+import com.Coming.Backend.report.entity.ReportStatus;
+import com.Coming.Backend.report.entity.ReportTargetType;
+import com.Coming.Backend.report.exception.ReportNotFoundException;
+import com.Coming.Backend.report.repository.ReportRepository;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -117,6 +128,15 @@ class AdminServiceTest {
     private NoticeRepository noticeRepository;
 
     @Mock
+    private ReportRepository reportRepository;
+
+    @Mock
+    private PostService postService;
+
+    @Mock
+    private CommentService commentService;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
@@ -146,6 +166,8 @@ class AdminServiceTest {
     private static final Long ARTIST_ID = 20L;
     private static final Long NOTICE_ID = 1L;
     private static final Long ADMIN_ID = 5L;
+    private static final Long REPORT_ID = 1L;
+    private static final Long REPORTER_ID = 30L;
     private static final Pageable PAGEABLE = PageRequest.of(0, 20);
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2025, 8, 20, 0, 0);
 
@@ -185,6 +207,20 @@ class AdminServiceTest {
                 .build();
         ReflectionTestUtils.setField(notice, "createdAt", CREATED_AT);
         return notice;
+    }
+
+    private Report buildReport(ReportTargetType targetType, Long targetId, ReportStatus status) {
+        Report report = Report.builder()
+                .id(REPORT_ID)
+                .reporterId(REPORTER_ID)
+                .targetType(targetType)
+                .targetId(targetId)
+                .reason(ReportReason.SPAM)
+                .detail("광고성 게시글입니다.")
+                .status(status)
+                .build();
+        ReflectionTestUtils.setField(report, "createdAt", CREATED_AT);
+        return report;
     }
 
     @Test
@@ -2141,5 +2177,182 @@ class AdminServiceTest {
         assertThatThrownBy(() -> adminService.deleteNotice(999L))
                 .isInstanceOf(NoticeNotFoundException.class);
         verify(noticeRepository, never()).delete(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // getReports
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_call_find_all_when_target_type_and_status_are_null() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        Page<Report> page = new PageImpl<>(List.of(report), PAGEABLE, 1);
+        given(reportRepository.findAll(PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<AdminReportListItemResponse> response = adminService.getReports(null, null, PAGEABLE);
+
+        // then
+        verify(reportRepository).findAll(PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+    }
+
+    @Test
+    void should_call_find_all_by_target_type_when_only_target_type_given() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        Page<Report> page = new PageImpl<>(List.of(report), PAGEABLE, 1);
+        given(reportRepository.findAllByTargetType(ReportTargetType.POST, PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<AdminReportListItemResponse> response = adminService.getReports(ReportTargetType.POST, null, PAGEABLE);
+
+        // then
+        verify(reportRepository).findAllByTargetType(ReportTargetType.POST, PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+    }
+
+    @Test
+    void should_call_find_all_by_status_when_only_status_given_for_reports() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        Page<Report> page = new PageImpl<>(List.of(report), PAGEABLE, 1);
+        given(reportRepository.findAllByStatus(ReportStatus.PENDING, PAGEABLE)).willReturn(page);
+
+        // when
+        PageResponse<AdminReportListItemResponse> response = adminService.getReports(null, ReportStatus.PENDING, PAGEABLE);
+
+        // then
+        verify(reportRepository).findAllByStatus(ReportStatus.PENDING, PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+    }
+
+    @Test
+    void should_call_find_all_by_target_type_and_status_when_both_given() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        Page<Report> page = new PageImpl<>(List.of(report), PAGEABLE, 1);
+        given(reportRepository.findAllByTargetTypeAndStatus(ReportTargetType.POST, ReportStatus.PENDING, PAGEABLE))
+                .willReturn(page);
+
+        // when
+        PageResponse<AdminReportListItemResponse> response =
+                adminService.getReports(ReportTargetType.POST, ReportStatus.PENDING, PAGEABLE);
+
+        // then
+        verify(reportRepository).findAllByTargetTypeAndStatus(ReportTargetType.POST, ReportStatus.PENDING, PAGEABLE);
+        assertThat(response.content()).hasSize(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // getReportDetail
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_report_detail_when_valid_id_given() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+
+        // when
+        AdminReportDetailResponse response = adminService.getReportDetail(REPORT_ID);
+
+        // then
+        assertThat(response.id()).isEqualTo(REPORT_ID);
+        assertThat(response.targetType()).isEqualTo(ReportTargetType.POST);
+        assertThat(response.targetId()).isEqualTo(TARGET_ID);
+        assertThat(response.reason()).isEqualTo(ReportReason.SPAM);
+        assertThat(response.detail()).isEqualTo("광고성 게시글입니다.");
+        assertThat(response.status()).isEqualTo(ReportStatus.PENDING);
+        assertThat(response.reporterId()).isEqualTo(REPORTER_ID);
+    }
+
+    @Test
+    void should_throw_report_not_found_when_report_id_does_not_exist() {
+        // given
+        given(reportRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> adminService.getReportDetail(999L))
+                .isInstanceOf(ReportNotFoundException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // updateReportStatus
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_update_status_without_deleting_target_when_delete_target_is_null() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "처리 완료", null);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+
+        // when
+        adminService.updateReportStatus(REPORT_ID, request);
+
+        // then
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.RESOLVED);
+        assertThat(report.getAdminNote()).isEqualTo("처리 완료");
+        verify(postService, never()).adminDelete(any());
+        verify(commentService, never()).adminDelete(any());
+    }
+
+    @Test
+    void should_not_delete_target_when_delete_target_is_false() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.REJECTED, "정상 게시글입니다.", false);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+
+        // when
+        adminService.updateReportStatus(REPORT_ID, request);
+
+        // then
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.REJECTED);
+        verify(postService, never()).adminDelete(any());
+        verify(commentService, never()).adminDelete(any());
+    }
+
+    @Test
+    void should_delete_post_when_delete_target_true_and_target_type_post() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "삭제 처리", true);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+
+        // when
+        adminService.updateReportStatus(REPORT_ID, request);
+
+        // then
+        verify(postService).adminDelete(TARGET_ID);
+        verify(commentService, never()).adminDelete(any());
+    }
+
+    @Test
+    void should_delete_comment_when_delete_target_true_and_target_type_comment() {
+        // given
+        Report report = buildReport(ReportTargetType.COMMENT, TARGET_ID, ReportStatus.PENDING);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "삭제 처리", true);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+
+        // when
+        adminService.updateReportStatus(REPORT_ID, request);
+
+        // then
+        verify(commentService).adminDelete(TARGET_ID);
+        verify(postService, never()).adminDelete(any());
+    }
+
+    @Test
+    void should_throw_report_not_found_when_update_target_does_not_exist() {
+        // given
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, null, null);
+        given(reportRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> adminService.updateReportStatus(999L, request))
+                .isInstanceOf(ReportNotFoundException.class);
     }
 }

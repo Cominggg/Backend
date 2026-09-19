@@ -30,6 +30,9 @@ import com.Coming.Backend.admin.dto.AdminNoticeDetailResponse;
 import com.Coming.Backend.admin.dto.AdminNoticeListItemResponse;
 import com.Coming.Backend.admin.dto.AdminNoticeUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
+import com.Coming.Backend.admin.dto.AdminReportDetailResponse;
+import com.Coming.Backend.admin.dto.AdminReportListItemResponse;
+import com.Coming.Backend.admin.dto.AdminReportStatusUpdateRequest;
 import com.Coming.Backend.admin.exception.PipelineConflictException;
 import com.Coming.Backend.admin.repository.ArtistCollectLockRepository;
 import com.Coming.Backend.artist.entity.Artist;
@@ -70,6 +73,13 @@ import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import com.Coming.Backend.notice.entity.Notice;
 import com.Coming.Backend.notice.exception.NoticeNotFoundException;
 import com.Coming.Backend.notice.repository.NoticeRepository;
+import com.Coming.Backend.post.service.CommentService;
+import com.Coming.Backend.post.service.PostService;
+import com.Coming.Backend.report.entity.Report;
+import com.Coming.Backend.report.entity.ReportStatus;
+import com.Coming.Backend.report.entity.ReportTargetType;
+import com.Coming.Backend.report.exception.ReportNotFoundException;
+import com.Coming.Backend.report.repository.ReportRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -95,6 +105,9 @@ public class AdminService {
     private final ArtistUrlRepository artistUrlRepository;
     private final InquiryRepository inquiryRepository;
     private final NoticeRepository noticeRepository;
+    private final ReportRepository reportRepository;
+    private final PostService postService;
+    private final CommentService commentService;
     private final UserRepository userRepository;
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -298,6 +311,48 @@ public class AdminService {
     public void deleteNotice(Long id) {
         Notice notice = noticeRepository.findById(id).orElseThrow(NoticeNotFoundException::new);
         noticeRepository.delete(notice);
+    }
+
+    /**
+     * 전체 신고 목록을 조회한다. targetType·status 중 null인 항목은 필터 없이 조회한다.
+     */
+    public PageResponse<AdminReportListItemResponse> getReports(ReportTargetType targetType, ReportStatus status, Pageable pageable) {
+        Page<Report> page;
+        if (targetType != null && status != null) {
+            page = reportRepository.findAllByTargetTypeAndStatus(targetType, status, pageable);
+        } else if (targetType != null) {
+            page = reportRepository.findAllByTargetType(targetType, pageable);
+        } else if (status != null) {
+            page = reportRepository.findAllByStatus(status, pageable);
+        } else {
+            page = reportRepository.findAll(pageable);
+        }
+        return PageResponse.from(page.map(AdminReportListItemResponse::of));
+    }
+
+    /**
+     * 신고 상세를 조회한다. 존재하지 않는 ID이면 ReportNotFoundException을 던진다.
+     */
+    public AdminReportDetailResponse getReportDetail(Long id) {
+        Report report = reportRepository.findById(id).orElseThrow(ReportNotFoundException::new);
+        return AdminReportDetailResponse.of(report);
+    }
+
+    /**
+     * 신고 처리 상태를 변경한다. deleteTarget이 true이면 신고 대상 게시글·댓글을 함께 강제 삭제한다.
+     * 존재하지 않는 ID이면 ReportNotFoundException을 던진다.
+     */
+    @Transactional
+    public void updateReportStatus(Long id, AdminReportStatusUpdateRequest request) {
+        Report report = reportRepository.findById(id).orElseThrow(ReportNotFoundException::new);
+        report.updateStatus(request.status(), request.adminNote());
+        if (Boolean.TRUE.equals(request.deleteTarget())) {
+            if (report.getTargetType() == ReportTargetType.POST) {
+                postService.adminDelete(report.getTargetId());
+            } else {
+                commentService.adminDelete(report.getTargetId());
+            }
+        }
     }
 
     /**

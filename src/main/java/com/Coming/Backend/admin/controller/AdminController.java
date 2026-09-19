@@ -27,10 +27,15 @@ import com.Coming.Backend.admin.dto.AdminNoticeDetailResponse;
 import com.Coming.Backend.admin.dto.AdminNoticeListItemResponse;
 import com.Coming.Backend.admin.dto.AdminNoticeUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
+import com.Coming.Backend.admin.dto.AdminReportDetailResponse;
+import com.Coming.Backend.admin.dto.AdminReportListItemResponse;
+import com.Coming.Backend.admin.dto.AdminReportStatusUpdateRequest;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
+import com.Coming.Backend.report.entity.ReportStatus;
+import com.Coming.Backend.report.entity.ReportTargetType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -150,6 +155,32 @@ public class AdminController {
     public ResponseEntity<Void> deleteNotice(@PathVariable Long id) {
         adminService.deleteNotice(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "전체 신고 목록 조회")
+    @GetMapping("/reports")
+    public ResponseEntity<PageResponse<AdminReportListItemResponse>> getReports(
+            @RequestParam(required = false) ReportTargetType targetType,
+            @RequestParam(required = false) ReportStatus status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(adminService.getReports(targetType, status, pageable));
+    }
+
+    @Operation(summary = "신고 상세 조회")
+    @ApiResponse(responseCode = "404", description = "REPORT_NOT_FOUND")
+    @GetMapping("/reports/{id}")
+    public ResponseEntity<AdminReportDetailResponse> getReportDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getReportDetail(id));
+    }
+
+    @Operation(summary = "신고 처리 상태 변경 (deleteTarget=true 시 대상 게시글·댓글 강제 삭제)")
+    @ApiResponse(responseCode = "404", description = "REPORT_NOT_FOUND")
+    @PatchMapping("/reports/{id}/status")
+    public ResponseEntity<Void> updateReportStatus(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminReportStatusUpdateRequest request) {
+        adminService.updateReportStatus(id, request);
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "EXCLUDED 공연 목록 조회")
