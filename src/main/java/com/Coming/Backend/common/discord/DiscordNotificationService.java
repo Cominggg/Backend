@@ -3,6 +3,7 @@ package com.Coming.Backend.common.discord;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.util.SecurityContextUtils;
 import com.Coming.Backend.inquiry.entity.Inquiry;
+import com.Coming.Backend.report.entity.Report;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -37,6 +38,7 @@ public class DiscordNotificationService implements DiscordNotifier {
     private final ObjectMapper objectMapper;
 
     private static final int COLOR_INQUIRY = 0x3498DB;
+    private static final int COLOR_REPORT = 0xE91E63;
 
     @Value("${discord.webhook.5xx-url:}")
     private String fiveXxUrl;
@@ -46,6 +48,9 @@ public class DiscordNotificationService implements DiscordNotifier {
 
     @Value("${discord.webhook.inquiry-url:}")
     private String inquiryUrl;
+
+    @Value("${discord.webhook.report-url:}")
+    private String reportUrl;
 
     public DiscordNotificationService(WebClient.Builder webClientBuilder,
             RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper) {
@@ -71,6 +76,11 @@ public class DiscordNotificationService implements DiscordNotifier {
     @Override
     public void notifyInquiry(Inquiry inquiry) {
         sendAsync(inquiryUrl, buildInquiryPayload(inquiry));
+    }
+
+    @Override
+    public void notifyReport(Report report) {
+        sendAsync(reportUrl, buildReportPayload(report));
     }
 
     private boolean acquireCooldown(String key, Duration ttl) {
@@ -131,6 +141,20 @@ public class DiscordNotificationService implements DiscordNotifier {
                         field("userId", String.valueOf(inquiry.getUserId()), true),
                         field("제목", inquiry.getTitle(), false),
                         field("대상 ID", targetId, true),
+                        field("traceId", resolveTraceId(), true)
+                )
+        );
+    }
+
+    private Map<String, Object> buildReportPayload(Report report) {
+        return embedPayload(
+                "🚨 새 신고 접수",
+                COLOR_REPORT,
+                List.of(
+                        field("대상", report.getTargetType().name() + " #" + report.getTargetId(), true),
+                        field("사유", report.getReason().name(), true),
+                        field("신고자 userId", String.valueOf(report.getReporterId()), true),
+                        field("상세", truncate(report.getDetail()), false),
                         field("traceId", resolveTraceId(), true)
                 )
         );
