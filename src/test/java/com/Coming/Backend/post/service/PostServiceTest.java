@@ -577,6 +577,45 @@ class PostServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // getPopularBoard
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_page_response_when_popular_board_posts_found() {
+        // given
+        ReflectionTestUtils.setField(postService, "popularBoardThreshold", 10L);
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "인기글", 3L);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
+        given(postRepository.findPopularBoard(10L, pageable)).willReturn(page);
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getPopularBoard(0, 20);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).title()).isEqualTo("인기글");
+        verify(postRepository).findPopularBoard(10L, pageable);
+    }
+
+    @Test
+    void should_return_empty_page_response_when_no_popular_board_posts_found() {
+        // given
+        ReflectionTestUtils.setField(postService, "popularBoardThreshold", 10L);
+        Pageable pageable = PageRequest.of(0, 20);
+        given(postRepository.findPopularBoard(10L, pageable)).willReturn(Page.empty(pageable));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getPopularBoard(0, 20);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+    }
+
+    // -------------------------------------------------------------------------
     // getTrendingTags
     // -------------------------------------------------------------------------
 

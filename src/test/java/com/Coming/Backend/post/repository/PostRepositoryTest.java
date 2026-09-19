@@ -57,6 +57,19 @@ class PostRepositoryTest {
                 .build();
     }
 
+    private Post buildPostWithRecommendCount(String title, long recommendCount) {
+        return Post.builder()
+                .userId(AUTHOR_ID)
+                .category(PostCategory.FREE)
+                .title(title)
+                .content("{\"type\":\"doc\"}")
+                .contentText("내용")
+                .recommendCount(recommendCount)
+                .viewCount(0L)
+                .commentCount(0L)
+                .build();
+    }
+
     @Test
     void should_return_post_when_title_matches_search_query() {
         // given
@@ -214,6 +227,49 @@ class PostRepositoryTest {
         // when
         Pageable pageable = PageRequest.of(0, 20);
         Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), pageable);
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId)
+                .containsSubsequence(newerPost.getId(), olderPost.getId());
+    }
+
+    // -------------------------------------------------------------------------
+    // findPopularBoard
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_post_when_recommend_count_is_at_or_above_threshold() {
+        // given
+        Post qualifyingPost = postRepository.save(buildPostWithRecommendCount("추천수 딱 임계치", 10L));
+
+        // when
+        Page<Post> result = postRepository.findPopularBoard(10L, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId).contains(qualifyingPost.getId());
+    }
+
+    @Test
+    void should_exclude_post_when_recommend_count_is_below_threshold() {
+        // given
+        Post belowThresholdPost = postRepository.save(buildPostWithRecommendCount("추천수 미달", 9L));
+
+        // when
+        Page<Post> result = postRepository.findPopularBoard(10L, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId).doesNotContain(belowThresholdPost.getId());
+    }
+
+    @Test
+    void should_return_posts_ordered_by_created_at_desc_when_finding_popular_board() throws InterruptedException {
+        // given
+        Post olderPost = postRepository.save(buildPostWithRecommendCount("먼저 쓴 인기글", 10L));
+        Thread.sleep(10);
+        Post newerPost = postRepository.save(buildPostWithRecommendCount("나중에 쓴 인기글", 20L));
+
+        // when
+        Page<Post> result = postRepository.findPopularBoard(10L, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId)

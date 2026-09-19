@@ -34,6 +34,7 @@ import com.Coming.Backend.post.util.TiptapTextExtractor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -76,6 +77,9 @@ public class PostService {
     private static final int MAX_CONTENT_LENGTH = 50000;
 
     private static final int MIN_SEARCH_QUERY_LENGTH = 2;
+
+    @Value("${app.post.popular-board-threshold:10}")
+    private long popularBoardThreshold;
 
     /**
      * 게시글을 생성한다.
@@ -205,6 +209,16 @@ public class PostService {
         LocalDateTime since = LocalDateTime.now().minusDays(days);
         List<Post> posts = postRepository.findPopularPosts(since, PageRequest.of(0, limit));
         return toSummaryResponses(posts);
+    }
+
+    /**
+     * 추천수가 임계치 이상인 게시글(인기글)을 최신순으로 조회한다.
+     */
+    public PageResponse<PostSummaryResponse> getPopularBoard(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Post> result = postRepository.findPopularBoard(popularBoardThreshold, pageable);
+        List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
+        return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
 
     /**
