@@ -300,6 +300,20 @@ public class PostService {
         if (!post.isAuthoredBy(userId)) {
             throw new PostForbiddenException();
         }
+        deletePostAndDependents(post);
+    }
+
+    /**
+     * 관리자가 작성자 검증 없이 게시글을 강제 삭제한다. 신고 처리 등 관리자 조치용.
+     */
+    @Transactional
+    public void adminDelete(Long id) {
+        Post post = postRepository.findById(id).orElseThrow(PostNotFoundException::new);
+        deletePostAndDependents(post);
+    }
+
+    private void deletePostAndDependents(Post post) {
+        Long id = post.getId();
         commentLikeRepository.deleteByCommentPostId(id);
         commentRepository.deleteByPostId(id);
         postRecommendRepository.deleteByPostId(id);

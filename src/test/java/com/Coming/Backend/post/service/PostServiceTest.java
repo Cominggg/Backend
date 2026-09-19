@@ -938,6 +938,38 @@ class PostServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // adminDelete
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_post_not_found_exception_when_admin_deleting_post_that_does_not_exist() {
+        // given
+        given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> postService.adminDelete(POST_ID))
+                .isInstanceOf(PostNotFoundException.class)
+                .hasMessage(ErrorCode.POST_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_delete_post_and_dependents_when_admin_deletes_post_authored_by_another_user() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+
+        // when
+        postService.adminDelete(POST_ID);
+
+        // then
+        verify(commentLikeRepository).deleteByCommentPostId(POST_ID);
+        verify(commentRepository).deleteByPostId(POST_ID);
+        verify(postRecommendRepository).deleteByPostId(POST_ID);
+        verify(postEntityTagRepository).deleteByPostId(POST_ID);
+        verify(postRepository).delete(post);
+    }
+
+    // -------------------------------------------------------------------------
     // recommend
     // -------------------------------------------------------------------------
 
