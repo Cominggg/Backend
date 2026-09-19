@@ -9,6 +9,6 @@ import java.util.List;
 
 public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
-    @Query("SELECT n FROM Notice n WHERE n.active = true ORDER BY n.createdAt DESC")
+    @Query("SELECT n FROM Notice n WHERE n.active = true ORDER BY n.createdAt DESC, n.id DESC")
     List<Notice> findActiveNotices(Pageable pageable);
 }

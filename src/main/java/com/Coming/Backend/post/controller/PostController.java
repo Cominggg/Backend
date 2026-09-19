@@ -76,7 +76,7 @@ public class PostController {
         return ResponseEntity.ok(postService.getPopular(days, limit));
     }
 
-    @Operation(summary = "인기글(추천 임계치 초과) 목록 조회")
+    @Operation(summary = "인기글(추천 임계치 이상) 목록 조회")
     @GetMapping("/popular-board")
     public ResponseEntity<PageResponse<PostSummaryResponse>> getPopularBoard(
             @RequestParam(defaultValue = "0") @Min(0) int page,
