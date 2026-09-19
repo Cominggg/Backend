@@ -16,9 +16,10 @@ public record AdminReportDetailResponse(
         ReportStatus status,
         String adminNote,
         Long reporterId,
+        String reporterNickname,
         LocalDateTime createdAt
 ) {
-    public static AdminReportDetailResponse of(Report report) {
+    public static AdminReportDetailResponse of(Report report, String reporterNickname) {
         return new AdminReportDetailResponse(
                 report.getId(),
                 report.getTargetType(),
@@ -28,6 +29,7 @@ public record AdminReportDetailResponse(
                 report.getStatus(),
                 report.getAdminNote(),
                 report.getReporterId(),
+                reporterNickname,
                 report.getCreatedAt()
         );
     }

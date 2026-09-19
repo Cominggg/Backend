@@ -327,7 +327,16 @@ public class AdminService {
         } else {
             page = reportRepository.findAll(pageable);
         }
-        return PageResponse.from(page.map(AdminReportListItemResponse::of));
+
+        List<Long> reporterIds = page.getContent().stream()
+                .map(Report::getReporterId)
+                .distinct()
+                .toList();
+        Map<Long, String> nicknameByUserId = userRepository.findAllByIdIn(reporterIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getNickname));
+
+        return PageResponse.from(page.map(report ->
+                AdminReportListItemResponse.of(report, nicknameByUserId.getOrDefault(report.getReporterId(), ""))));
     }
 
     /**
@@ -335,7 +344,10 @@ public class AdminService {
      */
     public AdminReportDetailResponse getReportDetail(Long id) {
         Report report = reportRepository.findById(id).orElseThrow(ReportNotFoundException::new);
-        return AdminReportDetailResponse.of(report);
+        String nickname = userRepository.findById(report.getReporterId())
+                .map(User::getNickname)
+                .orElse("");
+        return AdminReportDetailResponse.of(report, nickname);
     }
 
     /**

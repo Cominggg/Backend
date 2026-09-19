@@ -14,9 +14,10 @@ public record AdminReportListItemResponse(
         ReportReason reason,
         ReportStatus status,
         Long reporterId,
+        String reporterNickname,
         LocalDateTime createdAt
 ) {
-    public static AdminReportListItemResponse of(Report report) {
+    public static AdminReportListItemResponse of(Report report, String reporterNickname) {
         return new AdminReportListItemResponse(
                 report.getId(),
                 report.getTargetType(),
@@ -24,6 +25,7 @@ public record AdminReportListItemResponse(
                 report.getReason(),
                 report.getStatus(),
                 report.getReporterId(),
+                reporterNickname,
                 report.getCreatedAt()
         );
     }

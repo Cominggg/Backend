@@ -1020,7 +1020,7 @@ class AdminControllerTest {
         // given
         AdminReportListItemResponse item = new AdminReportListItemResponse(
                 REPORT_ID, ReportTargetType.POST, TARGET_ID, ReportReason.SPAM, ReportStatus.PENDING,
-                REPORTER_ID, LocalDateTime.of(2025, 8, 20, 0, 0)
+                REPORTER_ID, "신고자닉네임", LocalDateTime.of(2025, 8, 20, 0, 0)
         );
         PageResponse<AdminReportListItemResponse> pageResponse = new PageResponse<>(List.of(item), 0, 20, 1, 1);
         given(adminService.getReports(isNull(), isNull(), any(Pageable.class))).willReturn(pageResponse);
@@ -1040,7 +1040,7 @@ class AdminControllerTest {
         // given
         AdminReportListItemResponse item = new AdminReportListItemResponse(
                 REPORT_ID, ReportTargetType.COMMENT, TARGET_ID, ReportReason.ABUSE, ReportStatus.RESOLVED,
-                REPORTER_ID, LocalDateTime.of(2025, 8, 20, 0, 0)
+                REPORTER_ID, "신고자닉네임", LocalDateTime.of(2025, 8, 20, 0, 0)
         );
         PageResponse<AdminReportListItemResponse> pageResponse = new PageResponse<>(List.of(item), 0, 20, 1, 1);
         given(adminService.getReports(eq(ReportTargetType.COMMENT), eq(ReportStatus.RESOLVED), any(Pageable.class)))
@@ -1065,7 +1065,7 @@ class AdminControllerTest {
         // given
         AdminReportDetailResponse detail = new AdminReportDetailResponse(
                 REPORT_ID, ReportTargetType.POST, TARGET_ID, ReportReason.SPAM, "광고성 게시글입니다.",
-                ReportStatus.PENDING, null, REPORTER_ID, LocalDateTime.of(2025, 8, 20, 0, 0)
+                ReportStatus.PENDING, null, REPORTER_ID, "신고자닉네임", LocalDateTime.of(2025, 8, 20, 0, 0)
         );
         given(adminService.getReportDetail(REPORT_ID)).willReturn(detail);
 
@@ -1075,7 +1075,8 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.id").value(REPORT_ID))
                 .andExpect(jsonPath("$.targetId").value(TARGET_ID))
                 .andExpect(jsonPath("$.detail").value("광고성 게시글입니다."))
-                .andExpect(jsonPath("$.reporterId").value(REPORTER_ID));
+                .andExpect(jsonPath("$.reporterId").value(REPORTER_ID))
+                .andExpect(jsonPath("$.reporterNickname").value("신고자닉네임"));
     }
 
     @Test

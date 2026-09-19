@@ -2189,6 +2189,7 @@ class AdminServiceTest {
         Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
         Page<Report> page = new PageImpl<>(List.of(report), PAGEABLE, 1);
         given(reportRepository.findAll(PAGEABLE)).willReturn(page);
+        given(userRepository.findAllByIdIn(List.of(REPORTER_ID))).willReturn(List.of(buildUser(REPORTER_ID, "신고자닉네임")));
 
         // when
         PageResponse<AdminReportListItemResponse> response = adminService.getReports(null, null, PAGEABLE);
@@ -2196,6 +2197,7 @@ class AdminServiceTest {
         // then
         verify(reportRepository).findAll(PAGEABLE);
         assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).reporterNickname()).isEqualTo("신고자닉네임");
     }
 
     @Test
@@ -2204,6 +2206,7 @@ class AdminServiceTest {
         Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
         Page<Report> page = new PageImpl<>(List.of(report), PAGEABLE, 1);
         given(reportRepository.findAllByTargetType(ReportTargetType.POST, PAGEABLE)).willReturn(page);
+        given(userRepository.findAllByIdIn(List.of(REPORTER_ID))).willReturn(List.of(buildUser(REPORTER_ID, "신고자닉네임")));
 
         // when
         PageResponse<AdminReportListItemResponse> response = adminService.getReports(ReportTargetType.POST, null, PAGEABLE);
@@ -2219,6 +2222,7 @@ class AdminServiceTest {
         Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
         Page<Report> page = new PageImpl<>(List.of(report), PAGEABLE, 1);
         given(reportRepository.findAllByStatus(ReportStatus.PENDING, PAGEABLE)).willReturn(page);
+        given(userRepository.findAllByIdIn(List.of(REPORTER_ID))).willReturn(List.of(buildUser(REPORTER_ID, "신고자닉네임")));
 
         // when
         PageResponse<AdminReportListItemResponse> response = adminService.getReports(null, ReportStatus.PENDING, PAGEABLE);
@@ -2235,6 +2239,7 @@ class AdminServiceTest {
         Page<Report> page = new PageImpl<>(List.of(report), PAGEABLE, 1);
         given(reportRepository.findAllByTargetTypeAndStatus(ReportTargetType.POST, ReportStatus.PENDING, PAGEABLE))
                 .willReturn(page);
+        given(userRepository.findAllByIdIn(List.of(REPORTER_ID))).willReturn(List.of(buildUser(REPORTER_ID, "신고자닉네임")));
 
         // when
         PageResponse<AdminReportListItemResponse> response =
@@ -2254,6 +2259,7 @@ class AdminServiceTest {
         // given
         Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
         given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+        given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(buildUser(REPORTER_ID, "신고자닉네임")));
 
         // when
         AdminReportDetailResponse response = adminService.getReportDetail(REPORT_ID);
@@ -2266,6 +2272,7 @@ class AdminServiceTest {
         assertThat(response.detail()).isEqualTo("광고성 게시글입니다.");
         assertThat(response.status()).isEqualTo(ReportStatus.PENDING);
         assertThat(response.reporterId()).isEqualTo(REPORTER_ID);
+        assertThat(response.reporterNickname()).isEqualTo("신고자닉네임");
     }
 
     @Test
