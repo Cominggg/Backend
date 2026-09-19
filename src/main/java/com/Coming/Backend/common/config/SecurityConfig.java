@@ -121,6 +121,7 @@ public class SecurityConfig {
                                     "/api/calendar",
                                     "/api/mentions/search",
                                     "/api/posts/**",
+                                    "/api/notices/**",
                                     "/api/search",
                                     "/api/entities/**"
                             ).permitAll()
