@@ -21,6 +21,11 @@ import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeDetailResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeListItemResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.response.PageResponse;
@@ -35,6 +40,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -104,6 +110,46 @@ public class AdminController {
             @RequestBody @Valid AdminInquiryStatusUpdateRequest request) {
         adminService.updateInquiryStatus(id, request);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "전체 공지사항 목록 조회")
+    @GetMapping("/notices")
+    public ResponseEntity<PageResponse<AdminNoticeListItemResponse>> getNotices(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(adminService.getNotices(pageable));
+    }
+
+    @Operation(summary = "공지사항 상세 조회 (비활성 포함)")
+    @ApiResponse(responseCode = "404", description = "NOTICE_NOT_FOUND")
+    @GetMapping("/notices/{id}")
+    public ResponseEntity<AdminNoticeDetailResponse> getAdminNotice(@PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getAdminNotice(id));
+    }
+
+    @Operation(summary = "공지사항 작성")
+    @PostMapping("/notices")
+    public ResponseEntity<AdminNoticeCreateResponse> createNotice(
+            @AuthenticationPrincipal Long adminId,
+            @RequestBody @Valid AdminNoticeCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createNotice(adminId, request));
+    }
+
+    @Operation(summary = "공지사항 수정")
+    @ApiResponse(responseCode = "404", description = "NOTICE_NOT_FOUND")
+    @PatchMapping("/notices/{id}")
+    public ResponseEntity<Void> updateNotice(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminNoticeUpdateRequest request) {
+        adminService.updateNotice(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "공지사항 삭제")
+    @ApiResponse(responseCode = "404", description = "NOTICE_NOT_FOUND")
+    @DeleteMapping("/notices/{id}")
+    public ResponseEntity<Void> deleteNotice(@PathVariable Long id) {
+        adminService.deleteNotice(id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "EXCLUDED 공연 목록 조회")

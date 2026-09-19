@@ -24,6 +24,11 @@ import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeDetailResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeListItemResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.exception.PipelineConflictException;
 import com.Coming.Backend.admin.repository.ArtistCollectLockRepository;
@@ -62,6 +67,9 @@ import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.Coming.Backend.inquiry.exception.InvalidInquiryStatusException;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
+import com.Coming.Backend.notice.entity.Notice;
+import com.Coming.Backend.notice.exception.NoticeNotFoundException;
+import com.Coming.Backend.notice.repository.NoticeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -86,6 +94,7 @@ public class AdminService {
     private final ArtistAliasRepository artistAliasRepository;
     private final ArtistUrlRepository artistUrlRepository;
     private final InquiryRepository inquiryRepository;
+    private final NoticeRepository noticeRepository;
     private final UserRepository userRepository;
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -233,6 +242,62 @@ public class AdminService {
         Inquiry inquiry = inquiryRepository.findById(id)
                 .orElseThrow(InquiryNotFoundException::new);
         inquiry.updateStatus(request.status(), request.adminNote());
+    }
+
+    /**
+     * 전체 공지사항 목록을 활성 여부 무관하게 조회한다.
+     */
+    public PageResponse<AdminNoticeListItemResponse> getNotices(Pageable pageable) {
+        return PageResponse.from(noticeRepository.findAll(pageable).map(AdminNoticeListItemResponse::of));
+    }
+
+    /**
+     * 공지사항 상세를 활성 여부 무관하게 조회한다. 존재하지 않는 ID이면 NoticeNotFoundException을 던진다.
+     */
+    public AdminNoticeDetailResponse getAdminNotice(Long id) {
+        Notice notice = noticeRepository.findById(id).orElseThrow(NoticeNotFoundException::new);
+        return AdminNoticeDetailResponse.of(notice);
+    }
+
+    /**
+     * 공지사항을 작성한다. active를 지정하지 않으면 기본 활성 상태로 등록한다.
+     */
+    @Transactional
+    public AdminNoticeCreateResponse createNotice(Long adminId, AdminNoticeCreateRequest request) {
+        Notice notice = Notice.builder()
+                .userId(adminId)
+                .title(request.title())
+                .content(request.content())
+                .active(request.active() == null || request.active())
+                .build();
+        noticeRepository.save(notice);
+        return new AdminNoticeCreateResponse(notice.getId());
+    }
+
+    /**
+     * 공지사항을 수정한다. title·content·active 중 null인 항목은 변경하지 않는다.
+     * 존재하지 않는 ID이면 NoticeNotFoundException을 던진다.
+     */
+    @Transactional
+    public void updateNotice(Long id, AdminNoticeUpdateRequest request) {
+        Notice notice = noticeRepository.findById(id).orElseThrow(NoticeNotFoundException::new);
+        notice.update(request.title(), request.content());
+        if (request.active() != null) {
+            if (request.active()) {
+                notice.activate();
+            } else {
+                notice.deactivate();
+            }
+        }
+    }
+
+    /**
+     * 공지사항을 삭제한다. 존재하지 않는 ID이면 NoticeNotFoundException을 던진다.
+     */
+    @Transactional
+    public void deleteNotice(Long id) {
+        Notice notice = noticeRepository.findById(id).orElseThrow(NoticeNotFoundException::new);
+        noticeRepository.delete(notice);
     }
 
     /**
