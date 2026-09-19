@@ -24,7 +24,15 @@ import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeDetailResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeListItemResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
+import com.Coming.Backend.admin.dto.AdminReportDetailResponse;
+import com.Coming.Backend.admin.dto.AdminReportListItemResponse;
+import com.Coming.Backend.admin.dto.AdminReportStatusUpdateRequest;
 import com.Coming.Backend.admin.exception.PipelineConflictException;
 import com.Coming.Backend.admin.repository.ArtistCollectLockRepository;
 import com.Coming.Backend.artist.entity.Artist;
@@ -62,6 +70,16 @@ import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.Coming.Backend.inquiry.exception.InvalidInquiryStatusException;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
+import com.Coming.Backend.notice.entity.Notice;
+import com.Coming.Backend.notice.exception.NoticeNotFoundException;
+import com.Coming.Backend.notice.repository.NoticeRepository;
+import com.Coming.Backend.post.service.CommentService;
+import com.Coming.Backend.post.service.PostService;
+import com.Coming.Backend.report.entity.Report;
+import com.Coming.Backend.report.entity.ReportStatus;
+import com.Coming.Backend.report.entity.ReportTargetType;
+import com.Coming.Backend.report.exception.ReportNotFoundException;
+import com.Coming.Backend.report.repository.ReportRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -86,6 +104,10 @@ public class AdminService {
     private final ArtistAliasRepository artistAliasRepository;
     private final ArtistUrlRepository artistUrlRepository;
     private final InquiryRepository inquiryRepository;
+    private final NoticeRepository noticeRepository;
+    private final ReportRepository reportRepository;
+    private final PostService postService;
+    private final CommentService commentService;
     private final UserRepository userRepository;
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -233,6 +255,116 @@ public class AdminService {
         Inquiry inquiry = inquiryRepository.findById(id)
                 .orElseThrow(InquiryNotFoundException::new);
         inquiry.updateStatus(request.status(), request.adminNote());
+    }
+
+    /**
+     * 전체 공지사항 목록을 활성 여부 무관하게 조회한다.
+     */
+    public PageResponse<AdminNoticeListItemResponse> getNotices(Pageable pageable) {
+        return PageResponse.from(noticeRepository.findAll(pageable).map(AdminNoticeListItemResponse::of));
+    }
+
+    /**
+     * 공지사항 상세를 활성 여부 무관하게 조회한다. 존재하지 않는 ID이면 NoticeNotFoundException을 던진다.
+     */
+    public AdminNoticeDetailResponse getAdminNotice(Long id) {
+        Notice notice = noticeRepository.findById(id).orElseThrow(NoticeNotFoundException::new);
+        return AdminNoticeDetailResponse.of(notice);
+    }
+
+    /**
+     * 공지사항을 작성한다. active를 지정하지 않으면 기본 활성 상태로 등록한다.
+     */
+    @Transactional
+    public AdminNoticeCreateResponse createNotice(Long adminId, AdminNoticeCreateRequest request) {
+        Notice notice = Notice.builder()
+                .userId(adminId)
+                .title(request.title())
+                .content(request.content())
+                .active(request.active() == null || request.active())
+                .build();
+        noticeRepository.save(notice);
+        return new AdminNoticeCreateResponse(notice.getId());
+    }
+
+    /**
+     * 공지사항을 수정한다. title·content·active 중 null인 항목은 변경하지 않는다.
+     * 존재하지 않는 ID이면 NoticeNotFoundException을 던진다.
+     */
+    @Transactional
+    public void updateNotice(Long id, AdminNoticeUpdateRequest request) {
+        Notice notice = noticeRepository.findById(id).orElseThrow(NoticeNotFoundException::new);
+        notice.update(request.title(), request.content());
+        if (request.active() != null) {
+            if (request.active()) {
+                notice.activate();
+            } else {
+                notice.deactivate();
+            }
+        }
+    }
+
+    /**
+     * 공지사항을 삭제한다. 존재하지 않는 ID이면 NoticeNotFoundException을 던진다.
+     */
+    @Transactional
+    public void deleteNotice(Long id) {
+        Notice notice = noticeRepository.findById(id).orElseThrow(NoticeNotFoundException::new);
+        noticeRepository.delete(notice);
+    }
+
+    /**
+     * 전체 신고 목록을 조회한다. targetType·status 중 null인 항목은 필터 없이 조회한다.
+     */
+    public PageResponse<AdminReportListItemResponse> getReports(ReportTargetType targetType, ReportStatus status, Pageable pageable) {
+        Page<Report> page;
+        if (targetType != null && status != null) {
+            page = reportRepository.findAllByTargetTypeAndStatus(targetType, status, pageable);
+        } else if (targetType != null) {
+            page = reportRepository.findAllByTargetType(targetType, pageable);
+        } else if (status != null) {
+            page = reportRepository.findAllByStatus(status, pageable);
+        } else {
+            page = reportRepository.findAll(pageable);
+        }
+
+        List<Long> reporterIds = page.getContent().stream()
+                .map(Report::getReporterId)
+                .distinct()
+                .toList();
+        Map<Long, String> nicknameByUserId = userRepository.findAllByIdIn(reporterIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getNickname));
+
+        return PageResponse.from(page.map(report ->
+                AdminReportListItemResponse.of(report, nicknameByUserId.getOrDefault(report.getReporterId(), ""))));
+    }
+
+    /**
+     * 신고 상세를 조회한다. 존재하지 않는 ID이면 ReportNotFoundException을 던진다.
+     */
+    public AdminReportDetailResponse getReportDetail(Long id) {
+        Report report = reportRepository.findById(id).orElseThrow(ReportNotFoundException::new);
+        String nickname = userRepository.findById(report.getReporterId())
+                .map(User::getNickname)
+                .orElse("");
+        return AdminReportDetailResponse.of(report, nickname);
+    }
+
+    /**
+     * 신고 처리 상태를 변경한다. deleteTarget이 true이면 신고 대상 게시글·댓글을 함께 강제 삭제한다.
+     * 존재하지 않는 ID이면 ReportNotFoundException을 던진다.
+     */
+    @Transactional
+    public void updateReportStatus(Long id, AdminReportStatusUpdateRequest request) {
+        Report report = reportRepository.findById(id).orElseThrow(ReportNotFoundException::new);
+        report.updateStatus(request.status(), request.adminNote());
+        if (Boolean.TRUE.equals(request.deleteTarget())) {
+            if (report.getTargetType() == ReportTargetType.POST) {
+                postService.adminDelete(report.getTargetId());
+            } else {
+                commentService.adminDelete(report.getTargetId());
+            }
+        }
     }
 
     /**

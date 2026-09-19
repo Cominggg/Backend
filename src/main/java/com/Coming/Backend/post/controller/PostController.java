@@ -76,6 +76,14 @@ public class PostController {
         return ResponseEntity.ok(postService.getPopular(days, limit));
     }
 
+    @Operation(summary = "인기글(추천 임계치 이상) 목록 조회")
+    @GetMapping("/popular-board")
+    public ResponseEntity<PageResponse<PostSummaryResponse>> getPopularBoard(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return ResponseEntity.ok(postService.getPopularBoard(page, size));
+    }
+
     @Operation(summary = "최근 많이 언급된 태그 조회")
     @GetMapping("/trending-tags")
     public ResponseEntity<List<TrendingTagResponse>> getTrendingTags(

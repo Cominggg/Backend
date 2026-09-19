@@ -27,6 +27,14 @@ import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeDetailResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeListItemResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminReportDetailResponse;
+import com.Coming.Backend.admin.dto.AdminReportListItemResponse;
+import com.Coming.Backend.admin.dto.AdminReportStatusUpdateRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
@@ -44,12 +52,19 @@ import com.Coming.Backend.concert.exception.ConcertNotPendingException;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
+import com.Coming.Backend.notice.exception.NoticeNotFoundException;
+import com.Coming.Backend.report.entity.ReportReason;
+import com.Coming.Backend.report.entity.ReportStatus;
+import com.Coming.Backend.report.entity.ReportTargetType;
+import com.Coming.Backend.report.exception.ReportNotFoundException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,6 +74,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -79,6 +98,10 @@ class AdminControllerTest {
     private static final Long USER_ID = 10L;
     private static final Long TARGET_ID = 99L;
     private static final Long CONCERT_ID = 1L;
+    private static final Long NOTICE_ID = 1L;
+    private static final Long ADMIN_ID = 5L;
+    private static final Long REPORT_ID = 1L;
+    private static final Long REPORTER_ID = 30L;
 
     @BeforeEach
     void setUp() {
@@ -86,9 +109,22 @@ class AdminControllerTest {
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         mockMvc = MockMvcBuilders.standaloneSetup(adminController)
                 .setControllerAdvice(new GlobalExceptionHandler(new com.Coming.Backend.common.discord.NoOpDiscordNotifier()))
-                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .setCustomArgumentResolvers(
+                        new PageableHandlerMethodArgumentResolver(),
+                        new AuthenticationPrincipalArgumentResolver())
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        ADMIN_ID, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                )
+        );
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     // -------------------------------------------------------------------------
@@ -790,5 +826,317 @@ class AdminControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/admin/notices
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_notice_list_when_notices_exist() throws Exception {
+        // given
+        AdminNoticeListItemResponse item = new AdminNoticeListItemResponse(
+                NOTICE_ID, "점검 안내", true, LocalDateTime.of(2025, 8, 20, 0, 0)
+        );
+        PageResponse<AdminNoticeListItemResponse> pageResponse = new PageResponse<>(List.of(item), 0, 20, 1, 1);
+        given(adminService.getNotices(any(Pageable.class))).willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/notices").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content[0].id").value(NOTICE_ID))
+                .andExpect(jsonPath("$.content[0].title").value("점검 안내"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").isNumber());
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/admin/notices/{id}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_notice_detail_when_valid_id_given() throws Exception {
+        // given
+        AdminNoticeDetailResponse detail = new AdminNoticeDetailResponse(
+                NOTICE_ID, "점검 안내", "9월 20일 점검이 진행됩니다.", true,
+                LocalDateTime.of(2025, 8, 20, 0, 0), LocalDateTime.of(2025, 8, 20, 0, 0)
+        );
+        given(adminService.getAdminNotice(NOTICE_ID)).willReturn(detail);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/notices/{id}", NOTICE_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(NOTICE_ID))
+                .andExpect(jsonPath("$.title").value("점검 안내"))
+                .andExpect(jsonPath("$.content").value("9월 20일 점검이 진행됩니다."))
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    void should_return_404_when_notice_not_found_on_detail() throws Exception {
+        // given
+        given(adminService.getAdminNotice(999L)).willThrow(new NoticeNotFoundException());
+
+        // when & then
+        mockMvc.perform(get("/api/admin/notices/{id}", 999L).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.NOTICE_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/admin/notices
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_201_when_valid_notice_create_request_given() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "점검 안내",
+                    "content": "9월 20일 점검이 진행됩니다."
+                }
+                """;
+        given(adminService.createNotice(eq(ADMIN_ID), any(AdminNoticeCreateRequest.class)))
+                .willReturn(new AdminNoticeCreateResponse(NOTICE_ID));
+
+        // when & then
+        mockMvc.perform(post("/api/admin/notices")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.noticeId").value(NOTICE_ID));
+    }
+
+    @Test
+    void should_return_400_when_title_is_blank_on_notice_create() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "",
+                    "content": "9월 20일 점검이 진행됩니다."
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/notices")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_return_400_when_content_is_blank_on_notice_create() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "점검 안내",
+                    "content": ""
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/notices")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // PATCH /api/admin/notices/{id}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_valid_notice_update_request_given() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "점검 안내 (수정)"
+                }
+                """;
+        willDoNothing().given(adminService).updateNotice(eq(NOTICE_ID), any(AdminNoticeUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(patch("/api/admin/notices/{id}", NOTICE_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_404_when_notice_not_found_on_update() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "점검 안내 (수정)"
+                }
+                """;
+        willThrow(new NoticeNotFoundException())
+                .given(adminService).updateNotice(eq(999L), any(AdminNoticeUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(patch("/api/admin/notices/{id}", 999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.NOTICE_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // DELETE /api/admin/notices/{id}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_204_when_notice_deleted_successfully() throws Exception {
+        // given
+        willDoNothing().given(adminService).deleteNotice(NOTICE_ID);
+
+        // when & then
+        mockMvc.perform(delete("/api/admin/notices/{id}", NOTICE_ID))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void should_return_404_when_notice_not_found_on_delete() throws Exception {
+        // given
+        willThrow(new NoticeNotFoundException()).given(adminService).deleteNotice(999L);
+
+        // when & then
+        mockMvc.perform(delete("/api/admin/notices/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.NOTICE_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/admin/reports
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_report_list_when_no_filter_given() throws Exception {
+        // given
+        AdminReportListItemResponse item = new AdminReportListItemResponse(
+                REPORT_ID, ReportTargetType.POST, TARGET_ID, ReportReason.SPAM, ReportStatus.PENDING,
+                REPORTER_ID, "신고자닉네임", LocalDateTime.of(2025, 8, 20, 0, 0)
+        );
+        PageResponse<AdminReportListItemResponse> pageResponse = new PageResponse<>(List.of(item), 0, 20, 1, 1);
+        given(adminService.getReports(isNull(), isNull(), any(Pageable.class))).willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/reports").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content[0].id").value(REPORT_ID))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").isNumber());
+    }
+
+    @Test
+    void should_pass_target_type_and_status_filter_to_service_when_filter_params_given() throws Exception {
+        // given
+        AdminReportListItemResponse item = new AdminReportListItemResponse(
+                REPORT_ID, ReportTargetType.COMMENT, TARGET_ID, ReportReason.ABUSE, ReportStatus.RESOLVED,
+                REPORTER_ID, "신고자닉네임", LocalDateTime.of(2025, 8, 20, 0, 0)
+        );
+        PageResponse<AdminReportListItemResponse> pageResponse = new PageResponse<>(List.of(item), 0, 20, 1, 1);
+        given(adminService.getReports(eq(ReportTargetType.COMMENT), eq(ReportStatus.RESOLVED), any(Pageable.class)))
+                .willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/reports")
+                        .param("targetType", "COMMENT")
+                        .param("status", "RESOLVED")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].targetType").value("COMMENT"))
+                .andExpect(jsonPath("$.content[0].status").value("RESOLVED"));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/admin/reports/{id}
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_report_detail_when_valid_id_given() throws Exception {
+        // given
+        AdminReportDetailResponse detail = new AdminReportDetailResponse(
+                REPORT_ID, ReportTargetType.POST, TARGET_ID, ReportReason.SPAM, "광고성 게시글입니다.",
+                ReportStatus.PENDING, null, REPORTER_ID, "신고자닉네임", LocalDateTime.of(2025, 8, 20, 0, 0)
+        );
+        given(adminService.getReportDetail(REPORT_ID)).willReturn(detail);
+
+        // when & then
+        mockMvc.perform(get("/api/admin/reports/{id}", REPORT_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(REPORT_ID))
+                .andExpect(jsonPath("$.targetId").value(TARGET_ID))
+                .andExpect(jsonPath("$.detail").value("광고성 게시글입니다."))
+                .andExpect(jsonPath("$.reporterId").value(REPORTER_ID))
+                .andExpect(jsonPath("$.reporterNickname").value("신고자닉네임"));
+    }
+
+    @Test
+    void should_return_404_when_report_not_found_on_detail() throws Exception {
+        // given
+        given(adminService.getReportDetail(999L)).willThrow(new ReportNotFoundException());
+
+        // when & then
+        mockMvc.perform(get("/api/admin/reports/{id}", 999L).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.REPORT_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // PATCH /api/admin/reports/{id}/status
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_when_report_status_updated_successfully() throws Exception {
+        // given
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "삭제 처리", true);
+        willDoNothing().given(adminService).updateReportStatus(eq(REPORT_ID), any(AdminReportStatusUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(patch("/api/admin/reports/{id}/status", REPORT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_return_400_when_status_field_is_null_on_report_status_update() throws Exception {
+        // given — status 필드 누락
+        String requestBody = """
+                {
+                    "adminNote": "삭제 처리"
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(patch("/api/admin/reports/{id}/status", REPORT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_return_404_when_report_not_found_on_status_update() throws Exception {
+        // given
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, null, null);
+        willThrow(new ReportNotFoundException())
+                .given(adminService).updateReportStatus(eq(999L), any(AdminReportStatusUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(patch("/api/admin/reports/{id}/status", 999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.REPORT_NOT_FOUND.name()))
+                .andExpect(jsonPath("$.message").exists());
     }
 }
