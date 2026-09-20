@@ -12,9 +12,12 @@ public record ReleaseListItemResponse(
         String title,
         String type,
         LocalDate releaseDate,
-        String spotifyId
+        String spotifyId,
+        Double averageRating,
+        long ratingCount
 ) {
-    public static ReleaseListItemResponse of(ReleaseGroup release, String artistName, String artistKoreanName) {
+    public static ReleaseListItemResponse of(ReleaseGroup release, String artistName, String artistKoreanName,
+                                              Double averageRating, long ratingCount) {
         return new ReleaseListItemResponse(
                 release.getId(),
                 release.getCoverUrl(),
@@ -23,7 +26,9 @@ public record ReleaseListItemResponse(
                 release.getTitle(),
                 release.getType(),
                 release.getFirstReleaseDate(),
-                release.getSpotifyId()
+                release.getSpotifyId(),
+                averageRating,
+                ratingCount
         );
     }
 }

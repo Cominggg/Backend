@@ -19,6 +19,8 @@ public record ConcertDetailResponse(
         String price,
         boolean isInCalendar,
         LocalDateTime ticketOpenAt,
-        List<TicketLinkDto> ticketLinks
+        List<TicketLinkDto> ticketLinks,
+        Double averageRating,
+        long ratingCount
 ) {
 }

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -18,6 +19,9 @@ import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.rating.dto.RatingSummary;
+import com.Coming.Backend.rating.entity.RatingTargetType;
+import com.Coming.Backend.rating.service.RatingService;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
 import com.Coming.Backend.release.dto.ReleaseListItemResponse;
@@ -30,9 +34,11 @@ import com.Coming.Backend.release.repository.TrackRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -64,10 +70,20 @@ class ReleaseServiceTest {
     @Mock
     private UserFollowArtistRepository userFollowArtistRepository;
 
+    @Mock
+    private RatingService ratingService;
+
     private static final Long ARTIST_ID = 1L;
     private static final Long USER_ID = 100L;
     private static final Long RELEASE_ID = 10L;
     private static final Pageable PAGEABLE = PageRequest.of(0, 20);
+
+    @BeforeEach
+    void setUp() {
+        // 평점 집계는 대부분의 테스트와 무관하므로 기본값(빈 맵)을 lenient로 스텁한다.
+        // 평점 매핑을 직접 검증하는 테스트는 개별적으로 given()을 재정의한다.
+        lenient().when(ratingService.getSummaries(any(), any())).thenReturn(Map.of());
+    }
 
     private ReleaseGroup buildRelease(Long id, Long artistId, String type) {
         return ReleaseGroup.builder()
@@ -341,6 +357,33 @@ class ReleaseServiceTest {
                 eq(ARTIST_ID), isNull(), eq("Album"), eq("%lilac%"), any(Pageable.class));
     }
 
+    @Test
+    void should_map_rating_summary_per_release_and_use_default_when_only_some_releases_have_ratings() {
+        // given
+        Long otherReleaseId = 20L;
+        ReleaseGroup rated = buildRelease(RELEASE_ID, ARTIST_ID, "Album");
+        ReleaseGroup unrated = buildRelease(otherReleaseId, ARTIST_ID, "Single");
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        RatingSummary ratingSummary = new RatingSummary(4.5, 3L);
+        Page<ReleaseGroup> page = new PageImpl<>(List.of(rated, unrated), PAGEABLE, 2);
+        given(releaseGroupRepository.searchReleases(
+                isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .willReturn(page);
+        given(artistRepository.findAllById(Set.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(ratingService.getSummaries(RatingTargetType.RELEASE, List.of(RELEASE_ID, otherReleaseId)))
+                .willReturn(Map.of(RELEASE_ID, ratingSummary));
+
+        // when
+        PageResponse<ReleaseListItemResponse> response =
+                releaseService.getReleases(null, null, null, null, false, PAGEABLE);
+
+        // then
+        assertThat(response.content().get(0).averageRating()).isEqualTo(4.5);
+        assertThat(response.content().get(0).ratingCount()).isEqualTo(3L);
+        assertThat(response.content().get(1).averageRating()).isNull();
+        assertThat(response.content().get(1).ratingCount()).isZero();
+    }
+
     // -------------------------------------------------------------------------
     // getReleases — following=true
     // -------------------------------------------------------------------------
@@ -427,6 +470,45 @@ class ReleaseServiceTest {
         assertThat(response.artistName()).isEqualTo("IU");
         assertThat(response.tracks()).hasSize(1);
         assertThat(response.tracks().get(0).title()).isEqualTo("트랙 1");
+    }
+
+    @Test
+    void should_return_rating_summary_when_release_has_ratings() {
+        // given
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        RatingSummary ratingSummary = new RatingSummary(3.5, 8L);
+        given(releaseGroupRepository.findById(RELEASE_ID)).willReturn(Optional.of(release));
+        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(trackRepository.findByReleaseGroupIdOrderByPosition(RELEASE_ID)).willReturn(List.of());
+        given(ratingService.getSummaries(RatingTargetType.RELEASE, List.of(RELEASE_ID)))
+                .willReturn(Map.of(RELEASE_ID, ratingSummary));
+
+        // when
+        ReleaseDetailResponse response = releaseService.getReleaseDetail(RELEASE_ID);
+
+        // then
+        assertThat(response.averageRating()).isEqualTo(3.5);
+        assertThat(response.ratingCount()).isEqualTo(8L);
+    }
+
+    @Test
+    void should_return_null_average_rating_and_zero_rating_count_when_release_has_no_ratings() {
+        // given
+        ReleaseGroup release = buildRelease(RELEASE_ID, ARTIST_ID, "ALBUM");
+        Artist artist = buildArtist(ARTIST_ID, "IU");
+        given(releaseGroupRepository.findById(RELEASE_ID)).willReturn(Optional.of(release));
+        given(artistRepository.findById(ARTIST_ID)).willReturn(Optional.of(artist));
+        given(trackRepository.findByReleaseGroupIdOrderByPosition(RELEASE_ID)).willReturn(List.of());
+        given(ratingService.getSummaries(RatingTargetType.RELEASE, List.of(RELEASE_ID)))
+                .willReturn(Map.of());
+
+        // when
+        ReleaseDetailResponse response = releaseService.getReleaseDetail(RELEASE_ID);
+
+        // then
+        assertThat(response.averageRating()).isNull();
+        assertThat(response.ratingCount()).isZero();
     }
 
     @Test

@@ -28,6 +28,9 @@ import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.concert.repository.SetlistRepository;
 import com.Coming.Backend.concert.repository.SetlistTrackRepository;
+import com.Coming.Backend.rating.dto.RatingSummary;
+import com.Coming.Backend.rating.entity.RatingTargetType;
+import com.Coming.Backend.rating.service.RatingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -53,6 +56,7 @@ import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
 public class ConcertService {
 
     private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
+    private static final RatingSummary EMPTY_RATING_SUMMARY = new RatingSummary(null, 0);
 
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -64,6 +68,7 @@ public class ConcertService {
     private final UserFollowArtistRepository userFollowArtistRepository;
     private final SetlistRepository setlistRepository;
     private final SetlistTrackRepository setlistTrackRepository;
+    private final RatingService ratingService;
 
     /**
      * 예정·진행 중 공연을 우선 노출하고 이후 조회수 순으로 상위 10건의 인기 공연 목록을 반환한다.
@@ -211,6 +216,9 @@ public class ConcertService {
         boolean isInCalendar = userId != null &&
                 userConcertCalendarRepository.existsByUserIdAndConcertId(userId, id);
 
+        RatingSummary ratingSummary = ratingService.getSummaries(RatingTargetType.CONCERT, List.of(id))
+                .getOrDefault(id, EMPTY_RATING_SUMMARY);
+
         return new ConcertDetailResponse(
                 concert.getId(),
                 concert.getPosterUrl(),
@@ -224,7 +232,9 @@ public class ConcertService {
                 concert.getPrice(),
                 isInCalendar,
                 concert.getTicketOpenAt(),
-                buildTicketLinks(id)
+                buildTicketLinks(id),
+                ratingSummary.averageRating(),
+                ratingSummary.ratingCount()
         );
     }
 
@@ -240,10 +250,12 @@ public class ConcertService {
         Map<Long, String> artistNameMap = buildArtistNameMap(allArtistIds);
         Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(allArtistIds));
         Set<Long> calendarConcertIds = buildCalendarConcertIds(userId, concertIds);
+        Map<Long, RatingSummary> ratingSummaryMap = ratingService.getSummaries(RatingTargetType.CONCERT, concertIds);
         return concerts.stream().map(concert -> {
             List<ArtistSummary> artists = concertToArtistIds.getOrDefault(concert.getId(), List.of()).stream()
                     .map(artistId -> new ArtistSummary(artistId, artistNameMap.get(artistId), koreanNameMap.get(artistId)))
                     .toList();
+            RatingSummary ratingSummary = ratingSummaryMap.getOrDefault(concert.getId(), EMPTY_RATING_SUMMARY);
             return new ConcertSummaryResponse(
                     concert.getId(),
                     concert.getPosterUrl(),
@@ -254,7 +266,9 @@ public class ConcertService {
                     concert.getVenueName(),
                     concert.getStatus(),
                     calendarConcertIds.contains(concert.getId()),
-                    concert.getTicketOpenAt()
+                    concert.getTicketOpenAt(),
+                    ratingSummary.averageRating(),
+                    ratingSummary.ratingCount()
             );
         }).toList();
     }

@@ -78,7 +78,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null, null, 0
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -103,7 +103,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null, null, 0
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -124,7 +124,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Single", LocalDate.of(2021, 3, 25), null
+                "LILAC", "Single", LocalDate.of(2021, 3, 25), null, null, 0
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -144,7 +144,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null, null, 0
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -180,7 +180,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null, null, 0
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -202,7 +202,7 @@ class ReleaseControllerTest {
         // given
         ReleaseListItemResponse item = new ReleaseListItemResponse(
                 RELEASE_ID, "https://cover.example.com/10", "IU", null,
-                "LILAC", "Album", LocalDate.of(2021, 3, 25), null
+                "LILAC", "Album", LocalDate.of(2021, 3, 25), null, null, 0
         );
         PageResponse<ReleaseListItemResponse> pageResponse =
                 new PageResponse<>(List.of(item), 0, 20, 1, 1);
@@ -249,7 +249,7 @@ class ReleaseControllerTest {
         ReleaseDetailResponse detail = new ReleaseDetailResponse(
                 RELEASE_ID, "LILAC", "Album", LocalDate.of(2021, 3, 25),
                 "https://cover.example.com/10", "KAKAO M", 2,
-                ARTIST_ID, "IU", null, null, List.of(track1, track2)
+                ARTIST_ID, "IU", null, null, List.of(track1, track2), null, 0
         );
         given(releaseService.getReleaseDetail(eq(RELEASE_ID))).willReturn(detail);
 

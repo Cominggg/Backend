@@ -81,7 +81,9 @@ class ConcertControllerTest {
                 "올림픽공원",
                 ConcertStatus.UPCOMING,
                 false,
-                null
+                null,
+                null,
+                0
         );
     }
 
