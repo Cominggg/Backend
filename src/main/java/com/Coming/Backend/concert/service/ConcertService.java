@@ -56,7 +56,6 @@ import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
 public class ConcertService {
 
     private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
-    private static final RatingSummary EMPTY_RATING_SUMMARY = new RatingSummary(null, 0);
 
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -216,8 +215,9 @@ public class ConcertService {
         boolean isInCalendar = userId != null &&
                 userConcertCalendarRepository.existsByUserIdAndConcertId(userId, id);
 
-        RatingSummary ratingSummary = ratingService.getSummaries(RatingTargetType.CONCERT, List.of(id))
-                .getOrDefault(id, EMPTY_RATING_SUMMARY);
+        RatingSummary ratingSummary = ratingService
+                .getSummaries(RatingTargetType.CONCERT, List.of(id))
+                .getOrDefault(id, RatingSummary.empty());
 
         return new ConcertDetailResponse(
                 concert.getId(),
@@ -250,12 +250,14 @@ public class ConcertService {
         Map<Long, String> artistNameMap = buildArtistNameMap(allArtistIds);
         Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(allArtistIds));
         Set<Long> calendarConcertIds = buildCalendarConcertIds(userId, concertIds);
-        Map<Long, RatingSummary> ratingSummaryMap = ratingService.getSummaries(RatingTargetType.CONCERT, concertIds);
+        Map<Long, RatingSummary> ratingSummaryMap =
+                ratingService.getSummaries(RatingTargetType.CONCERT, concertIds);
         return concerts.stream().map(concert -> {
             List<ArtistSummary> artists = concertToArtistIds.getOrDefault(concert.getId(), List.of()).stream()
                     .map(artistId -> new ArtistSummary(artistId, artistNameMap.get(artistId), koreanNameMap.get(artistId)))
                     .toList();
-            RatingSummary ratingSummary = ratingSummaryMap.getOrDefault(concert.getId(), EMPTY_RATING_SUMMARY);
+            RatingSummary ratingSummary =
+                    ratingSummaryMap.getOrDefault(concert.getId(), RatingSummary.empty());
             return new ConcertSummaryResponse(
                     concert.getId(),
                     concert.getPosterUrl(),

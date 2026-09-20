@@ -4,4 +4,7 @@ public record RatingSummary(
         Double averageRating,
         long ratingCount
 ) {
+    public static RatingSummary empty() {
+        return new RatingSummary(null, 0);
+    }
 }

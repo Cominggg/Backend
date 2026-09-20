@@ -12,10 +12,12 @@ import java.util.Optional;
 
 public interface RatingRepository extends JpaRepository<Rating, Long> {
 
-    Optional<Rating> findByUserIdAndTargetTypeAndTargetId(Long userId, RatingTargetType targetType, Long targetId);
+    Optional<Rating> findByUserIdAndTargetTypeAndTargetId(
+            Long userId, RatingTargetType targetType, Long targetId);
 
     @Query("SELECT r.targetId AS targetId, AVG(r.score) AS averageScore, COUNT(r) AS ratingCount " +
-            "FROM Rating r WHERE r.targetType = :targetType AND r.targetId IN :targetIds GROUP BY r.targetId")
+            "FROM Rating r WHERE r.targetType = :targetType " +
+            "AND r.targetId IN :targetIds GROUP BY r.targetId")
     List<RatingAggregate> aggregateByTargetIds(@Param("targetType") RatingTargetType targetType,
                                                 @Param("targetIds") Collection<Long> targetIds);
 

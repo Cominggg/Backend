@@ -43,7 +43,6 @@ import java.util.stream.Collectors;
 public class ReleaseService {
 
     private static final List<String> STANDARD_TYPES = List.of("Album", "Single");
-    private static final RatingSummary EMPTY_RATING_SUMMARY = new RatingSummary(null, 0);
 
     private final ReleaseGroupRepository releaseGroupRepository;
     private final TrackRepository trackRepository;
@@ -108,11 +107,15 @@ public class ReleaseService {
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
         Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
         List<Long> releaseIds = page.stream().map(ReleaseGroup::getId).toList();
-        Map<Long, RatingSummary> ratingSummaryMap = ratingService.getSummaries(RatingTargetType.RELEASE, releaseIds);
+        Map<Long, RatingSummary> ratingSummaryMap =
+                ratingService.getSummaries(RatingTargetType.RELEASE, releaseIds);
 
         return PageResponse.from(page.map(release -> {
-            RatingSummary ratingSummary = ratingSummaryMap.getOrDefault(release.getId(), EMPTY_RATING_SUMMARY);
-            return ReleaseListItemResponse.of(release, artistNameMap.getOrDefault(release.getArtistId(), ""), koreanNameMap.get(release.getArtistId()),
+            RatingSummary ratingSummary =
+                    ratingSummaryMap.getOrDefault(release.getId(), RatingSummary.empty());
+            return ReleaseListItemResponse.of(release,
+                    artistNameMap.getOrDefault(release.getArtistId(), ""),
+                    koreanNameMap.get(release.getArtistId()),
                     ratingSummary.averageRating(), ratingSummary.ratingCount());
         }));
     }
@@ -149,8 +152,9 @@ public class ReleaseService {
         List<TrackDto> tracks = trackRepository.findByReleaseGroupIdOrderByPosition(release.getId())
                 .stream().map(TrackDto::from).toList();
 
-        RatingSummary ratingSummary = ratingService.getSummaries(RatingTargetType.RELEASE, List.of(release.getId()))
-                .getOrDefault(release.getId(), EMPTY_RATING_SUMMARY);
+        RatingSummary ratingSummary = ratingService
+                .getSummaries(RatingTargetType.RELEASE, List.of(release.getId()))
+                .getOrDefault(release.getId(), RatingSummary.empty());
 
         return ReleaseDetailResponse.of(release, artistName, artistKoreanName, tracks,
                 ratingSummary.averageRating(), ratingSummary.ratingCount());

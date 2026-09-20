@@ -1,5 +1,6 @@
 package com.Coming.Backend.rating.service;
 
+import com.Coming.Backend.concert.exception.UnauthorizedException;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.rating.dto.RatingMeResponse;
 import com.Coming.Backend.rating.dto.RatingSummary;
@@ -8,7 +9,6 @@ import com.Coming.Backend.rating.entity.RatingTargetType;
 import com.Coming.Backend.rating.exception.InvalidRatingScoreException;
 import com.Coming.Backend.rating.exception.RatingNotFoundException;
 import com.Coming.Backend.rating.exception.RatingTargetNotFoundException;
-import com.Coming.Backend.rating.exception.UnauthorizedException;
 import com.Coming.Backend.rating.repository.RatingRepository;
 import com.Coming.Backend.release.repository.ReleaseGroupRepository;
 import lombok.RequiredArgsConstructor;
@@ -79,7 +79,8 @@ public class RatingService {
         if (userId == null) {
             throw new UnauthorizedException();
         }
-        Rating rating = ratingRepository.findByUserIdAndTargetTypeAndTargetId(userId, targetType, targetId)
+        Rating rating = ratingRepository
+                .findByUserIdAndTargetTypeAndTargetId(userId, targetType, targetId)
                 .orElseThrow(RatingNotFoundException::new);
         ratingRepository.delete(rating);
     }
@@ -87,7 +88,8 @@ public class RatingService {
     /**
      * 대상 ID 목록에 대한 평균 별점·평가 개수를 조회한다. 별점이 없는 대상은 결과 맵에 포함되지 않는다.
      */
-    public Map<Long, RatingSummary> getSummaries(RatingTargetType targetType, Collection<Long> targetIds) {
+    public Map<Long, RatingSummary> getSummaries(RatingTargetType targetType,
+                                                  Collection<Long> targetIds) {
         if (targetIds.isEmpty()) {
             return Map.of();
         }

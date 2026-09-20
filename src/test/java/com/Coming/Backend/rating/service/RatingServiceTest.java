@@ -1,6 +1,7 @@
 package com.Coming.Backend.rating.service;
 
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.concert.exception.UnauthorizedException;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.rating.dto.RatingMeResponse;
 import com.Coming.Backend.rating.dto.RatingSummary;
@@ -9,7 +10,6 @@ import com.Coming.Backend.rating.entity.RatingTargetType;
 import com.Coming.Backend.rating.exception.InvalidRatingScoreException;
 import com.Coming.Backend.rating.exception.RatingNotFoundException;
 import com.Coming.Backend.rating.exception.RatingTargetNotFoundException;
-import com.Coming.Backend.rating.exception.UnauthorizedException;
 import com.Coming.Backend.rating.repository.RatingRepository;
 import com.Coming.Backend.release.repository.ReleaseGroupRepository;
 import org.junit.jupiter.api.Test;
