@@ -256,6 +256,28 @@ class PostControllerTest {
     }
 
     // -------------------------------------------------------------------------
+    // GET /api/posts/popular-board
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_page_response_when_getting_popular_board_with_default_params() throws Exception {
+        // given
+        PostSummaryResponse summary = new PostSummaryResponse(
+                POST_ID, "IU", PostCategory.FREE, "인기글", List.of(), 10L, 0L, LocalDateTime.now());
+        PageResponse<PostSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 20, 1, 1);
+        given(postService.getPopularBoard(eq(0), eq(20))).willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/posts/popular-board").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content[0].id").value(POST_ID))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    // -------------------------------------------------------------------------
     // GET /api/posts/trending-tags
     // -------------------------------------------------------------------------
 

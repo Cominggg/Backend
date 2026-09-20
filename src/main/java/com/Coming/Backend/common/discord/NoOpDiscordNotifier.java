@@ -2,6 +2,7 @@ package com.Coming.Backend.common.discord;
 
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.inquiry.entity.Inquiry;
+import com.Coming.Backend.report.entity.Report;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -18,4 +19,7 @@ public class NoOpDiscordNotifier implements DiscordNotifier {
 
     @Override
     public void notifyInquiry(Inquiry inquiry) {}
+
+    @Override
+    public void notifyReport(Report report) {}
 }

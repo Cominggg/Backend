@@ -131,6 +131,15 @@ public class CommentService {
     }
 
     /**
+     * 관리자가 작성자 검증 없이 댓글을 강제 삭제(소프트 삭제)한다. 신고 처리 등 관리자 조치용.
+     */
+    @Transactional
+    public void adminDelete(Long commentId) {
+        Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
+        comment.softDelete();
+    }
+
+    /**
      * 댓글에 좋아요를 남긴다. 이미 좋아요한 댓글이면 AlreadyLikedException을 던진다.
      */
     @Transactional
