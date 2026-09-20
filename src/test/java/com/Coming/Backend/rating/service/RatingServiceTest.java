@@ -1,6 +1,9 @@
 package com.Coming.Backend.rating.service;
 
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.concert.entity.Concert;
+import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.exception.ConcertNotEndedException;
 import com.Coming.Backend.concert.exception.UnauthorizedException;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.rating.dto.RatingMeResponse;
@@ -77,7 +80,7 @@ class RatingServiceTest {
     @Test
     void should_throw_rating_target_not_found_exception_when_concert_does_not_exist() {
         // given
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(false);
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> ratingService.upsert(USER_ID, RatingTargetType.CONCERT, CONCERT_ID, BigDecimal.valueOf(4.5)))
@@ -86,10 +89,27 @@ class RatingServiceTest {
     }
 
     @Test
+    void should_throw_concert_not_ended_exception_when_concert_status_is_not_ended() {
+        // given
+        Concert concert = Concert.builder()
+                .status(ConcertStatus.UPCOMING)
+                .build();
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when & then
+        assertThatThrownBy(() -> ratingService.upsert(USER_ID, RatingTargetType.CONCERT, CONCERT_ID, BigDecimal.valueOf(4.5)))
+                .isInstanceOf(ConcertNotEndedException.class)
+                .hasMessage(ErrorCode.CONCERT_NOT_ENDED.getMessage());
+    }
+
+    @Test
     void should_save_new_rating_when_no_existing_rating_found() {
         // given
         BigDecimal score = BigDecimal.valueOf(4.5);
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        Concert concert = Concert.builder()
+                .status(ConcertStatus.ENDED)
+                .build();
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
         given(ratingRepository.findByUserIdAndTargetTypeAndTargetId(USER_ID, RatingTargetType.CONCERT, CONCERT_ID))
                 .willReturn(Optional.empty());
 
@@ -109,7 +129,10 @@ class RatingServiceTest {
                 .targetId(CONCERT_ID)
                 .score(BigDecimal.valueOf(2.0))
                 .build();
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+        Concert concert = Concert.builder()
+                .status(ConcertStatus.ENDED)
+                .build();
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
         given(ratingRepository.findByUserIdAndTargetTypeAndTargetId(USER_ID, RatingTargetType.CONCERT, CONCERT_ID))
                 .willReturn(Optional.of(existingRating));
 
@@ -119,6 +142,22 @@ class RatingServiceTest {
         // then
         assertThat(existingRating.getScore()).isEqualByComparingTo(BigDecimal.valueOf(3.5));
         verify(ratingRepository, never()).save(any(Rating.class));
+    }
+
+    @Test
+    void should_save_new_rating_when_release_target_exists() {
+        // given
+        Long releaseId = 20L;
+        BigDecimal score = BigDecimal.valueOf(4.0);
+        given(releaseGroupRepository.existsById(releaseId)).willReturn(true);
+        given(ratingRepository.findByUserIdAndTargetTypeAndTargetId(USER_ID, RatingTargetType.RELEASE, releaseId))
+                .willReturn(Optional.empty());
+
+        // when
+        ratingService.upsert(USER_ID, RatingTargetType.RELEASE, releaseId, score);
+
+        // then
+        verify(ratingRepository).save(any(Rating.class));
     }
 
     // -------------------------------------------------------------------------

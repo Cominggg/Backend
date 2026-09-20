@@ -39,6 +39,7 @@ public enum ErrorCode {
     ALREADY_IN_CALENDAR(HttpStatus.CONFLICT, "이미 캘린더에 추가된 공연입니다."),
     NOT_IN_CALENDAR(HttpStatus.BAD_REQUEST, "캘린더에 없는 공연입니다."),
     CONCERT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 공연입니다."),
+    CONCERT_NOT_ENDED(HttpStatus.BAD_REQUEST, "공연 종료 후 별점을 등록할 수 있습니다."),
 
     // Release
     RELEASE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 릴리즈입니다."),

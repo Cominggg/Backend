@@ -1,5 +1,8 @@
 package com.Coming.Backend.rating.service;
 
+import com.Coming.Backend.concert.entity.Concert;
+import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.exception.ConcertNotEndedException;
 import com.Coming.Backend.concert.exception.UnauthorizedException;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.rating.dto.RatingMeResponse;
@@ -33,7 +36,8 @@ public class RatingService {
 
     /**
      * 별점을 등록하거나 수정한다. 대상이 존재하지 않으면 RatingTargetNotFoundException,
-     * score가 0.5 단위가 아니면 InvalidRatingScoreException을 던진다.
+     * score가 0.5 단위가 아니면 InvalidRatingScoreException,
+     * 공연이 ENDED 상태가 아니면 ConcertNotEndedException을 던진다.
      */
     @Transactional
     public void upsert(Long userId, RatingTargetType targetType, Long targetId, BigDecimal score) {
@@ -43,9 +47,7 @@ public class RatingService {
         if (score.remainder(SCORE_STEP).compareTo(BigDecimal.ZERO) != 0) {
             throw new InvalidRatingScoreException();
         }
-        if (!targetExists(targetType, targetId)) {
-            throw new RatingTargetNotFoundException();
-        }
+        validateTarget(targetType, targetId);
 
         ratingRepository.findByUserIdAndTargetTypeAndTargetId(userId, targetType, targetId)
                 .ifPresentOrElse(
@@ -102,10 +104,20 @@ public class RatingService {
                 ));
     }
 
-    private boolean targetExists(RatingTargetType targetType, Long targetId) {
-        return switch (targetType) {
-            case CONCERT -> concertRepository.existsById(targetId);
-            case RELEASE -> releaseGroupRepository.existsById(targetId);
-        };
+    private void validateTarget(RatingTargetType targetType, Long targetId) {
+        switch (targetType) {
+            case CONCERT -> {
+                Concert concert = concertRepository.findById(targetId)
+                        .orElseThrow(RatingTargetNotFoundException::new);
+                if (concert.getStatus() != ConcertStatus.ENDED) {
+                    throw new ConcertNotEndedException();
+                }
+            }
+            case RELEASE -> {
+                if (!releaseGroupRepository.existsById(targetId)) {
+                    throw new RatingTargetNotFoundException();
+                }
+            }
+        }
     }
 }
