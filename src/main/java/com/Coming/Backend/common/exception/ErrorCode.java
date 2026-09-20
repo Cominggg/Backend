@@ -70,6 +70,11 @@ public enum ErrorCode {
     REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 신고한 대상입니다."),
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 신고입니다."),
 
+    // Rating
+    RATING_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 평가 대상입니다."),
+    INVALID_RATING_SCORE(HttpStatus.BAD_REQUEST, "별점은 0.5~5.0 사이 0.5 단위여야 합니다."),
+    RATING_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 별점이 없습니다."),
+
     // Pipeline
     PIPELINE_NOT_FOUND(HttpStatus.NOT_FOUND, "Data 파이프라인에서 해당 리소스를 찾을 수 없습니다."),
     PIPELINE_CONFLICT(HttpStatus.CONFLICT, "이미 처리 중인 수집 요청입니다. 잠시 후 다시 확인해주세요."),
