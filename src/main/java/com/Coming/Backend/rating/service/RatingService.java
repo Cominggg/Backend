@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class RatingService {
 
+    private static final BigDecimal MIN_SCORE = BigDecimal.valueOf(0.5);
+    private static final BigDecimal MAX_SCORE = BigDecimal.valueOf(5.0);
     private static final BigDecimal SCORE_STEP = BigDecimal.valueOf(0.5);
 
     private final RatingRepository ratingRepository;
@@ -36,29 +38,23 @@ public class RatingService {
 
     /**
      * 별점을 등록하거나 수정한다. 대상이 존재하지 않으면 RatingTargetNotFoundException,
-     * score가 0.5 단위가 아니면 InvalidRatingScoreException,
+     * score가 0.5~5.0 범위의 0.5 단위가 아니면 InvalidRatingScoreException,
      * 공연이 ENDED 상태가 아니면 ConcertNotEndedException을 던진다.
+     *
+     * <p>등록·수정은 DB의 유니크 제약을 이용한 원자적 upsert로 처리되어, 동일 사용자가 같은 대상에
+     * 동시에 첫 별점을 등록해도 유니크 제약 위반 없이 안전하게 처리된다.</p>
      */
     @Transactional
     public void upsert(Long userId, RatingTargetType targetType, Long targetId, BigDecimal score) {
         if (userId == null) {
             throw new UnauthorizedException();
         }
-        if (score.remainder(SCORE_STEP).compareTo(BigDecimal.ZERO) != 0) {
+        if (score.compareTo(MIN_SCORE) < 0 || score.compareTo(MAX_SCORE) > 0
+                || score.remainder(SCORE_STEP).compareTo(BigDecimal.ZERO) != 0) {
             throw new InvalidRatingScoreException();
         }
         validateTarget(targetType, targetId);
-
-        ratingRepository.findByUserIdAndTargetTypeAndTargetId(userId, targetType, targetId)
-                .ifPresentOrElse(
-                        rating -> rating.updateScore(score),
-                        () -> ratingRepository.save(Rating.builder()
-                                .userId(userId)
-                                .targetType(targetType)
-                                .targetId(targetId)
-                                .score(score)
-                                .build())
-                );
+        ratingRepository.upsert(userId, targetType.name(), targetId, score);
     }
 
     /**

@@ -1,7 +1,5 @@
 package com.Coming.Backend.rating.repository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.Coming.Backend.rating.entity.Rating;
 import com.Coming.Backend.rating.entity.RatingTargetType;
 import com.Coming.Backend.rating.repository.RatingRepository.RatingAggregate;
@@ -12,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -19,6 +20,9 @@ class RatingRepositoryTest {
 
     @Autowired
     private RatingRepository ratingRepository;
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     private static final Long USER_ID = 1L;
     private static final Long OTHER_USER_ID = 2L;
@@ -153,5 +157,44 @@ class RatingRepositoryTest {
         assertThat(aggregates)
                 .extracting(RatingAggregate::getTargetId)
                 .containsExactly(TARGET_ID);
+    }
+
+    // -------------------------------------------------------------------------
+    // upsert
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_insert_new_rating_when_no_existing_rating() {
+        // given & when
+        ratingRepository.upsert(USER_ID, RatingTargetType.CONCERT.name(), TARGET_ID, BigDecimal.valueOf(4.0));
+        entityManager.clear();
+
+        // then
+        Optional<Rating> found = ratingRepository.findByUserIdAndTargetTypeAndTargetId(
+                USER_ID, RatingTargetType.CONCERT, TARGET_ID);
+        assertThat(found).isPresent();
+        assertThat(found.get().getScore()).isEqualByComparingTo(BigDecimal.valueOf(4.0));
+    }
+
+    @Test
+    void should_update_existing_rating_when_conflict_occurs() {
+        // given
+        ratingRepository.save(buildRating(USER_ID, RatingTargetType.CONCERT, TARGET_ID, BigDecimal.valueOf(4.0)));
+        entityManager.clear();
+
+        // when
+        ratingRepository.upsert(USER_ID, RatingTargetType.CONCERT.name(), TARGET_ID, BigDecimal.valueOf(2.5));
+        entityManager.clear();
+
+        // then
+        Optional<Rating> found = ratingRepository.findByUserIdAndTargetTypeAndTargetId(
+                USER_ID, RatingTargetType.CONCERT, TARGET_ID);
+        assertThat(found).isPresent();
+        assertThat(found.get().getScore()).isEqualByComparingTo(BigDecimal.valueOf(2.5));
+        assertThat(ratingRepository.findAll())
+                .filteredOn(rating -> rating.getUserId().equals(USER_ID)
+                        && rating.getTargetType() == RatingTargetType.CONCERT
+                        && rating.getTargetId().equals(TARGET_ID))
+                .hasSize(1);
     }
 }

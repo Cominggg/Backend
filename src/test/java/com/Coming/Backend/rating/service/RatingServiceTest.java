@@ -32,7 +32,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -78,6 +77,28 @@ class RatingServiceTest {
     }
 
     @Test
+    void should_throw_invalid_rating_score_exception_when_score_is_below_min() {
+        // given
+        BigDecimal invalidScore = BigDecimal.valueOf(0.0);
+
+        // when & then
+        assertThatThrownBy(() -> ratingService.upsert(USER_ID, RatingTargetType.CONCERT, CONCERT_ID, invalidScore))
+                .isInstanceOf(InvalidRatingScoreException.class)
+                .hasMessage(ErrorCode.INVALID_RATING_SCORE.getMessage());
+    }
+
+    @Test
+    void should_throw_invalid_rating_score_exception_when_score_is_above_max() {
+        // given
+        BigDecimal invalidScore = BigDecimal.valueOf(5.5);
+
+        // when & then
+        assertThatThrownBy(() -> ratingService.upsert(USER_ID, RatingTargetType.CONCERT, CONCERT_ID, invalidScore))
+                .isInstanceOf(InvalidRatingScoreException.class)
+                .hasMessage(ErrorCode.INVALID_RATING_SCORE.getMessage());
+    }
+
+    @Test
     void should_throw_rating_target_not_found_exception_when_concert_does_not_exist() {
         // given
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.empty());
@@ -103,61 +124,33 @@ class RatingServiceTest {
     }
 
     @Test
-    void should_save_new_rating_when_no_existing_rating_found() {
+    void should_call_repository_upsert_when_concert_is_ended() {
         // given
         BigDecimal score = BigDecimal.valueOf(4.5);
         Concert concert = Concert.builder()
                 .status(ConcertStatus.ENDED)
                 .build();
         given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(ratingRepository.findByUserIdAndTargetTypeAndTargetId(USER_ID, RatingTargetType.CONCERT, CONCERT_ID))
-                .willReturn(Optional.empty());
 
         // when
         ratingService.upsert(USER_ID, RatingTargetType.CONCERT, CONCERT_ID, score);
 
         // then
-        verify(ratingRepository).save(any(Rating.class));
+        verify(ratingRepository).upsert(USER_ID, "CONCERT", CONCERT_ID, score);
     }
 
     @Test
-    void should_update_existing_rating_score_when_rating_already_exists() {
-        // given
-        Rating existingRating = Rating.builder()
-                .userId(USER_ID)
-                .targetType(RatingTargetType.CONCERT)
-                .targetId(CONCERT_ID)
-                .score(BigDecimal.valueOf(2.0))
-                .build();
-        Concert concert = Concert.builder()
-                .status(ConcertStatus.ENDED)
-                .build();
-        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-        given(ratingRepository.findByUserIdAndTargetTypeAndTargetId(USER_ID, RatingTargetType.CONCERT, CONCERT_ID))
-                .willReturn(Optional.of(existingRating));
-
-        // when
-        ratingService.upsert(USER_ID, RatingTargetType.CONCERT, CONCERT_ID, BigDecimal.valueOf(3.5));
-
-        // then
-        assertThat(existingRating.getScore()).isEqualByComparingTo(BigDecimal.valueOf(3.5));
-        verify(ratingRepository, never()).save(any(Rating.class));
-    }
-
-    @Test
-    void should_save_new_rating_when_release_target_exists() {
+    void should_call_repository_upsert_when_release_target_exists() {
         // given
         Long releaseId = 20L;
         BigDecimal score = BigDecimal.valueOf(4.0);
         given(releaseGroupRepository.existsById(releaseId)).willReturn(true);
-        given(ratingRepository.findByUserIdAndTargetTypeAndTargetId(USER_ID, RatingTargetType.RELEASE, releaseId))
-                .willReturn(Optional.empty());
 
         // when
         ratingService.upsert(USER_ID, RatingTargetType.RELEASE, releaseId, score);
 
         // then
-        verify(ratingRepository).save(any(Rating.class));
+        verify(ratingRepository).upsert(USER_ID, "RELEASE", releaseId, score);
     }
 
     // -------------------------------------------------------------------------

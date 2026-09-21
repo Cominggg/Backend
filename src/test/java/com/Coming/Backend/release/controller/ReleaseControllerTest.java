@@ -28,6 +28,7 @@ import com.Coming.Backend.release.service.ReleaseService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -57,6 +62,7 @@ class ReleaseControllerTest {
 
     private static final Long ARTIST_ID = 1L;
     private static final Long RELEASE_ID = 10L;
+    private static final Long USER_ID = 1L;
 
     @BeforeEach
     void setUp() {
@@ -64,9 +70,14 @@ class ReleaseControllerTest {
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(releaseController)
                 .setControllerAdvice(new GlobalExceptionHandler(new com.Coming.Backend.common.discord.NoOpDiscordNotifier()))
-                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver(), new AuthenticationPrincipalArgumentResolver())
                 .setValidator(validator)
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     // -------------------------------------------------------------------------
@@ -289,12 +300,16 @@ class ReleaseControllerTest {
 
     @Test
     void should_return_200_when_valid_score_given() throws Exception {
+        // given
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(USER_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+
         // when & then
         mockMvc.perform(put("/api/releases/{id}/rating", RELEASE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"score\": 4.5}"))
                 .andExpect(status().isOk());
-        verify(ratingService).upsert(isNull(), eq(RatingTargetType.RELEASE), eq(RELEASE_ID), eq(BigDecimal.valueOf(4.5)));
+        verify(ratingService).upsert(eq(USER_ID), eq(RatingTargetType.RELEASE), eq(RELEASE_ID), eq(BigDecimal.valueOf(4.5)));
     }
 
     @Test
@@ -328,7 +343,9 @@ class ReleaseControllerTest {
     @Test
     void should_return_200_with_my_score_when_rating_exists() throws Exception {
         // given
-        given(ratingService.getMine(isNull(), eq(RatingTargetType.RELEASE), eq(RELEASE_ID)))
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(USER_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+        given(ratingService.getMine(eq(USER_ID), eq(RatingTargetType.RELEASE), eq(RELEASE_ID)))
                 .willReturn(new RatingMeResponse(BigDecimal.valueOf(4.5)));
 
         // when & then
@@ -344,9 +361,13 @@ class ReleaseControllerTest {
 
     @Test
     void should_return_200_when_rating_deleted() throws Exception {
+        // given
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(USER_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+
         // when & then
         mockMvc.perform(delete("/api/releases/{id}/rating", RELEASE_ID))
                 .andExpect(status().isOk());
-        verify(ratingService).delete(isNull(), eq(RatingTargetType.RELEASE), eq(RELEASE_ID));
+        verify(ratingService).delete(eq(USER_ID), eq(RatingTargetType.RELEASE), eq(RELEASE_ID));
     }
 }
