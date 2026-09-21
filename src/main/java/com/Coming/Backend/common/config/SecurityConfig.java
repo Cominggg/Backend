@@ -116,14 +116,14 @@ public class SecurityConfig {
                             .requestMatchers(HttpMethod.GET, "/api/artists/following").hasAnyRole("USER", "ADMIN")
                             .requestMatchers(HttpMethod.GET,
                                     "/api/concerts/*/rating/me",
-                                    "/api/releases/*/rating/me"
+                                    "/api/releases/*/rating/me",
+                                    "/api/mentions/search"
                             ).hasAnyRole("USER", "ADMIN")
                             .requestMatchers(HttpMethod.GET,
                                     "/api/artists/**",
                                     "/api/concerts/**",
                                     "/api/releases/**",
                                     "/api/calendar",
-                                    "/api/mentions/search",
                                     "/api/posts/**",
                                     "/api/notices/**",
                                     "/api/search",
