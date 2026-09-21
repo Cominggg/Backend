@@ -17,9 +17,12 @@ public record ReleaseDetailResponse(
         String artistName,
         String artistKoreanName,
         String spotifyId,
-        List<TrackDto> tracks
+        List<TrackDto> tracks,
+        Double averageRating,
+        long ratingCount
 ) {
-    public static ReleaseDetailResponse of(ReleaseGroup release, String artistName, String artistKoreanName, List<TrackDto> tracks) {
+    public static ReleaseDetailResponse of(ReleaseGroup release, String artistName, String artistKoreanName, List<TrackDto> tracks,
+                                            Double averageRating, long ratingCount) {
         return new ReleaseDetailResponse(
                 release.getId(),
                 release.getTitle(),
@@ -32,7 +35,9 @@ public record ReleaseDetailResponse(
                 artistName,
                 artistKoreanName,
                 release.getSpotifyId(),
-                tracks
+                tracks,
+                averageRating,
+                ratingCount
         );
     }
 }

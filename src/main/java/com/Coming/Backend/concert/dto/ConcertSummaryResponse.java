@@ -16,6 +16,8 @@ public record ConcertSummaryResponse(
         String venue,
         ConcertStatus status,
         boolean isInCalendar,
-        LocalDateTime ticketOpenAt
+        LocalDateTime ticketOpenAt,
+        Double averageRating,
+        long ratingCount
 ) {
 }

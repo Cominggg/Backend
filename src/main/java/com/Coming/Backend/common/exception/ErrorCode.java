@@ -39,6 +39,7 @@ public enum ErrorCode {
     ALREADY_IN_CALENDAR(HttpStatus.CONFLICT, "이미 캘린더에 추가된 공연입니다."),
     NOT_IN_CALENDAR(HttpStatus.BAD_REQUEST, "캘린더에 없는 공연입니다."),
     CONCERT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 공연입니다."),
+    CONCERT_NOT_ENDED(HttpStatus.BAD_REQUEST, "공연 종료 후 별점을 등록할 수 있습니다."),
 
     // Release
     RELEASE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 릴리즈입니다."),
@@ -69,6 +70,11 @@ public enum ErrorCode {
     REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 신고 대상입니다."),
     REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 신고한 대상입니다."),
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 신고입니다."),
+
+    // Rating
+    RATING_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 평가 대상입니다."),
+    INVALID_RATING_SCORE(HttpStatus.BAD_REQUEST, "별점은 0.5~5.0 사이 0.5 단위여야 합니다."),
+    RATING_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 별점이 없습니다."),
 
     // Pipeline
     PIPELINE_NOT_FOUND(HttpStatus.NOT_FOUND, "Data 파이프라인에서 해당 리소스를 찾을 수 없습니다."),
