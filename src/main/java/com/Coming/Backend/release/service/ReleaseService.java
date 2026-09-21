@@ -9,6 +9,9 @@ import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.rating.dto.RatingSummary;
+import com.Coming.Backend.rating.entity.RatingTargetType;
+import com.Coming.Backend.rating.service.RatingService;
 import com.Coming.Backend.release.dto.ArtistReleaseItemResponse;
 import com.Coming.Backend.release.dto.ReleaseDetailResponse;
 import com.Coming.Backend.release.dto.ReleaseListItemResponse;
@@ -46,6 +49,7 @@ public class ReleaseService {
     private final ArtistRepository artistRepository;
     private final ArtistAliasRepository artistAliasRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
+    private final RatingService ratingService;
 
     /**
      * 아티스트의 디스코그래피를 조회한다. types가 비어 있으면 전체 타입을 반환한다.
@@ -102,10 +106,18 @@ public class ReleaseService {
         Map<Long, String> artistNameMap = artistRepository.findAllById(artistIds).stream()
                 .collect(Collectors.toMap(Artist::getId, Artist::getName));
         Map<Long, String> koreanNameMap = buildKoreanNameMap(List.copyOf(artistIds));
+        List<Long> releaseIds = page.stream().map(ReleaseGroup::getId).toList();
+        Map<Long, RatingSummary> ratingSummaryMap =
+                ratingService.getSummaries(RatingTargetType.RELEASE, releaseIds);
 
-        return PageResponse.from(page.map(release ->
-                ReleaseListItemResponse.of(release, artistNameMap.getOrDefault(release.getArtistId(), ""), koreanNameMap.get(release.getArtistId()))
-        ));
+        return PageResponse.from(page.map(release -> {
+            RatingSummary ratingSummary =
+                    ratingSummaryMap.getOrDefault(release.getId(), RatingSummary.empty());
+            return ReleaseListItemResponse.of(release,
+                    artistNameMap.getOrDefault(release.getArtistId(), ""),
+                    koreanNameMap.get(release.getArtistId()),
+                    ratingSummary.averageRating(), ratingSummary.ratingCount());
+        }));
     }
 
     /**
@@ -140,7 +152,12 @@ public class ReleaseService {
         List<TrackDto> tracks = trackRepository.findByReleaseGroupIdOrderByPosition(release.getId())
                 .stream().map(TrackDto::from).toList();
 
-        return ReleaseDetailResponse.of(release, artistName, artistKoreanName, tracks);
+        RatingSummary ratingSummary = ratingService
+                .getSummaries(RatingTargetType.RELEASE, List.of(release.getId()))
+                .getOrDefault(release.getId(), RatingSummary.empty());
+
+        return ReleaseDetailResponse.of(release, artistName, artistKoreanName, tracks,
+                ratingSummary.averageRating(), ratingSummary.ratingCount());
     }
 
     private Map<Long, String> buildKoreanNameMap(List<Long> artistIds) {

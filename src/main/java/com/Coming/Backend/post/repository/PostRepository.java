@@ -21,6 +21,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p WHERE p.createdAt >= :since ORDER BY p.recommendCount DESC, p.createdAt DESC")
     List<Post> findPopularPosts(@Param("since") LocalDateTime since, Pageable pageable);
 
+    @Query("SELECT p FROM Post p WHERE p.recommendCount >= :threshold ORDER BY p.createdAt DESC")
+    Page<Post> findPopularBoard(@Param("threshold") long threshold, Pageable pageable);
+
     @Modifying
     @Query("UPDATE Post p SET p.viewCount = p.viewCount + 1 WHERE p.id = :id")
     void incrementViewCount(@Param("id") Long id);

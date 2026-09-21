@@ -21,11 +21,21 @@ import com.Coming.Backend.admin.dto.AdminConcertUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminInquiryDetailResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryListItemResponse;
 import com.Coming.Backend.admin.dto.AdminInquiryStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateRequest;
+import com.Coming.Backend.admin.dto.AdminNoticeCreateResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeDetailResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeListItemResponse;
+import com.Coming.Backend.admin.dto.AdminNoticeUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
+import com.Coming.Backend.admin.dto.AdminReportDetailResponse;
+import com.Coming.Backend.admin.dto.AdminReportListItemResponse;
+import com.Coming.Backend.admin.dto.AdminReportStatusUpdateRequest;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
+import com.Coming.Backend.report.entity.ReportStatus;
+import com.Coming.Backend.report.entity.ReportTargetType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +45,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -103,6 +114,72 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody @Valid AdminInquiryStatusUpdateRequest request) {
         adminService.updateInquiryStatus(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "전체 공지사항 목록 조회")
+    @GetMapping("/notices")
+    public ResponseEntity<PageResponse<AdminNoticeListItemResponse>> getNotices(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(adminService.getNotices(pageable));
+    }
+
+    @Operation(summary = "공지사항 상세 조회 (비활성 포함)")
+    @ApiResponse(responseCode = "404", description = "NOTICE_NOT_FOUND")
+    @GetMapping("/notices/{id}")
+    public ResponseEntity<AdminNoticeDetailResponse> getAdminNotice(@PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getAdminNotice(id));
+    }
+
+    @Operation(summary = "공지사항 작성")
+    @PostMapping("/notices")
+    public ResponseEntity<AdminNoticeCreateResponse> createNotice(
+            @AuthenticationPrincipal Long adminId,
+            @RequestBody @Valid AdminNoticeCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createNotice(adminId, request));
+    }
+
+    @Operation(summary = "공지사항 수정")
+    @ApiResponse(responseCode = "404", description = "NOTICE_NOT_FOUND")
+    @PatchMapping("/notices/{id}")
+    public ResponseEntity<Void> updateNotice(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminNoticeUpdateRequest request) {
+        adminService.updateNotice(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "공지사항 삭제")
+    @ApiResponse(responseCode = "404", description = "NOTICE_NOT_FOUND")
+    @DeleteMapping("/notices/{id}")
+    public ResponseEntity<Void> deleteNotice(@PathVariable Long id) {
+        adminService.deleteNotice(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "전체 신고 목록 조회")
+    @GetMapping("/reports")
+    public ResponseEntity<PageResponse<AdminReportListItemResponse>> getReports(
+            @RequestParam(required = false) ReportTargetType targetType,
+            @RequestParam(required = false) ReportStatus status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(adminService.getReports(targetType, status, pageable));
+    }
+
+    @Operation(summary = "신고 상세 조회")
+    @ApiResponse(responseCode = "404", description = "REPORT_NOT_FOUND")
+    @GetMapping("/reports/{id}")
+    public ResponseEntity<AdminReportDetailResponse> getReportDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getReportDetail(id));
+    }
+
+    @Operation(summary = "신고 처리 상태 변경 (deleteTarget=true 시 대상 게시글·댓글 강제 삭제)")
+    @ApiResponse(responseCode = "404", description = "REPORT_NOT_FOUND")
+    @PatchMapping("/reports/{id}/status")
+    public ResponseEntity<Void> updateReportStatus(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminReportStatusUpdateRequest request) {
+        adminService.updateReportStatus(id, request);
         return ResponseEntity.ok().build();
     }
 

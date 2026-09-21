@@ -324,6 +324,35 @@ class CommentServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // adminDelete
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_comment_not_found_exception_when_comment_does_not_exist_on_admin_delete() {
+        // given
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> commentService.adminDelete(COMMENT_ID))
+                .isInstanceOf(CommentNotFoundException.class)
+                .hasMessage(ErrorCode.COMMENT_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_soft_delete_comment_when_admin_deletes_comment_authored_by_another_user() {
+        // given
+        Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 0L, false);
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+
+        // when
+        commentService.adminDelete(COMMENT_ID);
+
+        // then
+        assertThat(comment.isDeleted()).isTrue();
+        verify(commentRepository, never()).delete(any(Comment.class));
+    }
+
+    // -------------------------------------------------------------------------
     // like
     // -------------------------------------------------------------------------
 

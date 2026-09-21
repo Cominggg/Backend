@@ -9,9 +9,14 @@ import com.Coming.Backend.concert.dto.SetlistResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.UnauthorizedException;
 import com.Coming.Backend.concert.service.ConcertService;
+import com.Coming.Backend.rating.dto.RatingMeResponse;
+import com.Coming.Backend.rating.dto.RatingUpsertRequest;
+import com.Coming.Backend.rating.entity.RatingTargetType;
+import com.Coming.Backend.rating.service.RatingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
@@ -20,8 +25,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.validation.annotation.Validated;
@@ -40,6 +48,7 @@ public class ConcertController {
     private static final Set<String> SORTABLE_PROPERTIES = Set.of("startDate", "ticketOpenAt");
 
     private final ConcertService concertService;
+    private final RatingService ratingService;
 
     @Operation(summary = "공연 목록 조회")
     @ApiResponse(responseCode = "400", description = "INVALID_INPUT (허용되지 않은 sort 필드)")
@@ -97,5 +106,36 @@ public class ConcertController {
     @GetMapping("/{id}/setlist")
     public ResponseEntity<SetlistResponse> getSetlist(@PathVariable Long id) {
         return ResponseEntity.ok(concertService.getSetlist(id));
+    }
+
+    @Operation(summary = "공연 별점 등록·수정")
+    @ApiResponse(responseCode = "400", description = "INVALID_RATING_SCORE")
+    @ApiResponse(responseCode = "404", description = "RATING_TARGET_NOT_FOUND")
+    @PutMapping("/{id}/rating")
+    public ResponseEntity<Void> upsertRating(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid RatingUpsertRequest request) {
+        ratingService.upsert(userId, RatingTargetType.CONCERT, id, request.score());
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "내 공연 별점 조회")
+    @ApiResponse(responseCode = "401", description = "UNAUTHORIZED")
+    @GetMapping("/{id}/rating/me")
+    public ResponseEntity<RatingMeResponse> getMyRating(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(ratingService.getMine(userId, RatingTargetType.CONCERT, id));
+    }
+
+    @Operation(summary = "공연 별점 취소")
+    @ApiResponse(responseCode = "404", description = "RATING_NOT_FOUND")
+    @DeleteMapping("/{id}/rating")
+    public ResponseEntity<Void> deleteRating(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId) {
+        ratingService.delete(userId, RatingTargetType.CONCERT, id);
+        return ResponseEntity.ok().build();
     }
 }

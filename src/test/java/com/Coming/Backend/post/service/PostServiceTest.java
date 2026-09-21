@@ -577,6 +577,45 @@ class PostServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // getPopularBoard
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_page_response_when_popular_board_posts_found() {
+        // given
+        ReflectionTestUtils.setField(postService, "popularBoardThreshold", 10L);
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "인기글", 3L);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
+        given(postRepository.findPopularBoard(10L, pageable)).willReturn(page);
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getPopularBoard(0, 20);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).title()).isEqualTo("인기글");
+        verify(postRepository).findPopularBoard(10L, pageable);
+    }
+
+    @Test
+    void should_return_empty_page_response_when_no_popular_board_posts_found() {
+        // given
+        ReflectionTestUtils.setField(postService, "popularBoardThreshold", 10L);
+        Pageable pageable = PageRequest.of(0, 20);
+        given(postRepository.findPopularBoard(10L, pageable)).willReturn(Page.empty(pageable));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getPopularBoard(0, 20);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
+    }
+
+    // -------------------------------------------------------------------------
     // getTrendingTags
     // -------------------------------------------------------------------------
 
@@ -896,6 +935,38 @@ class PostServiceTest {
         verify(commentLikeRepository).deleteByCommentPostId(POST_ID);
         verify(commentRepository).deleteByPostId(POST_ID);
         verify(postRecommendRepository).deleteByPostId(POST_ID);
+    }
+
+    // -------------------------------------------------------------------------
+    // adminDelete
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_post_not_found_exception_when_admin_deleting_post_that_does_not_exist() {
+        // given
+        given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> postService.adminDelete(POST_ID))
+                .isInstanceOf(PostNotFoundException.class)
+                .hasMessage(ErrorCode.POST_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_delete_post_and_dependents_when_admin_deletes_post_authored_by_another_user() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+
+        // when
+        postService.adminDelete(POST_ID);
+
+        // then
+        verify(commentLikeRepository).deleteByCommentPostId(POST_ID);
+        verify(commentRepository).deleteByPostId(POST_ID);
+        verify(postRecommendRepository).deleteByPostId(POST_ID);
+        verify(postEntityTagRepository).deleteByPostId(POST_ID);
+        verify(postRepository).delete(post);
     }
 
     // -------------------------------------------------------------------------

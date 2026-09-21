@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -38,12 +39,17 @@ import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
+import com.Coming.Backend.rating.dto.RatingSummary;
+import com.Coming.Backend.rating.entity.RatingTargetType;
+import com.Coming.Backend.rating.service.RatingService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -90,10 +96,20 @@ class ConcertServiceTest {
     @Mock
     private SetlistTrackRepository setlistTrackRepository;
 
+    @Mock
+    private RatingService ratingService;
+
     private static final Long CONCERT_ID = 1L;
     private static final Long ARTIST_ID = 10L;
     private static final Long USER_ID = 100L;
     private static final Pageable PAGEABLE = PageRequest.of(0, 20);
+
+    @BeforeEach
+    void setUp() {
+        // 평점 집계는 대부분의 테스트와 무관하므로 기본값(빈 맵)을 lenient로 스텁한다.
+        // 평점 매핑을 직접 검증하는 테스트는 개별적으로 given()을 재정의한다.
+        lenient().when(ratingService.getSummaries(any(), any())).thenReturn(Map.of());
+    }
 
     private Concert buildConcert(Long id, ConcertStatus status) {
         return Concert.builder()
@@ -221,6 +237,28 @@ class ConcertServiceTest {
 
         // then
         assertThat(result.get(0).isInCalendar()).isTrue();
+    }
+
+    @Test
+    void should_map_rating_summary_per_concert_and_use_default_when_only_some_concerts_have_ratings() {
+        // given
+        Concert rated = buildConcert(1L, ConcertStatus.UPCOMING);
+        Concert unrated = buildConcert(2L, ConcertStatus.UPCOMING);
+        RatingSummary ratingSummary = new RatingSummary(4.0, 5L);
+
+        given(concertRepository.findTop10Popular(anyList())).willReturn(List.of(rated, unrated));
+        given(concertArtistRepository.findByConcertIdIn(List.of(1L, 2L))).willReturn(List.of());
+        given(ratingService.getSummaries(RatingTargetType.CONCERT, List.of(1L, 2L)))
+                .willReturn(Map.of(1L, ratingSummary));
+
+        // when
+        List<ConcertSummaryResponse> result = concertService.getPopularConcerts(null);
+
+        // then
+        assertThat(result.get(0).averageRating()).isEqualTo(4.0);
+        assertThat(result.get(0).ratingCount()).isEqualTo(5L);
+        assertThat(result.get(1).averageRating()).isNull();
+        assertThat(result.get(1).ratingCount()).isZero();
     }
 
     @Test
@@ -652,6 +690,49 @@ class ConcertServiceTest {
         assertThatThrownBy(() -> concertService.getConcert(CONCERT_ID, null))
                 .isInstanceOf(ConcertNotFoundException.class)
                 .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // getConcert — 평점 집계 매핑
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_rating_summary_when_concert_has_ratings() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        RatingSummary ratingSummary = new RatingSummary(4.5, 12L);
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
+        given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
+        given(ratingService.getSummaries(RatingTargetType.CONCERT, List.of(CONCERT_ID)))
+                .willReturn(Map.of(CONCERT_ID, ratingSummary));
+
+        // when
+        ConcertDetailResponse response = concertService.getConcert(CONCERT_ID, null);
+
+        // then
+        assertThat(response.averageRating()).isEqualTo(4.5);
+        assertThat(response.ratingCount()).isEqualTo(12L);
+    }
+
+    @Test
+    void should_return_null_average_rating_and_zero_rating_count_when_concert_has_no_ratings() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
+        given(concertBookingLinkRepository.findByConcertId(CONCERT_ID)).willReturn(List.of());
+        given(ratingService.getSummaries(RatingTargetType.CONCERT, List.of(CONCERT_ID)))
+                .willReturn(Map.of());
+
+        // when
+        ConcertDetailResponse response = concertService.getConcert(CONCERT_ID, null);
+
+        // then
+        assertThat(response.averageRating()).isNull();
+        assertThat(response.ratingCount()).isZero();
     }
 
     // -------------------------------------------------------------------------

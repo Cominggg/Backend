@@ -34,6 +34,7 @@ import com.Coming.Backend.post.util.TiptapTextExtractor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -76,6 +77,9 @@ public class PostService {
     private static final int MAX_CONTENT_LENGTH = 50000;
 
     private static final int MIN_SEARCH_QUERY_LENGTH = 2;
+
+    @Value("${app.post.popular-board-threshold:10}")
+    private long popularBoardThreshold;
 
     /**
      * 게시글을 생성한다.
@@ -208,6 +212,16 @@ public class PostService {
     }
 
     /**
+     * 추천수가 임계치 이상인 게시글(인기글)을 최신순으로 조회한다.
+     */
+    public PageResponse<PostSummaryResponse> getPopularBoard(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Post> result = postRepository.findPopularBoard(popularBoardThreshold, pageable);
+        List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
+        return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+
+    /**
      * 최근 N일 이내 작성된 게시글에 태그된 엔티티를 언급 빈도 내림차순으로 상위 K개 조회한다.
      */
     public List<TrendingTagResponse> getTrendingTags(int days, int limit) {
@@ -286,6 +300,20 @@ public class PostService {
         if (!post.isAuthoredBy(userId)) {
             throw new PostForbiddenException();
         }
+        deletePostAndDependents(post);
+    }
+
+    /**
+     * 관리자가 작성자 검증 없이 게시글을 강제 삭제한다. 신고 처리 등 관리자 조치용.
+     */
+    @Transactional
+    public void adminDelete(Long id) {
+        Post post = postRepository.findById(id).orElseThrow(PostNotFoundException::new);
+        deletePostAndDependents(post);
+    }
+
+    private void deletePostAndDependents(Post post) {
+        Long id = post.getId();
         commentLikeRepository.deleteByCommentPostId(id);
         commentRepository.deleteByPostId(id);
         postRecommendRepository.deleteByPostId(id);
