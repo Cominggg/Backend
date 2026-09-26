@@ -126,12 +126,13 @@ Claude Code 에이전트·스킬·훅으로 이슈부터 PR까지 진행합니�
 
 `security-reviewer`는 범용 `/security-review` 대신 Coming 인증 정책(Access 30분 Bearer·Refresh 7일 HttpOnly Cookie·로그아웃 Redis 블랙리스트) 기준으로 토큰 노출·Bearer/Cookie 역할 뒤바뀜, 블랙리스트 등록 누락, 서명 미검증, 권한 체크 누락, IDOR 등을 검토합니다.
 
-### 훅 ([`.claude/settings.json`](.claude/settings.json))
+### 훅 ([`.claude/settings.json`](.claude/settings.json), [`.claude/hooks/`](.claude/hooks))
 
 | 시점 | 대상 | 동작 |
 |------|------|------|
-| PreToolUse | Write·Edit | 경로에 `.env`·`.secret`·`application-local`·`application-prod`·`application-secret`·`credentials`가 포함되면 수정 차단 |
-| Stop | 응답 종료 시 | 커밋 전 워크플로우(`/be-review → /simplify → /commit → /pr`) 리마인드 출력 |
+| PreToolUse | Read·Write·Edit | 시크릿 파일(`.env*`·`application-local*`·`application-secret*`·`credentials*`·`*.secret(s)`, `.env.example` 제외) 접근 차단 |
+| PreToolUse | Write·Edit | 커밋된 Flyway 마이그레이션(`db/migration/V*.sql`) 수정 차단 — checksum 불일치 방지, 변경은 새 버전 파일로 |
+| Stop | 응답 종료 시 | 커밋되지 않은 `.java` 변경이 있을 때만 커밋 전 워크플로우 안내 표시 |
 
 이 워크플로우를 설계하며 겪은 구체적인 판단·트레이드오프는 별도 문서로 기록하고 있습니다.
 

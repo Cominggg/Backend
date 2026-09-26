@@ -64,7 +64,8 @@ com.Coming.Backend
 
 ## 알려진 제약
 
-- `application-local.yaml`은 gitignore 대상이며, 프로젝트 훅이 파일명에 `application-local`/`application-prod`/`.env`/`credentials`가 포함된 파일의 Write/Edit를 자동 차단한다 (`.claude/settings.json`). 이 파일 수정이 필요하면 Claude가 직접 편집할 수 없으니, 추가할 내용을 알려주고 사용자가 직접 추가하도록 요청한다.
+- `application-local.yaml`은 gitignore 대상이며, 프로젝트 훅(`.claude/hooks/guard_files.py`)이 시크릿 파일(`.env*`(`.env.example` 제외)·`application-local*`·`application-secret*`·`credentials*`·`*.secret(s)`)의 Read/Write/Edit를 자동 차단한다. 이 파일 수정이 필요하면 Claude가 직접 편집할 수 없으니, 추가할 내용을 알려주고 사용자가 직접 추가하도록 요청한다.
+- 같은 훅이 git에 커밋된 Flyway 마이그레이션(`db/migration/V*.sql`)의 수정도 차단한다 (checksum 불일치 방지). 스키마 변경은 항상 새 버전 파일로 추가한다.
 
 ## 명세 위치 (Cominggg/Specification)
 
