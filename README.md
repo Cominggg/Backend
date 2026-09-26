@@ -59,11 +59,14 @@
 **인증 정책**: Access Token 30분(`Authorization: Bearer`), Refresh Token 7일(HttpOnly Cookie), 로그아웃 시 Redis 블랙리스트 등록.
 
 **공통 응답 형식**
-```json
-// 에러
-{ "code": "CONCERT_NOT_FOUND", "message": "존재하지 않는 공연입니다." }
 
-// 페이지네이션
+에러
+```json
+{ "code": "CONCERT_NOT_FOUND", "message": "존재하지 않는 공연입니다." }
+```
+
+페이지네이션
+```json
 { "content": [], "page": 0, "size": 20, "totalElements": 100, "totalPages": 5 }
 ```
 
