@@ -107,7 +107,7 @@ com.Coming.Backend
 ### 커밋 전 체크리스트
 
 - `/be-review` 통과(🔴 critical 0건) 전에 `/commit`을 실행하지 않는다.
-- auth 관련 코드(JWT, OAuth2, Redis 토큰 처리) 작성 시 `/security-review`도 추가 실행한다.
+- auth 관련 코드(JWT, OAuth2, Redis 토큰 처리) 작성 시 `security-reviewer` 에이전트도 추가로 호출한다 (Coming 인증 정책 기준 전용 체크리스트 보유, 읽기 전용).
 
 ---
 
