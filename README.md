@@ -130,7 +130,7 @@ Claude Code 에이전트·스킬·훅으로 이슈부터 PR까지 진행합니�
 
 | 시점 | 대상 | 동작 |
 |------|------|------|
-| PreToolUse | Read·Write·Edit | 시크릿 파일(`.env*`·`application-local*`·`application-secret*`·`credentials*`·`*.secret(s)`, `.env.example` 제외) 접근 차단 |
+| PreToolUse | Read·Write·Edit·Grep·Bash | 시크릿 파일(`.env*`·`application-local*`·`application-secret*`·`credentials*`·`*.secret(s)`, `.env.example` 제외) 접근 차단 — Bash는 명령 토큰의 파일명 검사(따옴표 문장·heredoc 본문 제외) |
 | PreToolUse | Write·Edit | 커밋된 Flyway 마이그레이션(`db/migration/V*.sql`) 수정 차단 — checksum 불일치 방지, 변경은 새 버전 파일로 |
 | Stop | 응답 종료 시 | 커밋되지 않은 `.java` 변경이 있을 때만 커밋 전 워크플로우 안내 표시 |
 
