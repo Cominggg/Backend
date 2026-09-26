@@ -12,6 +12,7 @@
 | Cache/Session | Redis |
 | Auth | OAuth2 (Google/Kakao) + JWT |
 | ORM | Spring Data JPA |
+| Batch / Mail | Spring Batch, Spring Mail + Thymeleaf |
 | Util | Lombok |
 | Build | Gradle |
 
@@ -24,7 +25,12 @@ com.Coming.Backend
 ├── concert/       # 공연, 예매 링크, 셋리스트
 ├── calendar/      # 사용자 공연 캘린더
 ├── release/       # 음악 발매 (앨범, 트랙)
-├── user/          # 사용자 정보
+├── rating/        # 공연·발매 별점
+├── post/          # 커뮤니티 게시글·댓글, 멘션 태그, 통합 검색
+├── report/        # 게시글·댓글 신고
+├── notice/        # 공지사항
+├── policy/        # 약관·개인정보처리방침, 개정 안내 메일(Spring Batch)
+├── user/          # 마이페이지 (다가오는 공연, 관람 이력, 내 문의)
 ├── inquiry/       # 문의
 ├── admin/         # 관리자
 └── common/
