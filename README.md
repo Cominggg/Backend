@@ -80,54 +80,58 @@
 
 ## AI 협업 워크플로우
 
-이 프로젝트는 기능 구현뿐 아니라 **개발 프로세스 자체를 Claude Code의 서브에이전트·스킬로 설계**했습니다.
-1인 개발이지만, 역할을 나눠 병렬로 검토·검증하는 체계를 갖추는 것을 목표로 했습니다.
+Claude Code 에이전트·스킬·훅으로 이슈부터 PR까지 진행합니다. 프로젝트 규칙은 [`CLAUDE.md`](CLAUDE.md)에 모여 있고, 아래 도구들이 그 규칙을 역할별로 나눠 강제합니다.
 
-### 개발 흐름
+### 흐름
 
-1. `/issue` — GitHub 이슈·브랜치 생성
-2. 구현
-3. `write-tests` — 3개 이상 도메인은 병렬 실행
-4. `/be-review` — DDD·SOLID·커버리지·API 스펙 리뷰 (🔴 critical 존재 시 2번으로 복귀)
-5. `/simplify` → `/commit` → `/pr` → `/sync-docs`
+```
+/issue → /plan-issue → 구현 → write-tests → /be-review (+ security-reviewer) → /simplify → /commit → /pr → /sync-docs
+```
 
-- `/be-review`에서 🔴 critical 이슈가 0건일 때만 커밋으로 진행합니다.
-- auth 관련 코드(JWT, OAuth2, Redis 토큰 처리)는 `/security-review`를 추가로 실행합니다.
-- 테스트 작성은 도메인 수에 따라 병렬/순차를 구분합니다 — 3개 이상 도메인은 에이전트를 병렬 호출하고, 1~2개는 순차 작성합니다(cold start 중복 비용이 병렬화 이득을 초과하는 지점을 기준으로 판단).
+| 단계 | 도구 | 하는 일 |
+|------|------|--------|
+| 이슈·브랜치 | `/issue` | GitHub 이슈 생성 + `{type}/#{번호}-...` 브랜치 체크아웃 |
+| 계획 | `/plan-issue` | 이슈 체크리스트를 코드 현황과 대조하고, 남은 작업을 커밋 단위로 순서화 (마이그레이션 → Entity/Repository → Service → Controller) |
+| 구현 | 메인 세션 | 클래스 단위 구현 |
+| 테스트 작성 | `write-tests` 에이전트 | 클래스 구현 직후 테스트 작성, `./gradlew test`로 통과 확인 |
+| 리뷰 | `/be-review` | DDD 레이어·SOLID·테스트 커버리지·API 스펙 검토 — 🔴 critical 0건이어야 커밋 |
+| 보안 리뷰 | `security-reviewer` 에이전트 | auth 관련 변경(JWT, OAuth2, Redis 토큰 처리) 시 추가 검토 |
+| 정리 | `/simplify` | 변경 코드의 중복·불필요한 복잡도 정리 |
+| 커밋·PR | `/commit`, `/pr` | 컨벤션(`[{type}] 요약`)에 맞춘 커밋·PR 작성 |
+| 명세 동기화 | `/sync-docs` | 변경 사항을 `Cominggg/Specification` 명세 문서에 반영 |
 
-### 도메인 전문가 서브에이전트
+두 에이전트는 이 레포의 [`.claude/agents/`](.claude/agents/)에 포함돼 있습니다. `/issue`, `/plan-issue`, `/be-review`, `/commit`, `/pr`, `/sync-docs`는 작성자의 전역 Claude Code 스킬이고, `/simplify`는 Claude Code 기본 제공 스킬이라 레포에는 없습니다.
 
-기능 추가 전 검토가 필요할 때, 실제 API·DB 스키마를 알고 있는 역할별 에이전트에게 병렬로 의견을 구합니다.
+### 에이전트 역할 분리와 병렬 실행
 
-| 에이전트 | 역할 |
-|----------|------|
-| `pm-expert` | 사용자 가치·우선순위·운영 리스크 관점 검토 |
-| `be-expert` | API 설계, DB 스키마 변경, 인증·보안 영향 검토 |
-| `fe-expert` | 기존 컴포넌트·UX 관점에서 구현 난이도 검토 |
-| `data-expert` | 외부 수집 파이프라인 영향, 수집 주기·매칭 로직 검토 |
+| 에이전트 | 도구 | 역할 |
+|---------|------|------|
+| [`write-tests`](.claude/agents/write-tests.md) | Read·Write·Edit·Bash | `src/test/java/`에 구현과 같은 패키지 구조로 테스트 작성 (Service는 Mockito 단위 테스트, Controller는 `@WebMvcTest`) |
+| [`security-reviewer`](.claude/agents/security-reviewer.md) | Read·Bash·Grep | 읽기 전용 — 이슈를 심각도별로 보고만 하고 코드를 수정하지 않음 |
 
-`review-feature` 스킬은 이 4개 에이전트를 **동시에** 호출한 뒤, 아래 규칙으로 결과를 합산해 최종 권고를 냅니다.
+`write-tests`는 테스트 대상 도메인 수에 따라 실행 방식을 나눕니다.
 
-- 전원 "추가" → ✅ 추가
-- 1개 이상 "조건부" + 나머지 "추가" → ⚠️ 조건부 추가
-- 2개 이상 "보류" → 🔁 보류
-- 1개 이상 "반려" → ❌ 반려
+- 3개 이상 도메인이면 도메인별로 병렬 호출하고, 1~2개면 순차 작성합니다 (cold start 중복 비용이 병렬화 이득을 초과하는 지점을 기준으로 판단).
+- 호출 전 `build.gradle`과 기존 테스트 예제 1개를 프롬프트에 포함해, 에이전트마다 같은 파일을 반복 탐색하지 않게 합니다.
+- 같은 도메인의 Service·Controller 테스트는 순서대로 작성합니다 (Controller 테스트가 Service 계약을 전제).
 
-### 커스텀 스킬
+### 코드 리뷰
 
-| 스킬 | 역할 |
-|------|------|
-| `be-review` | DDD 레이어·SOLID·테스트 커버리지·API 스펙 리뷰, 심각도별(🔴/🟡/🔵) 보고 |
-| `security-review` | auth 관련 코드 보안 검토 |
-| `review-feature` | 신규 기능 아이디어를 4개 에이전트로 병렬 사전 검토 |
-| `commit` / `pr` | 컨벤션에 맞는 커밋 메시지·PR 초안 자동 생성 |
+`/be-review` 체크리스트는 심각도(🔴/🟡/🔵)별로 나뉘며, 커밋을 막는 🔴 critical 기준은 다음과 같습니다.
 
-이 외에 이슈 생성·브랜치 자동화(`issue`), 명세 동기화(`read-spec`/`sync-docs`) 등 반복 작업용 스킬도 함께 운용하고 있습니다.
+- **DDD 레이어**: Controller에 비즈니스 로직 금지, Entity를 응답 타입으로 직접 반환 금지
+- **캡슐화**: Entity에 `@Setter`·`@Data`, `public` 필드 금지
+- **테스트**: 신규 `@Service` 메서드에 단위 테스트 필수, 통합 테스트는 H2·Mock DB가 아닌 실제 PostgreSQL 사용
+- **API 스펙**: 에러 응답은 `{"code", "message"}` 형식과 `ErrorCode` enum만 사용, 인증 필요 엔드포인트의 Security 설정 누락 금지
 
-### 안전장치
+`security-reviewer`는 범용 `/security-review` 대신 Coming 인증 정책(Access 30분 Bearer·Refresh 7일 HttpOnly Cookie·로그아웃 Redis 블랙리스트) 기준으로 토큰 노출·Bearer/Cookie 역할 뒤바뀜, 블랙리스트 등록 누락, 서명 미검증, 권한 체크 누락, IDOR 등을 검토합니다.
 
-- `application-local.yaml`, `.env`, `credentials`가 포함된 파일명은 프로젝트 훅(`.claude/settings.json`)이 Claude의 Write/Edit 자체를 차단합니다.
-- `write-tests` 에이전트를 프로젝트 로컬로 두어(`.claude/agents/write-tests.md`) 이 레포의 테스트 컨벤션에 맞는 테스트만 생성하도록 제한했습니다.
+### 훅 ([`.claude/settings.json`](.claude/settings.json))
+
+| 시점 | 대상 | 동작 |
+|------|------|------|
+| PreToolUse | Write·Edit | 경로에 `.env`·`.secret`·`application-local`·`application-prod`·`application-secret`·`credentials`가 포함되면 수정 차단 |
+| Stop | 응답 종료 시 | 커밋 전 워크플로우(`/be-review → /simplify → /commit → /pr`) 리마인드 출력 |
 
 이 워크플로우를 설계하며 겪은 구체적인 판단·트레이드오프는 별도 문서로 기록하고 있습니다.
 
