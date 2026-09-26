@@ -39,6 +39,7 @@
 | ORM | Spring Data JPA |
 | API 문서 | springdoc-openapi |
 | 모니터링 | Actuator + Micrometer(Prometheus) + Grafana |
+| 배치 · 메일 | Spring Batch, Spring Mail + Thymeleaf |
 | 부하 테스트 | k6 |
 | CI/CD | GitHub Actions → GHCR → SSH 배포 |
 | 컨테이너 | Docker |
@@ -49,12 +50,17 @@
 |--------|-----------|
 | `auth` | OAuth2 로그인(Google/Kakao), JWT 발급·재발급, Redis 블랙리스트 로그아웃 |
 | `artist` | 아티스트 조회, 팔로우 |
-| `concert` | 공연 조회, 예매 링크, 셋리스트, 인기순 정렬 |
+| `concert` | 공연 조회, 예매 링크, 셋리스트, 인기순 정렬, 별점 등록 |
 | `calendar` | 사용자 공연 캘린더 등록/조회 |
-| `release` | 아티스트별 음악 발매(앨범/싱글/EP) 정보 |
-| `user` | 사용자 정보 |
+| `release` | 아티스트별 음악 발매(앨범/싱글/EP) 정보, 별점 등록 |
+| `rating` | 공연·발매 별점 저장 및 평균 집계 |
+| `post` | 커뮤니티 게시글·댓글, 추천·좋아요, 아티스트/공연/발매 멘션 태그, 통합 검색 |
+| `report` | 게시글·댓글 신고, 이벤트 기반 알림 |
+| `notice` | 공지사항 조회 |
+| `policy` | 약관·개인정보처리방침 버전 관리, 개정 시 Spring Batch 기반 안내 메일 발송 |
+| `user` | 마이페이지 (다가오는 공연, 관람 이력, 내 문의) |
 | `inquiry` | 문의 등록·조회, 이벤트 기반 알림 |
-| `admin` | 관리자 전용 CRUD (아티스트·공연 등) |
+| `admin` | 관리자 전용 기능 (아티스트·공연·공지·문의·신고 관리, 데이터 파이프라인 수집 요청) |
 
 **인증 정책**: Access Token 30분(`Authorization: Bearer`), Refresh Token 7일(HttpOnly Cookie), 로그아웃 시 Redis 블랙리스트 등록.
 
@@ -164,15 +170,15 @@ open -a Docker && docker start redis   # Docker 데몬이 꺼져 있으면 먼�
 - **CD** (`cd.yml`): `main` 브랜치 push(= `develop` → `main` 병합) 시 Docker 이미지를 GHCR에 push하고, Lightsail 인스턴스로 SSH 접속해 `scripts/deploy.sh` 실행
 - Nginx가 `be-blue`(:8080)/`be-green`(:8081) 중 활성 슬롯으로만 트래픽을 전달하고, Redis는 두 슬롯이 공유합니다. Data Pipeline(`data`)도 같은 Docker Compose에 포함되어 별도 인스턴스 없이 함께 배포됩니다.
 - 배포 시 standby 슬롯에 새 이미지를 pull → `/actuator/health` 체크 통과 → Nginx upstream 전환 → 이전 슬롯 정지 순으로 무중단 배포합니다.
-- DB는 별도 Lightsail 인스턴스(Managed PostgreSQL)로 분리되어 두 슬롯이 공통으로 바라보고, 4xx/5xx 에러·공연 데이터 수집 결과·문의 접수는 각각 Discord Webhook으로 알림됩니다.
+- DB는 별도 Lightsail 인스턴스(Managed PostgreSQL)로 분리되어 두 슬롯이 공통으로 바라보고, 4xx/5xx 에러·공연 데이터 수집 결과·문의 접수·신고 접수는 각각 Discord Webhook으로 알림됩니다.
 
 ## 프로젝트 규모
 
 | 항목 | 내용 |
 |------|------|
 | 개발 기간 | 2026-05 ~ (진행 중) |
-| 도메인 수 | 8개 (auth / artist / concert / calendar / release / user / inquiry / admin) |
-| DB 마이그레이션 | 25개 (Flyway) |
+| 도메인 수 | 13개 (auth / artist / concert / calendar / release / rating / post / report / notice / policy / user / inquiry / admin) |
+| DB 마이그레이션 | 40개 (Flyway) |
 | 연동 레포 | 4개 (Backend / Frontend / Data / Specification) |
 
 ---
