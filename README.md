@@ -76,6 +76,14 @@
 { "content": [], "page": 0, "size": 20, "totalElements": 100, "totalPages": 5 }
 ```
 
+## ERD
+
+Flyway V1–V40 적용 기준 27개 테이블(Spring Batch 메타 테이블 제외). FK는 대부분 DB 제약 없이 애플리케이션 레벨에서 관리하는 논리적 참조이며, 별점·신고·문의·멘션 태그는 `target_type + target_id` 다형 참조를 사용한다.
+
+<p align="center">
+  <a href=".github/erd.png"><img src=".github/erd.png" alt="ERD" width="100%" /></a>
+</p>
+
 ---
 
 ## AI 협업 워크플로우
