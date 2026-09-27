@@ -39,8 +39,8 @@ def bash_targets(command):
         tokens = list(lexer)
     except ValueError:
         tokens = command.split()
-    # 공백이 든 토큰은 따옴표로 묶인 문장이므로 제외, `--file=.env`는 `=` 뒤만 본다
-    tokens = [t for t in tokens if not re.search(r"\s", t)]
+    # 파일명에 공백이 든 토큰은 따옴표로 묶인 문장이므로 제외(디렉터리 공백은 허용), `--file=.env`는 `=` 뒤만 본다
+    tokens = [t for t in tokens if not re.search(r"\s", os.path.basename(t))]
     return [REDIRECT_PREFIX.sub("", t).rsplit("=", 1)[-1] for t in tokens]
 
 
@@ -53,7 +53,7 @@ name = os.path.basename(path)
 if tool == "Bash":
     targets = bash_targets(tool_input.get("command", ""))
 elif tool == "Grep":
-    targets = [tool_input.get("path", "")]
+    targets = [tool_input.get("path", ""), tool_input.get("glob", "")]
 else:
     targets = [path]
 hits = [t for t in targets if t and is_secret(t)]
@@ -61,9 +61,10 @@ if hits:
     deny(f"시크릿 파일 접근 차단: {', '.join(hits)} — 필요한 내용은 사용자에게 직접 수정을 요청한다")
 
 if tool in ("Write", "Edit") and "/db/migration/" in path and name.startswith("V"):
-    tracked = subprocess.run(
-        ["git", "ls-files", "--error-unmatch", path],
-        cwd=data.get("cwd") or ".", capture_output=True,
+    cwd = data.get("cwd") or "."
+    committed = subprocess.run(
+        ["git", "cat-file", "-e", f"HEAD:./{os.path.relpath(path, cwd)}"],
+        cwd=cwd, capture_output=True,
     ).returncode == 0
-    if tracked:
+    if committed:
         deny(f"커밋된 Flyway 마이그레이션 수정 차단: {path} — 변경은 새 V{{n}}__*.sql 파일로 추가한다")

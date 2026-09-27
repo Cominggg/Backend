@@ -11,10 +11,12 @@ tools: Read, Bash, Grep
 
 ## 실행 순서
 
-1. 변경된 파일 목록과 diff를 확인한다
+1. 변경된 파일 목록과 diff를 확인한다 (브랜치 커밋분 + 작업 트리 + 신규 파일)
    ```bash
-   git diff --name-only HEAD
-   git diff HEAD
+   BASE=$(git merge-base origin/develop HEAD)
+   git diff --name-only "$BASE"      # 브랜치 커밋분 + 작업 트리 변경
+   git diff "$BASE"
+   git ls-files --others --exclude-standard   # untracked 신규 파일 — 목록의 파일은 직접 읽는다
    ```
 2. 아래 체크리스트 기준으로 검토한다. 인증/인가와 무관한 변경이면 해당 없음으로 보고한다.
 3. 심각도별로 이슈를 정리해 보고한다.
@@ -45,7 +47,7 @@ tools: Read, Bash, Grep
 - Access Token을 쿠키에 저장하거나 Refresh Token을 로컬 스토리지·바디로 내려보내는 등 Bearer/Cookie 역할 뒤바뀜
 - 로그아웃/토큰 폐기 로직에서 Redis 블랙리스트 등록 누락
 - JWT 서명 검증 없이 payload를 신뢰 (예: 파싱만 하고 `verify` 생략)
-- 사용자 입력(닉네임, 문의 내용 등)을 검증 없이 쿼리·엔티티에 그대로 반영 (SQL Injection 여지)
+- 사용자 입력(닉네임, 문의 내용 등)을 파라미터 바인딩 없이 쿼리 문자열에 직접 결합 (SQL Injection) — JPA 파라미터 바인딩·엔티티 필드 대입은 해당 없음
 - 비밀번호·API 키·클라이언트 시크릿 등이 코드에 하드코딩되거나 로그에 평문 출력
 
 ### 🟡 warning
