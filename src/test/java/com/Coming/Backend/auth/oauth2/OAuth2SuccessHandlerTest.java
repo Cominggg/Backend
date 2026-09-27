@@ -8,6 +8,7 @@ import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.jwt.JwtProvider;
+import com.Coming.Backend.auth.jwt.RefreshTokenClaims;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +63,8 @@ class OAuth2SuccessHandlerTest {
         CustomOAuth2User oAuth2User = new CustomOAuth2User(buildUser(UserRole.USER), Map.of(), false);
         given(authentication.getPrincipal()).willReturn(oAuth2User);
         given(jwtProvider.generateRefreshToken(1L)).willReturn("refresh-token-value");
+        given(jwtProvider.parseRefreshToken("refresh-token-value"))
+                .willReturn(new RefreshTokenClaims(1L, "session-1"));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -79,6 +82,8 @@ class OAuth2SuccessHandlerTest {
         CustomOAuth2User oAuth2User = new CustomOAuth2User(buildUser(UserRole.PENDING), Map.of(), true);
         given(authentication.getPrincipal()).willReturn(oAuth2User);
         given(jwtProvider.generateRefreshToken(1L)).willReturn("refresh-token-value");
+        given(jwtProvider.parseRefreshToken("refresh-token-value"))
+                .willReturn(new RefreshTokenClaims(1L, "session-1"));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -96,6 +101,8 @@ class OAuth2SuccessHandlerTest {
         CustomOAuth2User oAuth2User = new CustomOAuth2User(buildUser(UserRole.PENDING), Map.of(), false);
         given(authentication.getPrincipal()).willReturn(oAuth2User);
         given(jwtProvider.generateRefreshToken(1L)).willReturn("refresh-token-value");
+        given(jwtProvider.parseRefreshToken("refresh-token-value"))
+                .willReturn(new RefreshTokenClaims(1L, "session-1"));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -113,6 +120,8 @@ class OAuth2SuccessHandlerTest {
         CustomOAuth2User oAuth2User = new CustomOAuth2User(buildUser(UserRole.USER), Map.of(), false);
         given(authentication.getPrincipal()).willReturn(oAuth2User);
         given(jwtProvider.generateRefreshToken(1L)).willReturn("refresh-token-value");
+        given(jwtProvider.parseRefreshToken("refresh-token-value"))
+                .willReturn(new RefreshTokenClaims(1L, "session-1"));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -128,11 +137,13 @@ class OAuth2SuccessHandlerTest {
     }
 
     @Test
-    void should_call_tokenRepository_save_when_authentication_success() throws Exception {
+    void should_saveNewSession_when_authentication_success() throws Exception {
         // given
         CustomOAuth2User oAuth2User = new CustomOAuth2User(buildUser(UserRole.USER), Map.of(), false);
         given(authentication.getPrincipal()).willReturn(oAuth2User);
         given(jwtProvider.generateRefreshToken(1L)).willReturn("refresh-token-value");
+        given(jwtProvider.parseRefreshToken("refresh-token-value"))
+                .willReturn(new RefreshTokenClaims(1L, "session-1"));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -141,6 +152,6 @@ class OAuth2SuccessHandlerTest {
         oAuth2SuccessHandler.onAuthenticationSuccess(request, response, authentication);
 
         // then
-        verify(tokenRepository).save(1L, "refresh-token-value", REFRESH_TOKEN_EXPIRY);
+        verify(tokenRepository).saveSession(1L, "session-1", "refresh-token-value", REFRESH_TOKEN_EXPIRY);
     }
 }

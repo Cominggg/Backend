@@ -1,12 +1,16 @@
 package com.Coming.Backend.auth.controller;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,6 +18,7 @@ import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.NicknameCheckResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
+import com.Coming.Backend.auth.dto.TokenPair;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.exception.NicknameDuplicateException;
 import com.Coming.Backend.auth.exception.TermsNotAgreedException;
@@ -21,6 +26,7 @@ import com.Coming.Backend.auth.service.AuthService;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +41,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 @ExtendWith(MockitoExtension.class)
@@ -183,5 +190,63 @@ class AuthControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.available").value(false));
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/auth/logout
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_and_pass_refresh_token_when_logout_with_cookie() throws Exception {
+        // given
+        String refreshToken = "refresh-token-value";
+
+        // when & then
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + ACCESS_TOKEN)
+                        .cookie(new Cookie("refreshToken", refreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
+        verify(authService).logout(ACCESS_TOKEN, USER_ID, refreshToken);
+    }
+
+    @Test
+    void should_return_200_when_logout_without_refresh_token_cookie() throws Exception {
+        // given — Refresh Token 쿠키 없음
+
+        // when & then
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + ACCESS_TOKEN))
+                .andExpect(status().isOk());
+        verify(authService).logout(ACCESS_TOKEN, USER_ID, null);
+    }
+
+    @Test
+    void should_issueNonSecureCookie_when_cookieSecureDisabled() throws Exception {
+        // given — 로컬(http) 환경: app.cookie.secure=false
+        ReflectionTestUtils.setField(authController, "cookieSecure", false);
+        given(authService.refreshToken("refresh-token-value"))
+                .willReturn(new TokenPair(ACCESS_TOKEN, "new-refresh-token"));
+
+        // when & then
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie("refreshToken", "refresh-token-value")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("new-refresh-token")))
+                .andExpect(header().string("Set-Cookie", not(containsString("Secure"))));
+    }
+
+    @Test
+    void should_issueSecureCookie_when_cookieSecureEnabled() throws Exception {
+        // given
+        ReflectionTestUtils.setField(authController, "cookieSecure", true);
+        given(authService.refreshToken("refresh-token-value"))
+                .willReturn(new TokenPair(ACCESS_TOKEN, "new-refresh-token"));
+
+        // when & then
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie("refreshToken", "refresh-token-value")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("Secure")));
     }
 }

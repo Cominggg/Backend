@@ -34,7 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null) {
             try {
                 Claims claims = jwtProvider.parseClaims(token);
-                if (!blacklistRepository.isBlacklisted(token)) {
+                if (jwtProvider.isAccessToken(claims) && !blacklistRepository.isBlacklisted(token)) {
                     setAuthentication(claims);
                 }
             } catch (Exception e) {
