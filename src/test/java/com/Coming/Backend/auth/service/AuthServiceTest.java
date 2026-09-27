@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -21,6 +21,7 @@ import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.ExpiredTokenException;
+import com.Coming.Backend.auth.exception.InvalidTokenException;
 import com.Coming.Backend.auth.exception.NicknameDuplicateException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
@@ -87,6 +88,8 @@ class AuthServiceTest {
     private static final String NEW_REFRESH_TOKEN = "new-refresh-token";
     private static final String ACCESS_TOKEN = "valid-access-token";
     private static final String NEW_ACCESS_TOKEN = "new-access-token";
+    private static final String SESSION_ID = "session-1";
+    private static final long REFRESH_EXPIRY = 604_800_000L;
 
     private User buildUser() {
         return User.builder()
@@ -129,11 +132,13 @@ class AuthServiceTest {
         // given
         User user = buildUser();
         given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(tokenRepository.find(USER_ID)).willReturn(Optional.of(REFRESH_TOKEN));
+        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtProvider.generateAccessToken(USER_ID, UserRole.USER.name())).willReturn(NEW_ACCESS_TOKEN);
-        given(jwtProvider.generateRefreshToken(USER_ID)).willReturn(NEW_REFRESH_TOKEN);
-        given(jwtProvider.getRefreshTokenExpiry()).willReturn(604800000L);
+        given(jwtProvider.generateRefreshToken(USER_ID, SESSION_ID)).willReturn(NEW_REFRESH_TOKEN);
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(REFRESH_EXPIRY);
+        given(tokenRepository.rotate(USER_ID, SESSION_ID, REFRESH_TOKEN, NEW_REFRESH_TOKEN, REFRESH_EXPIRY))
+                .willReturn(true);
 
         // when
         TokenPair result = authService.refreshToken(REFRESH_TOKEN);
@@ -141,7 +146,7 @@ class AuthServiceTest {
         // then
         assertThat(result.accessToken()).isEqualTo(NEW_ACCESS_TOKEN);
         assertThat(result.refreshToken()).isEqualTo(NEW_REFRESH_TOKEN);
-        verify(tokenRepository).save(USER_ID, NEW_REFRESH_TOKEN, 604800000L);
+        verify(tokenRepository).rotate(USER_ID, SESSION_ID, REFRESH_TOKEN, NEW_REFRESH_TOKEN, REFRESH_EXPIRY);
     }
 
     @Test
@@ -156,6 +161,19 @@ class AuthServiceTest {
     }
 
     @Test
+    void should_throw_RefreshTokenInvalidException_when_refresh_token_has_no_session_id() {
+        // given — jti 도입 이전에 발급된 토큰
+        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
+        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(null);
+
+        // when & then
+        assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
+                .isInstanceOf(RefreshTokenInvalidException.class)
+                .hasMessage(ErrorCode.REFRESH_TOKEN_INVALID.getMessage());
+        verify(tokenRepository, never()).rotate(any(), any(), any(), any(), anyLong());
+    }
+
+    @Test
     void should_throw_RefreshTokenInvalidException_when_inactive_user_refreshes_token() {
         // given
         User inactiveUser = User.builder()
@@ -166,7 +184,7 @@ class AuthServiceTest {
                 .providerId("google-123")
                 .build();
         given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(tokenRepository.find(USER_ID)).willReturn(Optional.of(REFRESH_TOKEN));
+        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(inactiveUser));
 
         // when & then
@@ -186,7 +204,7 @@ class AuthServiceTest {
                 .providerId("google-123")
                 .build();
         given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(tokenRepository.find(USER_ID)).willReturn(Optional.of(REFRESH_TOKEN));
+        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(suspendedUser));
 
         // when & then
@@ -196,10 +214,17 @@ class AuthServiceTest {
     }
 
     @Test
-    void should_throw_refresh_token_invalid_exception_when_refresh_token_does_not_match_redis() {
-        // given
+    void should_throw_RefreshTokenInvalidException_when_rotation_fails() {
+        // given — 저장값 불일치(이미 회전된 토큰 재사용, 동시 refresh 경쟁에서 패배, 세션 제거됨)
+        User user = buildUser();
         given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(tokenRepository.find(USER_ID)).willReturn(Optional.of("different-token"));
+        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(jwtProvider.generateAccessToken(USER_ID, UserRole.USER.name())).willReturn(NEW_ACCESS_TOKEN);
+        given(jwtProvider.generateRefreshToken(USER_ID, SESSION_ID)).willReturn(NEW_REFRESH_TOKEN);
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(REFRESH_EXPIRY);
+        given(tokenRepository.rotate(USER_ID, SESSION_ID, REFRESH_TOKEN, NEW_REFRESH_TOKEN, REFRESH_EXPIRY))
+                .willReturn(false);
 
         // when & then
         assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
@@ -212,19 +237,60 @@ class AuthServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_register_blacklist_and_delete_refresh_token_when_logout() {
+    void should_register_blacklist_and_delete_current_session_when_logout() {
         // given
         long remainingExpiry = 900_000L;
         given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(remainingExpiry);
-        willDoNothing().given(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
-        willDoNothing().given(tokenRepository).delete(USER_ID);
+        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
+        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
 
         // when
-        authService.logout(ACCESS_TOKEN, USER_ID);
+        authService.logout(ACCESS_TOKEN, USER_ID, REFRESH_TOKEN);
 
         // then
         verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
-        verify(tokenRepository).delete(USER_ID);
+        verify(tokenRepository).deleteSession(USER_ID, SESSION_ID);
+        verify(tokenRepository, never()).deleteAllSessions(any());
+    }
+
+    @Test
+    void should_only_register_blacklist_when_logout_without_refresh_token() {
+        // given
+        long remainingExpiry = 900_000L;
+        given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(remainingExpiry);
+
+        // when
+        authService.logout(ACCESS_TOKEN, USER_ID, null);
+
+        // then
+        verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
+        verify(tokenRepository, never()).deleteSession(any(), any());
+    }
+
+    @Test
+    void should_not_delete_session_when_logout_with_invalid_refresh_token() {
+        // given
+        given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(900_000L);
+        given(jwtProvider.getUserId(REFRESH_TOKEN)).willThrow(new InvalidTokenException());
+
+        // when
+        authService.logout(ACCESS_TOKEN, USER_ID, REFRESH_TOKEN);
+
+        // then
+        verify(tokenRepository, never()).deleteSession(any(), any());
+    }
+
+    @Test
+    void should_not_delete_session_when_logout_with_other_users_refresh_token() {
+        // given
+        given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(900_000L);
+        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(2L);
+
+        // when
+        authService.logout(ACCESS_TOKEN, USER_ID, REFRESH_TOKEN);
+
+        // then
+        verify(tokenRepository, never()).deleteSession(any(), any());
     }
 
     // -------------------------------------------------------------------------
@@ -232,14 +298,12 @@ class AuthServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_call_withdraw_and_invalidate_tokens_when_withdraw() {
+    void should_call_withdraw_and_invalidate_all_sessions_when_withdraw() {
         // given
         User user = buildUser();
         long remainingExpiry = 900_000L;
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(remainingExpiry);
-        willDoNothing().given(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
-        willDoNothing().given(tokenRepository).delete(USER_ID);
 
         // when
         authService.withdraw(ACCESS_TOKEN, USER_ID);
@@ -251,7 +315,7 @@ class AuthServiceTest {
         verify(userConcertCalendarRepository).deleteByUserId(USER_ID);
         verify(inquiryRepository).deleteByUserId(USER_ID);
         verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
-        verify(tokenRepository).delete(USER_ID);
+        verify(tokenRepository).deleteAllSessions(USER_ID);
     }
 
     // -------------------------------------------------------------------------

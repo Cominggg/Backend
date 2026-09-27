@@ -77,8 +77,9 @@ public class AuthController {
     public ResponseEntity<Void> logout(
             @RequestHeader("Authorization") String authorizationHeader,
             @AuthenticationPrincipal Long userId,
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
             HttpServletResponse response) {
-        authService.logout(authorizationHeader.substring(BEARER_PREFIX.length()), userId);
+        authService.logout(authorizationHeader.substring(BEARER_PREFIX.length()), userId, refreshToken);
         deleteRefreshTokenCookie(response);
         return ResponseEntity.ok().build();
     }
