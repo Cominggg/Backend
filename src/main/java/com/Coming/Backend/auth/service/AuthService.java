@@ -19,9 +19,11 @@ import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.TermsNotAgreedException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
+import com.Coming.Backend.auth.jwt.RefreshTokenClaims;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
+import com.Coming.Backend.auth.repository.TokenRepository.RotationResult;
 import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
@@ -57,17 +59,14 @@ public class AuthService {
 
     /**
      * Refresh Token을 검증하고 새 Access Token과 새 Refresh Token을 발급한다.
-     * 해당 세션(기기)의 Refresh Token만 교체되며, 기존 Refresh Token은 즉시 재사용이 불가능하다.
+     * 해당 세션(기기)의 Refresh Token만 교체되며, 이미 회전된 Refresh Token이 다시 제출되면 그 세션을 폐기한다.
      *
      * @param refreshToken HttpOnly Cookie에서 추출한 Refresh Token
      */
     public TokenPair refreshToken(String refreshToken) {
-        Long userId = extractUserIdFromRefreshToken(refreshToken);
-        String sessionId = jwtProvider.getSessionId(refreshToken);
-        if (sessionId == null) {
-            // 세션 식별자(jti) 도입 이전에 발급된 토큰 — 재로그인 필요
-            throw new RefreshTokenInvalidException();
-        }
+        RefreshTokenClaims claims = parseRefreshToken(refreshToken);
+        Long userId = claims.userId();
+        String sessionId = claims.sessionId();
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         if (user.getStatus() != UserStatus.ACTIVE) {
@@ -75,8 +74,12 @@ public class AuthService {
         }
         String newAccessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
         String newRefreshToken = jwtProvider.generateRefreshToken(userId, sessionId);
-        if (!tokenRepository.rotate(userId, sessionId, refreshToken, newRefreshToken,
-                jwtProvider.getRefreshTokenExpiry())) {
+        RotationResult result = tokenRepository.rotate(userId, sessionId, refreshToken, newRefreshToken,
+                jwtProvider.getRefreshTokenExpiry());
+        if (result == RotationResult.REUSE_DETECTED) {
+            log.warn("Refresh Token 재사용 감지 — 세션 폐기, userId: {}", userId);
+        }
+        if (result != RotationResult.ROTATED) {
             throw new RefreshTokenInvalidException();
         }
         return new TokenPair(newAccessToken, newRefreshToken);
@@ -218,9 +221,9 @@ public class AuthService {
         return new NicknameCheckResponse(available);
     }
 
-    private Long extractUserIdFromRefreshToken(String refreshToken) {
+    private RefreshTokenClaims parseRefreshToken(String refreshToken) {
         try {
-            return jwtProvider.getUserId(refreshToken);
+            return jwtProvider.parseRefreshToken(refreshToken);
         } catch (ExpiredTokenException e) {
             throw new RefreshTokenExpiredException();
         } catch (InvalidTokenException e) {
@@ -234,10 +237,8 @@ public class AuthService {
             return Optional.empty();
         }
         try {
-            if (!userId.equals(jwtProvider.getUserId(refreshToken))) {
-                return Optional.empty();
-            }
-            return Optional.ofNullable(jwtProvider.getSessionId(refreshToken));
+            RefreshTokenClaims claims = jwtProvider.parseRefreshToken(refreshToken);
+            return userId.equals(claims.userId()) ? Optional.of(claims.sessionId()) : Optional.empty();
         } catch (ExpiredTokenException | InvalidTokenException e) {
             return Optional.empty();
         }

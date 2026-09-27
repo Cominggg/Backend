@@ -23,14 +23,25 @@ public class TokenRepository {
     private static final String SESSIONS_KEY_PREFIX = "RT_SESSIONS:";
     private static final int MAX_SESSIONS = 5;
 
-    // 저장된 Refresh Token이 일치할 때만 교체한다. 같은 토큰으로 동시에 들어온 refresh 중 1건만 성공시키고,
+    // 저장값이 일치하면 교체하고(1), 다르면 이미 회전된 토큰의 재사용으로 보고 세션을 폐기하며(0), 세션이 없으면 -1.
     // 세션이 refresh로만 연장되는 경우에도 세션 목록이 먼저 만료되지 않도록 목록 TTL을 함께 연장한다.
     private static final RedisScript<Long> ROTATE_SCRIPT = new DefaultRedisScript<>(
-            "if redis.call('get', KEYS[1]) ~= ARGV[1] then return 0 end "
+            "local stored = redis.call('get', KEYS[1]) "
+                    + "if not stored then return -1 end "
+                    + "if stored ~= ARGV[1] then "
+                    + "redis.call('del', KEYS[1]) "
+                    + "redis.call('zrem', KEYS[2], ARGV[4]) "
+                    + "return 0 end "
                     + "redis.call('set', KEYS[1], ARGV[2], 'PX', ARGV[3]) "
                     + "redis.call('pexpire', KEYS[2], ARGV[3]) "
                     + "return 1",
             Long.class);
+
+    public enum RotationResult {
+        ROTATED,
+        REUSE_DETECTED,
+        SESSION_NOT_FOUND
+    }
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -53,16 +64,21 @@ public class TokenRepository {
 
     /**
      * 저장된 Refresh Token이 currentToken과 일치할 때만 newToken으로 교체한다.
-     *
-     * @return 교체에 성공하면 true, 세션이 없거나 값이 다르면 false
+     * 일치하지 않으면 이미 회전된 토큰의 재사용(탈취 의심)으로 보고 해당 세션을 폐기한다.
      */
-    public boolean rotate(Long userId, String sessionId, String currentToken, String newToken,
+    public RotationResult rotate(Long userId, String sessionId, String currentToken, String newToken,
             long ttlMillis) {
         Long result = redisTemplate.execute(
                 ROTATE_SCRIPT,
                 List.of(sessionKey(userId, sessionId), sessionsKey(userId)),
-                currentToken, newToken, String.valueOf(ttlMillis));
-        return Long.valueOf(1L).equals(result);
+                currentToken, newToken, String.valueOf(ttlMillis), sessionId);
+        if (Long.valueOf(1L).equals(result)) {
+            return RotationResult.ROTATED;
+        }
+        if (Long.valueOf(0L).equals(result)) {
+            return RotationResult.REUSE_DETECTED;
+        }
+        return RotationResult.SESSION_NOT_FOUND;
     }
 
     public void deleteSession(Long userId, String sessionId) {

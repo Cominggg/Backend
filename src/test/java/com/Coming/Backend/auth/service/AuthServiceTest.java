@@ -28,9 +28,11 @@ import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
+import com.Coming.Backend.auth.jwt.RefreshTokenClaims;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
+import com.Coming.Backend.auth.repository.TokenRepository.RotationResult;
 import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
@@ -90,6 +92,7 @@ class AuthServiceTest {
     private static final String NEW_ACCESS_TOKEN = "new-access-token";
     private static final String SESSION_ID = "session-1";
     private static final long REFRESH_EXPIRY = 604_800_000L;
+    private static final RefreshTokenClaims REFRESH_CLAIMS = new RefreshTokenClaims(USER_ID, SESSION_ID);
 
     private User buildUser() {
         return User.builder()
@@ -131,14 +134,13 @@ class AuthServiceTest {
     void should_return_new_token_pair_and_rotate_refresh_token_when_valid() {
         // given
         User user = buildUser();
-        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtProvider.generateAccessToken(USER_ID, UserRole.USER.name())).willReturn(NEW_ACCESS_TOKEN);
         given(jwtProvider.generateRefreshToken(USER_ID, SESSION_ID)).willReturn(NEW_REFRESH_TOKEN);
         given(jwtProvider.getRefreshTokenExpiry()).willReturn(REFRESH_EXPIRY);
         given(tokenRepository.rotate(USER_ID, SESSION_ID, REFRESH_TOKEN, NEW_REFRESH_TOKEN, REFRESH_EXPIRY))
-                .willReturn(true);
+                .willReturn(RotationResult.ROTATED);
 
         // when
         TokenPair result = authService.refreshToken(REFRESH_TOKEN);
@@ -152,7 +154,7 @@ class AuthServiceTest {
     @Test
     void should_throw_refresh_token_expired_exception_when_refresh_token_is_expired() {
         // given
-        given(jwtProvider.getUserId(REFRESH_TOKEN)).willThrow(new ExpiredTokenException());
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willThrow(new ExpiredTokenException());
 
         // when & then
         assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
@@ -161,10 +163,9 @@ class AuthServiceTest {
     }
 
     @Test
-    void should_throw_RefreshTokenInvalidException_when_refresh_token_has_no_session_id() {
-        // given — jti 도입 이전에 발급된 토큰
-        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(null);
+    void should_throw_RefreshTokenInvalidException_when_token_is_not_a_valid_refresh_token() {
+        // given — Access Token 또는 jti·typ 도입 이전에 발급된 Refresh Token
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willThrow(new InvalidTokenException());
 
         // when & then
         assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
@@ -183,8 +184,7 @@ class AuthServiceTest {
                 .provider("google")
                 .providerId("google-123")
                 .build();
-        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(inactiveUser));
 
         // when & then
@@ -203,8 +203,7 @@ class AuthServiceTest {
                 .provider("google")
                 .providerId("google-123")
                 .build();
-        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(suspendedUser));
 
         // when & then
@@ -214,17 +213,34 @@ class AuthServiceTest {
     }
 
     @Test
-    void should_throw_RefreshTokenInvalidException_when_rotation_fails() {
-        // given — 저장값 불일치(이미 회전된 토큰 재사용, 동시 refresh 경쟁에서 패배, 세션 제거됨)
+    void should_throw_RefreshTokenInvalidException_when_reused_refresh_token_is_detected() {
+        // given — 이미 회전된 토큰 재제출 (세션은 저장소에서 폐기됨)
         User user = buildUser();
-        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtProvider.generateAccessToken(USER_ID, UserRole.USER.name())).willReturn(NEW_ACCESS_TOKEN);
         given(jwtProvider.generateRefreshToken(USER_ID, SESSION_ID)).willReturn(NEW_REFRESH_TOKEN);
         given(jwtProvider.getRefreshTokenExpiry()).willReturn(REFRESH_EXPIRY);
         given(tokenRepository.rotate(USER_ID, SESSION_ID, REFRESH_TOKEN, NEW_REFRESH_TOKEN, REFRESH_EXPIRY))
-                .willReturn(false);
+                .willReturn(RotationResult.REUSE_DETECTED);
+
+        // when & then
+        assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
+                .isInstanceOf(RefreshTokenInvalidException.class)
+                .hasMessage(ErrorCode.REFRESH_TOKEN_INVALID.getMessage());
+    }
+
+    @Test
+    void should_throw_RefreshTokenInvalidException_when_session_does_not_exist() {
+        // given — 로그아웃·세션 상한 초과·탈퇴로 제거된 세션
+        User user = buildUser();
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(jwtProvider.generateAccessToken(USER_ID, UserRole.USER.name())).willReturn(NEW_ACCESS_TOKEN);
+        given(jwtProvider.generateRefreshToken(USER_ID, SESSION_ID)).willReturn(NEW_REFRESH_TOKEN);
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(REFRESH_EXPIRY);
+        given(tokenRepository.rotate(USER_ID, SESSION_ID, REFRESH_TOKEN, NEW_REFRESH_TOKEN, REFRESH_EXPIRY))
+                .willReturn(RotationResult.SESSION_NOT_FOUND);
 
         // when & then
         assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
@@ -241,8 +257,7 @@ class AuthServiceTest {
         // given
         long remainingExpiry = 900_000L;
         given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(remainingExpiry);
-        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(jwtProvider.getSessionId(REFRESH_TOKEN)).willReturn(SESSION_ID);
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
 
         // when
         authService.logout(ACCESS_TOKEN, USER_ID, REFRESH_TOKEN);
@@ -271,7 +286,7 @@ class AuthServiceTest {
     void should_not_delete_session_when_logout_with_invalid_refresh_token() {
         // given
         given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(900_000L);
-        given(jwtProvider.getUserId(REFRESH_TOKEN)).willThrow(new InvalidTokenException());
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willThrow(new InvalidTokenException());
 
         // when
         authService.logout(ACCESS_TOKEN, USER_ID, REFRESH_TOKEN);
@@ -284,7 +299,7 @@ class AuthServiceTest {
     void should_not_delete_session_when_logout_with_other_users_refresh_token() {
         // given
         given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(900_000L);
-        given(jwtProvider.getUserId(REFRESH_TOKEN)).willReturn(2L);
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(new RefreshTokenClaims(2L, SESSION_ID));
 
         // when
         authService.logout(ACCESS_TOKEN, USER_ID, REFRESH_TOKEN);

@@ -17,6 +17,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtProvider {
 
+    private static final String TOKEN_TYPE_CLAIM = "typ";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+
     private final SecretKey secretKey;
     private final long accessTokenExpiry;
     private final long refreshTokenExpiry;
@@ -36,6 +40,7 @@ public class JwtProvider {
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("role", role)
+                .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + accessTokenExpiry))
                 .signWith(secretKey)
@@ -57,6 +62,7 @@ public class JwtProvider {
         return Jwts.builder()
                 .subject(userId.toString())
                 .id(sessionId)
+                .claim(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + refreshTokenExpiry))
                 .signWith(secretKey)
@@ -67,15 +73,24 @@ public class JwtProvider {
         parseClaims(token);
     }
 
-    public Long getUserId(String token) {
-        return Long.parseLong(parseClaims(token).getSubject());
+    /**
+     * Refresh Token을 검증하고 사용자 ID와 세션 식별자를 반환한다.
+     * Access Token이나 세션 식별자(jti) 도입 이전에 발급된 토큰이면 {@link InvalidTokenException}.
+     */
+    public RefreshTokenClaims parseRefreshToken(String token) {
+        Claims claims = parseClaims(token);
+        String tokenType = claims.get(TOKEN_TYPE_CLAIM, String.class);
+        if (!REFRESH_TOKEN_TYPE.equals(tokenType) || claims.getId() == null) {
+            throw new InvalidTokenException();
+        }
+        return new RefreshTokenClaims(Long.parseLong(claims.getSubject()), claims.getId());
     }
 
     /**
-     * Refresh Token의 세션 식별자(jti)를 반환한다. jti가 없는 토큰이면 null.
+     * API 인증에 사용할 수 있는 Access Token인지 확인한다. Refresh Token은 서명이 유효해도 false.
      */
-    public String getSessionId(String token) {
-        return parseClaims(token).getId();
+    public boolean isAccessToken(Claims claims) {
+        return ACCESS_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
     }
 
     public String getRole(String token) {

@@ -45,8 +45,8 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         log.info("OAuth2 로그인 성공 — userId: {}, isNewUser: {}", user.getId(), oAuth2User.isNewUser());
 
         String refreshToken = jwtProvider.generateRefreshToken(user.getId());
-        tokenRepository.saveSession(user.getId(), jwtProvider.getSessionId(refreshToken), refreshToken,
-                refreshTokenExpiry);
+        tokenRepository.saveSession(user.getId(), jwtProvider.parseRefreshToken(refreshToken).sessionId(),
+                refreshToken, refreshTokenExpiry);
         addRefreshTokenCookie(response, refreshToken);
 
         String redirectUrl = redirectBaseUri + "?isNewUser=" + (user.getRole() == UserRole.PENDING);

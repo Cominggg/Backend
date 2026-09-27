@@ -12,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import com.Coming.Backend.auth.repository.TokenRepository.RotationResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
@@ -94,31 +95,39 @@ class TokenRepositoryTest {
     }
 
     @Test
-    void should_returnTrue_when_rotateScriptSucceeds() {
+    void should_returnRotated_when_storedTokenMatches() {
         // given
-        given(redisTemplate.execute(ArgumentMatchers.<RedisScript<Long>>any(),
-                eq(List.of("RT:1:s1", "RT_SESSIONS:1")),
-                eq("old"), eq("new"), eq(String.valueOf(TTL)))).willReturn(1L);
+        givenRotateScriptReturns(1L);
 
         // when
-        boolean rotated = tokenRepository.rotate(1L, "s1", "old", "new", TTL);
+        RotationResult result = tokenRepository.rotate(1L, "s1", "old", "new", TTL);
 
         // then
-        assertThat(rotated).isTrue();
+        assertThat(result).isEqualTo(RotationResult.ROTATED);
     }
 
     @Test
-    void should_returnFalse_when_storedTokenDoesNotMatch() {
-        // given
-        given(redisTemplate.execute(ArgumentMatchers.<RedisScript<Long>>any(),
-                eq(List.of("RT:1:s1", "RT_SESSIONS:1")),
-                eq("stale"), eq("new"), eq(String.valueOf(TTL)))).willReturn(0L);
+    void should_returnReuseDetected_when_storedTokenDoesNotMatch() {
+        // given — 스크립트가 불일치 시 세션을 폐기하고 0을 반환
+        givenRotateScriptReturns(0L);
 
         // when
-        boolean rotated = tokenRepository.rotate(1L, "s1", "stale", "new", TTL);
+        RotationResult result = tokenRepository.rotate(1L, "s1", "old", "new", TTL);
 
         // then
-        assertThat(rotated).isFalse();
+        assertThat(result).isEqualTo(RotationResult.REUSE_DETECTED);
+    }
+
+    @Test
+    void should_returnSessionNotFound_when_sessionDoesNotExist() {
+        // given
+        givenRotateScriptReturns(-1L);
+
+        // when
+        RotationResult result = tokenRepository.rotate(1L, "s1", "old", "new", TTL);
+
+        // then
+        assertThat(result).isEqualTo(RotationResult.SESSION_NOT_FOUND);
     }
 
     @Test
@@ -145,6 +154,12 @@ class TokenRepositoryTest {
 
         // then
         verify(redisTemplate).delete(List.of("RT:1:s1", "RT:1:s2", "RT_SESSIONS:1"));
+    }
+
+    private void givenRotateScriptReturns(Long scriptResult) {
+        given(redisTemplate.execute(ArgumentMatchers.<RedisScript<Long>>any(),
+                eq(List.of("RT:1:s1", "RT_SESSIONS:1")),
+                eq("old"), eq("new"), eq(String.valueOf(TTL)), eq("s1"))).willReturn(scriptResult);
     }
 
     private static Set<String> orderedSet(String... values) {
