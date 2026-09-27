@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.Coming.Backend.auth.exception.ExpiredTokenException;
 import com.Coming.Backend.auth.exception.InvalidTokenException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import java.util.Date;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +36,7 @@ class JwtProviderTest {
         String token = jwtProvider.generateAccessToken(userId, role);
 
         // then
-        assertThat(jwtProvider.getUserId(token)).isEqualTo(userId);
+        assertThat(jwtProvider.parseClaims(token).getSubject()).isEqualTo(userId.toString());
     }
 
     @Test
@@ -57,7 +61,85 @@ class JwtProviderTest {
         String token = jwtProvider.generateRefreshToken(userId);
 
         // then
-        assertThat(jwtProvider.getUserId(token)).isEqualTo(userId);
+        assertThat(jwtProvider.parseRefreshToken(token).userId()).isEqualTo(userId);
+    }
+
+    @Test
+    void should_issueDistinctSessionIds_when_generateRefreshTokenTwiceInSameSecond() {
+        // given
+        Long userId = 1L;
+
+        // when
+        String first = jwtProvider.generateRefreshToken(userId);
+        String second = jwtProvider.generateRefreshToken(userId);
+
+        // then
+        assertThat(first).isNotEqualTo(second);
+        assertThat(jwtProvider.parseRefreshToken(first).sessionId())
+                .isNotBlank()
+                .isNotEqualTo(jwtProvider.parseRefreshToken(second).sessionId());
+    }
+
+    @Test
+    void should_keepSessionId_when_generateRefreshTokenWithSessionId() {
+        // given
+        String sessionId = "session-1";
+
+        // when
+        String token = jwtProvider.generateRefreshToken(1L, sessionId);
+
+        // then
+        assertThat(jwtProvider.parseRefreshToken(token))
+                .isEqualTo(new RefreshTokenClaims(1L, sessionId));
+    }
+
+    @Test
+    void should_throwInvalidTokenException_when_parseRefreshTokenWithAccessToken() {
+        // given
+        String accessToken = jwtProvider.generateAccessToken(1L, "USER");
+
+        // when & then
+        assertThatThrownBy(() -> jwtProvider.parseRefreshToken(accessToken))
+                .isInstanceOf(InvalidTokenException.class);
+    }
+
+    @Test
+    void should_throwInvalidTokenException_when_refreshTokenHasNoJtiOrType() {
+        // given — 세션 식별자·토큰 종류 도입 이전 형식의 Refresh Token
+        String legacyToken = Jwts.builder()
+                .subject("1")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + REFRESH_EXPIRY))
+                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET)))
+                .compact();
+
+        // when & then
+        assertThatThrownBy(() -> jwtProvider.parseRefreshToken(legacyToken))
+                .isInstanceOf(InvalidTokenException.class);
+    }
+
+    @Test
+    void should_returnTrue_when_checkAccessTokenType() {
+        // given
+        String accessToken = jwtProvider.generateAccessToken(1L, "USER");
+
+        // when
+        boolean isAccessToken = jwtProvider.isAccessToken(jwtProvider.parseClaims(accessToken));
+
+        // then
+        assertThat(isAccessToken).isTrue();
+    }
+
+    @Test
+    void should_returnFalse_when_checkRefreshTokenAsAccessToken() {
+        // given
+        String refreshToken = jwtProvider.generateRefreshToken(1L);
+
+        // when
+        boolean isAccessToken = jwtProvider.isAccessToken(jwtProvider.parseClaims(refreshToken));
+
+        // then
+        assertThat(isAccessToken).isFalse();
     }
 
     @Test

@@ -12,6 +12,7 @@
 | Cache/Session | Redis |
 | Auth | OAuth2 (Google/Kakao) + JWT |
 | ORM | Spring Data JPA |
+| Batch / Mail | Spring Batch, Spring Mail + Thymeleaf |
 | Util | Lombok |
 | Build | Gradle |
 
@@ -24,7 +25,12 @@ com.Coming.Backend
 ├── concert/       # 공연, 예매 링크, 셋리스트
 ├── calendar/      # 사용자 공연 캘린더
 ├── release/       # 음악 발매 (앨범, 트랙)
-├── user/          # 사용자 정보
+├── rating/        # 공연·발매 별점
+├── post/          # 커뮤니티 게시글·댓글, 멘션 태그, 통합 검색
+├── report/        # 게시글·댓글 신고
+├── notice/        # 공지사항
+├── policy/        # 약관·개인정보처리방침, 개정 안내 메일(Spring Batch)
+├── user/          # 마이페이지 (다가오는 공연, 관람 이력, 내 문의)
 ├── inquiry/       # 문의
 ├── admin/         # 관리자
 └── common/
@@ -58,7 +64,8 @@ com.Coming.Backend
 
 ## 알려진 제약
 
-- `application-local.yaml`은 gitignore 대상이며, 프로젝트 훅이 파일명에 `application-local`/`application-prod`/`.env`/`credentials`가 포함된 파일의 Write/Edit를 자동 차단한다 (`.claude/settings.json`). 이 파일 수정이 필요하면 Claude가 직접 편집할 수 없으니, 추가할 내용을 알려주고 사용자가 직접 추가하도록 요청한다.
+- `application-local.yaml`은 gitignore 대상이며, 프로젝트 훅(`.claude/hooks/guard_files.py`)이 시크릿 파일(`.env*`(`.env.example` 제외)·`application-local*`·`application-secret*`·`credentials*`·`*.secret(s)`)의 Read/Write/Edit/Grep 및 Bash 명령 내 접근을 자동 차단한다. 이 파일 수정이 필요하면 Claude가 직접 편집할 수 없으니, 추가할 내용을 알려주고 사용자가 직접 추가하도록 요청한다.
+- 같은 훅이 git에 커밋된 Flyway 마이그레이션(`db/migration/V*.sql`)의 수정도 차단한다 (checksum 불일치 방지). 스키마 변경은 항상 새 버전 파일로 추가한다.
 
 ## 명세 위치 (Cominggg/Specification)
 
@@ -107,45 +114,10 @@ com.Coming.Backend
 ### 커밋 전 체크리스트
 
 - `/be-review` 통과(🔴 critical 0건) 전에 `/commit`을 실행하지 않는다.
-- auth 관련 코드(JWT, OAuth2, Redis 토큰 처리) 작성 시 `/security-review`도 추가 실행한다.
+- auth 관련 코드(JWT, OAuth2, Redis 토큰 처리) 작성 시 `security-reviewer` 에이전트도 추가로 호출한다 (Coming 인증 정책 기준 전용 체크리스트 보유, 읽기 전용).
 
 ---
 
 ## 행동 원칙
 
-> Adapted from [andrej-karpathy-skills/CLAUDE.md](https://github.com/forrestchang/andrej-karpathy-skills/blob/main/CLAUDE.md)
-> These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-### 1. 코딩 전에 먼저 생각하라
-
-- 가정을 명시적으로 밝혀라. 불확실하면 물어봐라.
-- 여러 해석이 가능하면 모두 제시하고, 조용히 하나를 고르지 마라.
-- 더 단순한 방법이 있으면 말해라. 필요하면 반박해라.
-- 무언가 불분명하면 멈춰라. 무엇이 헷갈리는지 이름 붙이고 물어봐라.
-
-### 2. 단순함 우선
-
-- 요청된 것 이상의 기능을 만들지 마라.
-- 단일 사용 코드에 추상화를 만들지 마라.
-- 요청되지 않은 유연성이나 설정 가능성을 넣지 마라.
-- 불가능한 시나리오에 대한 에러 핸들링을 만들지 마라.
-- 200줄로 쓴 코드가 50줄로 가능하면 다시 써라.
-
-### 3. 외과적 변경
-
-- 요청된 코드만 수정하라. 인접한 코드, 주석, 포맷을 "개선"하지 마라.
-- 망가지지 않은 것을 리팩터링하지 마라.
-- 기존 스타일이 마음에 들지 않아도 맞춰라.
-- 관련 없는 데드코드를 발견하면 언급만 하고, 삭제하지 마라.
-
-### 4. 목표 기반 실행
-
-작업을 검증 가능한 목표로 변환하라:
-- "검증 추가" → "잘못된 입력 테스트 작성 후 통과"
-- "버그 수정" → "재현 테스트 작성 후 통과"
-
-다단계 작업은 계획을 먼저 제시하라:
-```
-1. [단계] → 검증: [체크]
-2. [단계] → 검증: [체크]
-```
+전역 `~/.claude/CLAUDE.md`의 "행동 원칙"(코딩 전에 먼저 생각하라·단순함 우선·외과적 변경·목표 기반 실행)을 따른다.

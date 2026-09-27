@@ -64,6 +64,7 @@ class JwtAuthenticationFilterTest {
         // given
         request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
         given(jwtProvider.parseClaims(VALID_TOKEN)).willReturn(claims);
+        given(jwtProvider.isAccessToken(claims)).willReturn(true);
         given(claims.getSubject()).willReturn(USER_ID.toString());
         given(claims.get("role", String.class)).willReturn(ROLE);
         given(blacklistRepository.isBlacklisted(VALID_TOKEN)).willReturn(false);
@@ -85,6 +86,7 @@ class JwtAuthenticationFilterTest {
         // given
         request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
         given(jwtProvider.parseClaims(VALID_TOKEN)).willReturn(claims);
+        given(jwtProvider.isAccessToken(claims)).willReturn(true);
         given(blacklistRepository.isBlacklisted(VALID_TOKEN)).willReturn(true);
 
         // when
@@ -92,6 +94,21 @@ class JwtAuthenticationFilterTest {
 
         // then
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    void should_notSetAuthentication_when_refreshTokenGivenAsBearer() throws Exception {
+        // given — 서명이 유효한 Refresh Token을 Bearer로 제출
+        request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
+        given(jwtProvider.parseClaims(VALID_TOKEN)).willReturn(claims);
+        given(jwtProvider.isAccessToken(claims)).willReturn(false);
+
+        // when
+        filter.doFilterInternal(request, response, filterChain);
+
+        // then
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(filterChain.getRequest()).isNotNull();
     }
 
     @Test
@@ -136,6 +153,7 @@ class JwtAuthenticationFilterTest {
         // given
         request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
         given(jwtProvider.parseClaims(VALID_TOKEN)).willReturn(claims);
+        given(jwtProvider.isAccessToken(claims)).willReturn(true);
         given(claims.getSubject()).willReturn(USER_ID.toString());
         given(claims.get("role", String.class)).willReturn(ROLE);
         given(blacklistRepository.isBlacklisted(VALID_TOKEN)).willReturn(false);
@@ -166,6 +184,7 @@ class JwtAuthenticationFilterTest {
         // given
         request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
         given(jwtProvider.parseClaims(VALID_TOKEN)).willReturn(claims);
+        given(jwtProvider.isAccessToken(claims)).willReturn(true);
         given(claims.getSubject()).willReturn(USER_ID.toString());
         given(claims.get("role", String.class)).willReturn(ROLE);
         given(blacklistRepository.isBlacklisted(VALID_TOKEN)).willReturn(false);
@@ -185,6 +204,7 @@ class JwtAuthenticationFilterTest {
         // given
         request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
         given(jwtProvider.parseClaims(VALID_TOKEN)).willReturn(claims);
+        given(jwtProvider.isAccessToken(claims)).willReturn(true);
         given(claims.getSubject()).willReturn(USER_ID.toString());
         given(claims.get("role", String.class)).willReturn(ROLE);
         given(blacklistRepository.isBlacklisted(VALID_TOKEN)).willReturn(false);

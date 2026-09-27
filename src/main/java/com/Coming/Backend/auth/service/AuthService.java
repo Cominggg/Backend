@@ -19,9 +19,11 @@ import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.TermsNotAgreedException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
+import com.Coming.Backend.auth.jwt.RefreshTokenClaims;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
+import com.Coming.Backend.auth.repository.TokenRepository.RotationResult;
 import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
@@ -33,6 +35,7 @@ import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
 import com.Coming.Backend.policy.repository.UserPolicyAgreementRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -56,38 +59,49 @@ public class AuthService {
 
     /**
      * Refresh Token을 검증하고 새 Access Token과 새 Refresh Token을 발급한다.
-     * 기존 Refresh Token은 즉시 교체되어 재사용이 불가능하다.
+     * 해당 세션(기기)의 Refresh Token만 교체되며, 이미 회전된 Refresh Token이 다시 제출되면 그 세션을 폐기한다.
      *
      * @param refreshToken HttpOnly Cookie에서 추출한 Refresh Token
      */
     public TokenPair refreshToken(String refreshToken) {
-        Long userId = extractUserIdFromRefreshToken(refreshToken);
-        validateStoredRefreshToken(userId, refreshToken);
+        RefreshTokenClaims claims = parseRefreshToken(refreshToken);
+        Long userId = claims.userId();
+        String sessionId = claims.sessionId();
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new RefreshTokenInvalidException();
         }
         String newAccessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
-        String newRefreshToken = jwtProvider.generateRefreshToken(userId);
-        tokenRepository.save(userId, newRefreshToken, jwtProvider.getRefreshTokenExpiry());
+        String newRefreshToken = jwtProvider.generateRefreshToken(userId, sessionId);
+        RotationResult result = tokenRepository.rotate(userId, sessionId, refreshToken, newRefreshToken,
+                jwtProvider.getRefreshTokenExpiry());
+        if (result == RotationResult.REUSE_DETECTED) {
+            log.warn("Refresh Token 재사용 감지 — 세션 폐기, userId: {}", userId);
+        }
+        if (result != RotationResult.ROTATED) {
+            throw new RefreshTokenInvalidException();
+        }
         return new TokenPair(newAccessToken, newRefreshToken);
     }
 
     /**
-     * Access Token을 블랙리스트에 등록하고 Refresh Token을 삭제한다.
+     * Access Token을 블랙리스트에 등록하고 현재 기기의 세션만 삭제한다.
+     * Refresh Token이 없거나 유효하지 않으면 세션 삭제는 건너뛴다 (세션은 TTL 만료로 정리).
      *
-     * @param accessToken Authorization 헤더에서 추출한 Access Token
-     * @param userId      인증된 사용자 ID
+     * @param accessToken  Authorization 헤더에서 추출한 Access Token
+     * @param userId       인증된 사용자 ID
+     * @param refreshToken HttpOnly Cookie에서 추출한 Refresh Token (nullable)
      */
-    public void logout(String accessToken, Long userId) {
+    public void logout(String accessToken, Long userId, String refreshToken) {
         blacklistRepository.save(accessToken, jwtProvider.getRemainingExpiry(accessToken));
-        tokenRepository.delete(userId);
+        findOwnSessionId(userId, refreshToken)
+                .ifPresent(sessionId -> tokenRepository.deleteSession(userId, sessionId));
         log.info("로그아웃");
     }
 
     /**
-     * 회원 탈퇴 처리 후 토큰을 무효화한다.
+     * 회원 탈퇴 처리 후 Access Token을 블랙리스트에 등록하고 모든 기기의 세션을 삭제한다.
      *
      * @param accessToken Authorization 헤더에서 추출한 Access Token
      * @param userId      인증된 사용자 ID
@@ -101,7 +115,8 @@ public class AuthService {
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         user.withdraw();
         userRepository.flush();
-        logout(accessToken, userId);
+        blacklistRepository.save(accessToken, jwtProvider.getRemainingExpiry(accessToken));
+        tokenRepository.deleteAllSessions(userId);
         log.info("회원 탈퇴");
     }
 
@@ -206,9 +221,9 @@ public class AuthService {
         return new NicknameCheckResponse(available);
     }
 
-    private Long extractUserIdFromRefreshToken(String refreshToken) {
+    private RefreshTokenClaims parseRefreshToken(String refreshToken) {
         try {
-            return jwtProvider.getUserId(refreshToken);
+            return jwtProvider.parseRefreshToken(refreshToken);
         } catch (ExpiredTokenException e) {
             throw new RefreshTokenExpiredException();
         } catch (InvalidTokenException e) {
@@ -216,11 +231,16 @@ public class AuthService {
         }
     }
 
-    private void validateStoredRefreshToken(Long userId, String refreshToken) {
-        String stored = tokenRepository.find(userId)
-                .orElseThrow(RefreshTokenInvalidException::new);
-        if (!stored.equals(refreshToken)) {
-            throw new RefreshTokenInvalidException();
+    // 다른 사용자의 Refresh Token으로 그 사용자의 세션을 지우지 못하도록 소유자를 확인한다.
+    private Optional<String> findOwnSessionId(Long userId, String refreshToken) {
+        if (refreshToken == null) {
+            return Optional.empty();
+        }
+        try {
+            RefreshTokenClaims claims = jwtProvider.parseRefreshToken(refreshToken);
+            return userId.equals(claims.userId()) ? Optional.of(claims.sessionId()) : Optional.empty();
+        } catch (ExpiredTokenException | InvalidTokenException e) {
+            return Optional.empty();
         }
     }
 

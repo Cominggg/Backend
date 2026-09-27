@@ -47,6 +47,9 @@ public class AuthController {
     @Value("${jwt.refresh-token-expiry}")
     private long refreshTokenExpiry;
 
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
+
     private final AuthService authService;
 
     @Operation(summary = "소셜 로그인 페이지로 리다이렉트")
@@ -77,8 +80,9 @@ public class AuthController {
     public ResponseEntity<Void> logout(
             @RequestHeader("Authorization") String authorizationHeader,
             @AuthenticationPrincipal Long userId,
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
             HttpServletResponse response) {
-        authService.logout(authorizationHeader.substring(BEARER_PREFIX.length()), userId);
+        authService.logout(authorizationHeader.substring(BEARER_PREFIX.length()), userId, refreshToken);
         deleteRefreshTokenCookie(response);
         return ResponseEntity.ok().build();
     }
@@ -137,7 +141,7 @@ public class AuthController {
     private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(refreshTokenExpiry / 1000)
                 .sameSite("Strict")
@@ -148,7 +152,7 @@ public class AuthController {
     private void deleteRefreshTokenCookie(HttpServletResponse response) {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(0)
                 .sameSite("Strict")

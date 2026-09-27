@@ -48,7 +48,8 @@ public class DevAuthService {
 
         String accessToken = jwtProvider.generateAccessToken(user.getId(), user.getRole().name());
         String refreshToken = jwtProvider.generateRefreshToken(user.getId());
-        tokenRepository.save(user.getId(), refreshToken, refreshTokenExpiry);
+        tokenRepository.saveSession(user.getId(), jwtProvider.parseRefreshToken(refreshToken).sessionId(),
+                refreshToken, refreshTokenExpiry);
 
         log.info("Dev 로그인 — userId: {}, nickname: {}", user.getId(), user.getNickname());
         return new DevTokenResult(accessToken, refreshToken);
