@@ -1,6 +1,7 @@
 package com.Coming.Backend.auth.controller;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -17,6 +18,7 @@ import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.NicknameCheckResponse;
 import com.Coming.Backend.auth.dto.RegisterRequest;
+import com.Coming.Backend.auth.dto.TokenPair;
 import com.Coming.Backend.auth.dto.TokenResponse;
 import com.Coming.Backend.auth.exception.NicknameDuplicateException;
 import com.Coming.Backend.auth.exception.TermsNotAgreedException;
@@ -39,6 +41,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 @ExtendWith(MockitoExtension.class)
@@ -216,5 +219,34 @@ class AuthControllerTest {
                         .header("Authorization", "Bearer " + ACCESS_TOKEN))
                 .andExpect(status().isOk());
         verify(authService).logout(ACCESS_TOKEN, USER_ID, null);
+    }
+
+    @Test
+    void should_issueNonSecureCookie_when_cookieSecureDisabled() throws Exception {
+        // given — 로컬(http) 환경: app.cookie.secure=false
+        ReflectionTestUtils.setField(authController, "cookieSecure", false);
+        given(authService.refreshToken("refresh-token-value"))
+                .willReturn(new TokenPair(ACCESS_TOKEN, "new-refresh-token"));
+
+        // when & then
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie("refreshToken", "refresh-token-value")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("new-refresh-token")))
+                .andExpect(header().string("Set-Cookie", not(containsString("Secure"))));
+    }
+
+    @Test
+    void should_issueSecureCookie_when_cookieSecureEnabled() throws Exception {
+        // given
+        ReflectionTestUtils.setField(authController, "cookieSecure", true);
+        given(authService.refreshToken("refresh-token-value"))
+                .willReturn(new TokenPair(ACCESS_TOKEN, "new-refresh-token"));
+
+        // when & then
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie("refreshToken", "refresh-token-value")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("Secure")));
     }
 }
