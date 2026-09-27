@@ -9,6 +9,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -41,10 +42,21 @@ public class JwtProvider {
                 .compact();
     }
 
+    /**
+     * 새 세션의 Refresh Token을 발급한다. 세션 식별자(jti)는 새로 생성된다.
+     */
     public String generateRefreshToken(Long userId) {
+        return generateRefreshToken(userId, UUID.randomUUID().toString());
+    }
+
+    /**
+     * 기존 세션의 Refresh Token을 재발급한다. 회전 시 세션 식별자(jti)를 유지하기 위해 사용한다.
+     */
+    public String generateRefreshToken(Long userId, String sessionId) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(userId.toString())
+                .id(sessionId)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + refreshTokenExpiry))
                 .signWith(secretKey)
@@ -57,6 +69,13 @@ public class JwtProvider {
 
     public Long getUserId(String token) {
         return Long.parseLong(parseClaims(token).getSubject());
+    }
+
+    /**
+     * Refresh Token의 세션 식별자(jti)를 반환한다. jti가 없는 토큰이면 null.
+     */
+    public String getSessionId(String token) {
+        return parseClaims(token).getId();
     }
 
     public String getRole(String token) {

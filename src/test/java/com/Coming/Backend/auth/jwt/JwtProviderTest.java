@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.Coming.Backend.auth.exception.ExpiredTokenException;
 import com.Coming.Backend.auth.exception.InvalidTokenException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import java.util.Date;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -58,6 +62,52 @@ class JwtProviderTest {
 
         // then
         assertThat(jwtProvider.getUserId(token)).isEqualTo(userId);
+    }
+
+    @Test
+    void should_issueDistinctSessionIds_when_generateRefreshTokenTwiceInSameSecond() {
+        // given
+        Long userId = 1L;
+
+        // when
+        String first = jwtProvider.generateRefreshToken(userId);
+        String second = jwtProvider.generateRefreshToken(userId);
+
+        // then
+        assertThat(first).isNotEqualTo(second);
+        assertThat(jwtProvider.getSessionId(first))
+                .isNotBlank()
+                .isNotEqualTo(jwtProvider.getSessionId(second));
+    }
+
+    @Test
+    void should_keepSessionId_when_generateRefreshTokenWithSessionId() {
+        // given
+        String sessionId = "session-1";
+
+        // when
+        String token = jwtProvider.generateRefreshToken(1L, sessionId);
+
+        // then
+        assertThat(jwtProvider.getSessionId(token)).isEqualTo(sessionId);
+        assertThat(jwtProvider.getUserId(token)).isEqualTo(1L);
+    }
+
+    @Test
+    void should_returnNullSessionId_when_refreshTokenHasNoJti() {
+        // given — jti 도입 이전 형식의 Refresh Token
+        String legacyToken = Jwts.builder()
+                .subject("1")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + REFRESH_EXPIRY))
+                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET)))
+                .compact();
+
+        // when
+        String sessionId = jwtProvider.getSessionId(legacyToken);
+
+        // then
+        assertThat(sessionId).isNull();
     }
 
     @Test
