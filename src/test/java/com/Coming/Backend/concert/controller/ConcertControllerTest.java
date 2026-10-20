@@ -1,11 +1,13 @@
 package com.Coming.Backend.concert.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -31,10 +33,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -172,6 +176,72 @@ class ConcertControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void should_pass_status_list_to_service_when_repeated_status_params_given() throws Exception {
+        // given
+        List<ConcertStatus> statuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
+        PageResponse<ConcertSummaryResponse> emptyPage = new PageResponse<>(List.of(), 0, 20, 0, 0);
+        given(concertService.getConcerts(isNull(), eq(statuses), isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
+                .willReturn(emptyPage);
+
+        // when & then
+        mockMvc.perform(get("/api/concerts")
+                        .param("status", "UPCOMING")
+                        .param("status", "ONGOING")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+        verify(concertService).getConcerts(isNull(), eq(statuses), isNull(), isNull(), isNull(), any(Pageable.class), isNull());
+    }
+
+    @Test
+    void should_pass_status_list_to_service_when_comma_separated_status_given() throws Exception {
+        // given
+        List<ConcertStatus> statuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
+        PageResponse<ConcertSummaryResponse> emptyPage = new PageResponse<>(List.of(), 0, 20, 0, 0);
+        given(concertService.getConcerts(isNull(), eq(statuses), isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
+                .willReturn(emptyPage);
+
+        // when & then
+        mockMvc.perform(get("/api/concerts")
+                        .param("status", "UPCOMING,ONGOING")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+        verify(concertService).getConcerts(isNull(), eq(statuses), isNull(), isNull(), isNull(), any(Pageable.class), isNull());
+    }
+
+    @Test
+    void should_return_400_when_invalid_status_value_given() throws Exception {
+        // when & then
+        mockMvc.perform(get("/api/concerts")
+                        .param("status", "UPCOMING")
+                        .param("status", "FOO")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
+                .andExpect(jsonPath("$.message").exists());
+        verifyNoInteractions(concertService);
+    }
+
+    @Test
+    void should_pass_start_date_asc_sort_to_service_when_sort_param_given() throws Exception {
+        // given
+        PageResponse<ConcertSummaryResponse> emptyPage = new PageResponse<>(List.of(), 0, 20, 0, 0);
+        given(concertService.getConcerts(isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class), isNull()))
+                .willReturn(emptyPage);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        // when
+        mockMvc.perform(get("/api/concerts")
+                        .param("sort", "startDate,asc")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        // then
+        verify(concertService).getConcerts(isNull(), isNull(), isNull(), isNull(), isNull(), pageableCaptor.capture(), isNull());
+        assertThat(pageableCaptor.getValue().getSort())
+                .isEqualTo(Sort.by(Sort.Direction.ASC, "startDate"));
     }
 
     // -------------------------------------------------------------------------
