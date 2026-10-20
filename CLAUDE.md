@@ -75,7 +75,8 @@ com.Coming.Backend
 
 **인증 정책**
 - Access Token: 30분, `Authorization: Bearer {token}` 헤더
-- Refresh Token: 7일, HttpOnly Cookie
+- Refresh Token: 7일. 웹은 HttpOnly Cookie, 앱(네이티브)은 앱 전용 엔드포인트(`/api/auth/login/{provider}/token`, `/api/auth/app/**`)에서 요청·응답 바디로 주고받는다
+- 소셜 로그인: 웹은 Google·Kakao(OAuth2 리다이렉트). 앱은 Google·Kakao·Apple SDK 토큰을 서버가 검증한다(Google·Apple은 서버 발급 nonce 필수)
 - 로그아웃: Redis 블랙리스트 등록
 
 **에러 응답 형식**
