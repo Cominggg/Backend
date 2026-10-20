@@ -128,7 +128,7 @@ class ConcertControllerTest {
     void should_pass_all_query_params_to_service_when_all_filters_given() throws Exception {
         // given
         PageResponse<ConcertSummaryResponse> emptyPage = new PageResponse<>(List.of(), 0, 20, 0, 0);
-        given(concertService.getConcerts(eq("IU"), eq(ConcertStatus.UPCOMING), eq(true), eq(true), eq(true), any(Pageable.class), isNull()))
+        given(concertService.getConcerts(eq("IU"), eq(List.of(ConcertStatus.UPCOMING)), eq(true), eq(true), eq(true), any(Pageable.class), isNull()))
                 .willReturn(emptyPage);
 
         // when & then
@@ -140,7 +140,7 @@ class ConcertControllerTest {
                         .param("ticketOpenPending", "true")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
-        verify(concertService).getConcerts(eq("IU"), eq(ConcertStatus.UPCOMING), eq(true), eq(true), eq(true), any(Pageable.class), isNull());
+        verify(concertService).getConcerts(eq("IU"), eq(List.of(ConcertStatus.UPCOMING)), eq(true), eq(true), eq(true), any(Pageable.class), isNull());
     }
 
     @Test

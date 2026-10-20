@@ -62,7 +62,7 @@ public class ConcertController {
             @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal Long userId) {
         SortPropertyValidator.validate(pageable, SORTABLE_PROPERTIES);
-        return ResponseEntity.ok(concertService.getConcerts(q, status, inCalendar, followedOnly, ticketOpenPending, pageable, userId));
+        return ResponseEntity.ok(concertService.getConcerts(q, status == null ? null : List.of(status), inCalendar, followedOnly, ticketOpenPending, pageable, userId));
     }
 
     @Operation(summary = "인기 공연 목록 조회")
