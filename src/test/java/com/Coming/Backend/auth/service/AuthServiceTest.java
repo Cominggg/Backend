@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
@@ -34,6 +35,7 @@ import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import com.Coming.Backend.auth.repository.TokenRepository.RotationResult;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.auth.event.AppleTokenRevokeEvent;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
@@ -45,12 +47,14 @@ import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
 import com.Coming.Backend.policy.repository.UserPolicyAgreementRepository;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -84,6 +88,9 @@ class AuthServiceTest {
 
     @Mock
     private UserPolicyAgreementRepository userPolicyAgreementRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private static final Long USER_ID = 1L;
     private static final String REFRESH_TOKEN = "valid-refresh-token";
@@ -124,6 +131,66 @@ class AuthServiceTest {
                 .changeSummary("최초 시행")
                 .detailUrl("https://coming.example.com/policy")
                 .build();
+    }
+
+    // -------------------------------------------------------------------------
+    // createSession
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_save_session_with_same_session_id_as_refresh_token_when_create_session() {
+        // given
+        given(jwtProvider.generateRefreshToken(eq(USER_ID), anyString())).willReturn(REFRESH_TOKEN);
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(REFRESH_EXPIRY);
+
+        // when
+        String result = authService.createSession(USER_ID);
+
+        // then
+        assertThat(result).isEqualTo(REFRESH_TOKEN);
+        ArgumentCaptor<String> tokenSessionId = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> savedSessionId = ArgumentCaptor.forClass(String.class);
+        verify(jwtProvider).generateRefreshToken(eq(USER_ID), tokenSessionId.capture());
+        verify(tokenRepository).saveSession(eq(USER_ID), savedSessionId.capture(), eq(REFRESH_TOKEN), eq(REFRESH_EXPIRY));
+        assertThat(savedSessionId.getValue()).isEqualTo(tokenSessionId.getValue());
+        assertThat(UUID.fromString(savedSessionId.getValue())).isNotNull();
+    }
+
+    @Test
+    void should_issue_new_session_id_for_each_create_session() {
+        // given
+        given(jwtProvider.generateRefreshToken(eq(USER_ID), anyString())).willReturn(REFRESH_TOKEN);
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(REFRESH_EXPIRY);
+
+        // when
+        authService.createSession(USER_ID);
+        authService.createSession(USER_ID);
+
+        // then
+        ArgumentCaptor<String> sessionIds = ArgumentCaptor.forClass(String.class);
+        verify(jwtProvider, times(2)).generateRefreshToken(eq(USER_ID), sessionIds.capture());
+        assertThat(sessionIds.getAllValues()).doesNotHaveDuplicates();
+    }
+
+    // -------------------------------------------------------------------------
+    // issueTokens
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_access_token_with_role_and_new_session_refresh_token_when_issue_tokens() {
+        // given
+        User user = buildPendingUser();
+        given(jwtProvider.generateAccessToken(USER_ID, "PENDING")).willReturn(NEW_ACCESS_TOKEN);
+        given(jwtProvider.generateRefreshToken(eq(USER_ID), anyString())).willReturn(NEW_REFRESH_TOKEN);
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(REFRESH_EXPIRY);
+
+        // when
+        TokenPair result = authService.issueTokens(user);
+
+        // then
+        assertThat(result.accessToken()).isEqualTo(NEW_ACCESS_TOKEN);
+        assertThat(result.refreshToken()).isEqualTo(NEW_REFRESH_TOKEN);
+        verify(tokenRepository).saveSession(eq(USER_ID), anyString(), eq(NEW_REFRESH_TOKEN), eq(REFRESH_EXPIRY));
     }
 
     // -------------------------------------------------------------------------
@@ -331,6 +398,50 @@ class AuthServiceTest {
         verify(inquiryRepository).deleteByUserId(USER_ID);
         verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
         verify(tokenRepository).deleteAllSessions(USER_ID);
+    }
+
+    private User buildAppleUser() {
+        return User.builder()
+                .id(USER_ID)
+                .nickname("테스터")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .provider("apple")
+                .providerId("001234.abcdef0123456789.0123")
+                .appleRefreshToken("apple-refresh-token")
+                .build();
+    }
+
+    @Test
+    void should_publish_apple_token_revoke_event_and_keep_token_when_apple_user_withdraws() {
+        // given
+        User user = buildAppleUser();
+        long remainingExpiry = 900_000L;
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(remainingExpiry);
+
+        // when
+        authService.withdraw(ACCESS_TOKEN, USER_ID);
+
+        // then — revoke는 커밋 후 리스너가 처리하므로 토큰은 아직 지우지 않는다
+        verify(eventPublisher).publishEvent(new AppleTokenRevokeEvent(USER_ID, "apple-refresh-token"));
+        assertThat(user.getAppleRefreshToken()).isEqualTo("apple-refresh-token");
+        assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
+        verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
+        verify(tokenRepository).deleteAllSessions(USER_ID);
+    }
+
+    @Test
+    void should_not_publish_apple_token_revoke_event_when_user_has_no_apple_refresh_token() {
+        // given
+        User user = buildUser();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when
+        authService.withdraw(ACCESS_TOKEN, USER_ID);
+
+        // then
+        verify(eventPublisher, never()).publishEvent(any(AppleTokenRevokeEvent.class));
     }
 
     // -------------------------------------------------------------------------
