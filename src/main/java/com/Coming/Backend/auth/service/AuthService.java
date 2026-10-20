@@ -25,6 +25,7 @@ import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import com.Coming.Backend.auth.repository.TokenRepository.RotationResult;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.auth.event.AppleTokenRevokeEvent;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import com.Coming.Backend.policy.entity.PolicyDocument;
@@ -36,8 +37,10 @@ import com.Coming.Backend.policy.repository.UserPolicyAgreementRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +59,25 @@ public class AuthService {
     private final InquiryRepository inquiryRepository;
     private final PolicyDocumentRepository policyDocumentRepository;
     private final UserPolicyAgreementRepository userPolicyAgreementRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
+    /**
+     * 새 로그인 세션(기기)을 만들고 그 세션의 Refresh Token을 발급한다.
+     */
+    public String createSession(Long userId) {
+        String sessionId = UUID.randomUUID().toString();
+        String refreshToken = jwtProvider.generateRefreshToken(userId, sessionId);
+        tokenRepository.saveSession(userId, sessionId, refreshToken, jwtProvider.getRefreshTokenExpiry());
+        return refreshToken;
+    }
+
+    /**
+     * 로그인한 사용자에게 Access Token과 새 세션의 Refresh Token을 발급한다.
+     */
+    public TokenPair issueTokens(User user) {
+        String accessToken = jwtProvider.generateAccessToken(user.getId(), user.getRole().name());
+        return new TokenPair(accessToken, createSession(user.getId()));
+    }
 
     /**
      * Refresh Token을 검증하고 새 Access Token과 새 Refresh Token을 발급한다.
@@ -102,6 +124,7 @@ public class AuthService {
 
     /**
      * 회원 탈퇴 처리 후 Access Token을 블랙리스트에 등록하고 모든 기기의 세션을 삭제한다.
+     * Apple 회원이면 커밋 후 Apple 토큰 revoke를 요청한다(외부 호출을 트랜잭션 밖으로 분리, 실패해도 탈퇴는 유지).
      *
      * @param accessToken Authorization 헤더에서 추출한 Access Token
      * @param userId      인증된 사용자 ID
@@ -113,11 +136,18 @@ public class AuthService {
         inquiryRepository.deleteByUserId(userId);
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        requestAppleTokenRevoke(user);
         user.withdraw();
         userRepository.flush();
         blacklistRepository.save(accessToken, jwtProvider.getRemainingExpiry(accessToken));
         tokenRepository.deleteAllSessions(userId);
         log.info("회원 탈퇴");
+    }
+
+    private void requestAppleTokenRevoke(User user) {
+        if (user.getAppleRefreshToken() != null) {
+            eventPublisher.publishEvent(new AppleTokenRevokeEvent(user.getId(), user.getAppleRefreshToken()));
+        }
     }
 
     /**

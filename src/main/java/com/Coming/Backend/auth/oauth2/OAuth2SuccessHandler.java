@@ -2,8 +2,7 @@ package com.Coming.Backend.auth.oauth2;
 
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
-import com.Coming.Backend.auth.jwt.JwtProvider;
-import com.Coming.Backend.auth.repository.TokenRepository;
+import com.Coming.Backend.auth.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -19,8 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    private final JwtProvider jwtProvider;
-    private final TokenRepository tokenRepository;
+    private final AuthService authService;
 
     @Value("${app.oauth2.redirect-base-uri}")
     private String redirectBaseUri;
@@ -31,9 +29,8 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Value("${app.cookie.secure:true}")
     private boolean cookieSecure;
 
-    public OAuth2SuccessHandler(JwtProvider jwtProvider, TokenRepository tokenRepository) {
-        this.jwtProvider = jwtProvider;
-        this.tokenRepository = tokenRepository;
+    public OAuth2SuccessHandler(AuthService authService) {
+        this.authService = authService;
     }
 
     @Override
@@ -44,9 +41,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         log.info("OAuth2 로그인 성공 — userId: {}, isNewUser: {}", user.getId(), oAuth2User.isNewUser());
 
-        String refreshToken = jwtProvider.generateRefreshToken(user.getId());
-        tokenRepository.saveSession(user.getId(), jwtProvider.parseRefreshToken(refreshToken).sessionId(),
-                refreshToken, refreshTokenExpiry);
+        String refreshToken = authService.createSession(user.getId());
         addRefreshTokenCookie(response, refreshToken);
 
         String redirectUrl = redirectBaseUri + "?isNewUser=" + (user.getRole() == UserRole.PENDING);

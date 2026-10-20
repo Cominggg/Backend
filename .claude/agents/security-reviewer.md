@@ -26,9 +26,12 @@ tools: Read, Bash, Grep
 ## Coming 인증 정책 (기준)
 
 - Access Token: 30분, `Authorization: Bearer {token}` 헤더로만 전달
-- Refresh Token: 7일, HttpOnly Cookie로만 전달 (JS에서 접근 불가해야 함)
+- Refresh Token: 7일
+  - 웹: HttpOnly Cookie로만 전달 (JS에서 접근 불가해야 함)
+  - 앱(네이티브): 앱 전용 엔드포인트(`/api/auth/login/{provider}/token`, `/api/auth/app/**`)에서만 요청·응답 바디로 주고받는다. 앱은 Keychain/Keystore에 보관한다. 웹 엔드포인트는 바디로 내려보내지 않는다
 - 로그아웃 시 Access Token을 Redis 블랙리스트에 등록
-- OAuth2 Provider: Google, Kakao만 지원
+- OAuth2 Provider: 웹은 Google, Kakao. 앱은 Google, Kakao, Apple(앱 전용)
+- 앱 소셜 로그인: 제공자 토큰을 서버가 검증한다(Google·Apple은 JWKS 서명, iss, aud, 서버 발급 1회용 nonce. Kakao는 토큰 정보 API의 app_id)
 
 ## 심각도 기준
 
@@ -43,8 +46,9 @@ tools: Read, Bash, Grep
 ### 🔴 critical
 - 신규/변경 엔드포인트에 `@PreAuthorize` 또는 SecurityConfig 경로 설정 누락 (인증 필요 API가 허용 목록에 포함)
 - `ROLE_ADMIN` 필요 엔드포인트에 권한 체크 누락 (일반 사용자가 403 없이 접근 가능)
-- Refresh Token을 응답 바디·헤더·로그에 노출 (HttpOnly Cookie 외 경로로 전달)
-- Access Token을 쿠키에 저장하거나 Refresh Token을 로컬 스토리지·바디로 내려보내는 등 Bearer/Cookie 역할 뒤바뀜
+- Refresh Token을 로그에 노출하거나, 앱 전용 엔드포인트가 아닌 웹 엔드포인트에서 응답 바디·헤더로 내려보냄 (웹은 HttpOnly Cookie 외 경로 금지)
+- Access Token을 쿠키에 저장하거나 웹에서 Refresh Token을 로컬 스토리지·바디로 내려보내는 등 Bearer/Cookie 역할 뒤바뀜
+- 앱 소셜 로그인에서 제공자 토큰 서명·aud·nonce(Google·Apple) 또는 app_id(Kakao) 검증 누락
 - 로그아웃/토큰 폐기 로직에서 Redis 블랙리스트 등록 누락
 - JWT 서명 검증 없이 payload를 신뢰 (예: 파싱만 하고 `verify` 생략)
 - 사용자 입력(닉네임, 문의 내용 등)을 파라미터 바인딩 없이 쿼리 문자열에 직접 결합 (SQL Injection) — JPA 파라미터 바인딩·엔티티 필드 대입은 해당 없음

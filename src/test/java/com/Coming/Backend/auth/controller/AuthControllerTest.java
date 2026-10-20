@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -14,6 +15,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.Coming.Backend.auth.dto.AppLogoutRequest;
+import com.Coming.Backend.auth.dto.AppRefreshRequest;
 import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.NicknameCheckResponse;
@@ -248,5 +251,70 @@ class AuthControllerTest {
                         .cookie(new Cookie("refreshToken", "refresh-token-value")))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Set-Cookie", containsString("Secure")));
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/auth/app/refresh
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_token_pair_in_body_and_no_cookie_when_app_refresh() throws Exception {
+        // given
+        given(authService.refreshToken("refresh-token-value"))
+                .willReturn(new TokenPair(ACCESS_TOKEN, "new-refresh-token"));
+
+        // when & then
+        mockMvc.perform(post("/api/auth/app/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AppRefreshRequest("refresh-token-value"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value(ACCESS_TOKEN))
+                .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    @Test
+    void should_return_400_when_app_refresh_token_is_blank() throws Exception {
+        // given
+        AppRefreshRequest request = new AppRefreshRequest("");
+
+        // when & then
+        mockMvc.perform(post("/api/auth/app/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
+        verifyNoInteractions(authService);
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /api/auth/app/logout
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_logout_with_body_refresh_token_and_no_cookie_when_app_logout() throws Exception {
+        // given
+        String refreshToken = "refresh-token-value";
+
+        // when & then
+        mockMvc.perform(post("/api/auth/app/logout")
+                        .header("Authorization", "Bearer " + ACCESS_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AppLogoutRequest(refreshToken))))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Set-Cookie"));
+        verify(authService).logout(ACCESS_TOKEN, USER_ID, refreshToken);
+    }
+
+    @Test
+    void should_logout_with_null_refresh_token_when_app_logout_without_body() throws Exception {
+        // given — 요청 본문 없음
+
+        // when & then
+        mockMvc.perform(post("/api/auth/app/logout")
+                        .header("Authorization", "Bearer " + ACCESS_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Set-Cookie"));
+        verify(authService).logout(ACCESS_TOKEN, USER_ID, null);
     }
 }

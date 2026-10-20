@@ -53,6 +53,9 @@ public class User extends BaseTimeEntity {
     @Column(name = "agreed_marketing")
     private Boolean agreedMarketing;
 
+    @Column(name = "apple_refresh_token", length = 512)
+    private String appleRefreshToken;
+
     public void completeRegistration(String nickname, int birthYear, boolean agreedMarketing) {
         this.nickname = nickname;
         this.birthYear = birthYear;
@@ -75,6 +78,10 @@ public class User extends BaseTimeEntity {
 
     public void updateEmail(String email) {
         this.email = email;
+    }
+
+    public void updateAppleRefreshToken(String appleRefreshToken) {
+        this.appleRefreshToken = appleRefreshToken;
     }
 
     public boolean hasNoEmail() {
