@@ -1,7 +1,6 @@
 package com.Coming.Backend.auth.service;
 
 import com.Coming.Backend.auth.entity.User;
-import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.auth.oauth2.OAuth2UserInfo;
@@ -9,6 +8,7 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -21,7 +21,10 @@ public class SocialUserService {
 
     private static final String APPLE = "apple";
 
+    private static final String PROVIDER_ID_UNIQUE_CONSTRAINT = "uq_user_provider_provider_id";
+
     private final UserRepository userRepository;
+    private final SocialUserCreator socialUserCreator;
 
     public record SocialUser(User user, boolean isNewUser) {}
 
@@ -51,16 +54,12 @@ public class SocialUserService {
         }
         log.info("신규 소셜 로그인 사용자 생성 — provider: {}, providerId: {}", provider, userInfo.getProviderId());
         try {
-            return new SocialUser(userRepository.save(
-                    User.builder()
-                            .email(userInfo.getEmail())
-                            .provider(provider)
-                            .providerId(userInfo.getProviderId())
-                            .role(UserRole.PENDING)
-                            .status(UserStatus.ACTIVE)
-                            .build()
-            ), true);
+            Long userId = socialUserCreator.create(provider, userInfo);
+            return new SocialUser(userRepository.findById(userId).orElseThrow(), true);
         } catch (DataIntegrityViolationException e) {
+            if (!isProviderIdDuplicate(e)) {
+                throw e;
+            }
             log.info("동시 최초 로그인 경합 — 기존 사용자 재조회. provider: {}, providerId: {}", provider, userInfo.getProviderId());
             User user = userRepository.findByProviderAndProviderId(provider, userInfo.getProviderId())
                     .orElseThrow(() -> e);
@@ -87,6 +86,11 @@ public class SocialUserService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void clearAppleRefreshToken(Long userId) {
         userRepository.findById(userId).ifPresent(user -> user.updateAppleRefreshToken(null));
+    }
+
+    private boolean isProviderIdDuplicate(DataIntegrityViolationException e) {
+        return e.getCause() instanceof ConstraintViolationException cve
+                && PROVIDER_ID_UNIQUE_CONSTRAINT.equals(cve.getConstraintName());
     }
 
     /**

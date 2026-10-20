@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.auth.entity.User;
@@ -19,11 +20,12 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.auth.service.SocialUserService.SocialUser;
 import com.Coming.Backend.auth.social.AppleUserInfo;
 import com.Coming.Backend.common.exception.ErrorCode;
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,6 +39,9 @@ class SocialUserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private SocialUserCreator socialUserCreator;
 
     private static final String GOOGLE = "google";
     private static final String GOOGLE_PROVIDER_ID = "google-provider-id-001";
@@ -82,7 +87,7 @@ class SocialUserServiceTest {
         assertThat(result.isNewUser()).isFalse();
         assertThat(existingUser.getEmail()).isEqualTo(GOOGLE_EMAIL);
         assertThat(existingUser.getRole()).isEqualTo(UserRole.USER);
-        verify(userRepository, never()).save(any(User.class));
+        verify(socialUserCreator, never()).create(any(), any());
     }
 
     @Test
@@ -103,7 +108,7 @@ class SocialUserServiceTest {
         assertThat(inactiveUser.getNickname()).isNull();
         assertThat(inactiveUser.getBirthYear()).isNull();
         assertThat(inactiveUser.getEmail()).isEqualTo(GOOGLE_EMAIL);
-        verify(userRepository, never()).save(any(User.class));
+        verify(socialUserCreator, never()).create(any(), any());
     }
 
     @Test
@@ -120,39 +125,32 @@ class SocialUserServiceTest {
     }
 
     @Test
-    void should_save_pending_active_user_and_return_isNewUser_true_when_user_not_found() {
+    void should_create_user_in_new_transaction_and_return_isNewUser_true_when_user_not_found() {
         // given
-        User savedUser = User.builder()
+        User createdUser = User.builder()
+                .id(10L)
                 .email(KAKAO_EMAIL)
                 .provider(KAKAO)
                 .providerId(KAKAO_PROVIDER_ID)
                 .role(UserRole.PENDING)
                 .status(UserStatus.ACTIVE)
                 .build();
+        OAuth2UserInfo userInfo = kakaoUserInfo();
         given(userRepository.findByProviderAndProviderId(KAKAO, KAKAO_PROVIDER_ID))
                 .willReturn(Optional.empty());
-        given(userRepository.save(any(User.class))).willReturn(savedUser);
+        given(socialUserCreator.create(KAKAO, userInfo)).willReturn(10L);
+        given(userRepository.findById(10L)).willReturn(Optional.of(createdUser));
 
         // when
-        SocialUser result = socialUserService.findOrCreate(KAKAO, kakaoUserInfo());
+        SocialUser result = socialUserService.findOrCreate(KAKAO, userInfo);
 
         // then
-        assertThat(result.user()).isSameAs(savedUser);
+        assertThat(result.user()).isSameAs(createdUser);
         assertThat(result.isNewUser()).isTrue();
-
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userCaptor.capture());
-        User toSave = userCaptor.getValue();
-        assertThat(toSave.getProvider()).isEqualTo(KAKAO);
-        assertThat(toSave.getProviderId()).isEqualTo(KAKAO_PROVIDER_ID);
-        assertThat(toSave.getEmail()).isEqualTo(KAKAO_EMAIL);
-        assertThat(toSave.getRole()).isEqualTo(UserRole.PENDING);
-        assertThat(toSave.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(toSave.getNickname()).isNull();
     }
 
     @Test
-    void should_return_refetched_user_and_isNewUser_false_when_save_fails_with_concurrent_duplicate_key() {
+    void should_return_refetched_user_and_isNewUser_false_when_create_fails_with_concurrent_duplicate_key() {
         // given
         User existingUser = User.builder()
                 .provider(KAKAO)
@@ -162,8 +160,8 @@ class SocialUserServiceTest {
                 .build();
         given(userRepository.findByProviderAndProviderId(KAKAO, KAKAO_PROVIDER_ID))
                 .willReturn(Optional.empty(), Optional.of(existingUser));
-        given(userRepository.save(any(User.class)))
-                .willThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint"));
+        given(socialUserCreator.create(any(), any()))
+                .willThrow(constraintViolation("uq_user_provider_provider_id"));
 
         // when
         SocialUser result = socialUserService.findOrCreate(KAKAO, kakaoUserInfo());
@@ -174,17 +172,35 @@ class SocialUserServiceTest {
     }
 
     @Test
-    void should_rethrow_original_exception_when_save_fails_and_user_still_not_found() {
+    void should_rethrow_original_exception_when_create_fails_with_duplicate_key_and_user_still_not_found() {
         // given
-        DataIntegrityViolationException original =
-                new DataIntegrityViolationException("not-null constraint violation");
+        DataIntegrityViolationException original = constraintViolation("uq_user_provider_provider_id");
         given(userRepository.findByProviderAndProviderId(KAKAO, KAKAO_PROVIDER_ID))
                 .willReturn(Optional.empty(), Optional.empty());
-        given(userRepository.save(any(User.class))).willThrow(original);
+        given(socialUserCreator.create(any(), any())).willThrow(original);
 
         // when & then
         assertThatThrownBy(() -> socialUserService.findOrCreate(KAKAO, kakaoUserInfo()))
                 .isSameAs(original);
+    }
+
+    @Test
+    void should_rethrow_without_refetch_when_create_fails_with_other_constraint() {
+        // given
+        DataIntegrityViolationException original = constraintViolation("user_provider_id_not_null");
+        given(userRepository.findByProviderAndProviderId(KAKAO, KAKAO_PROVIDER_ID))
+                .willReturn(Optional.empty());
+        given(socialUserCreator.create(any(), any())).willThrow(original);
+
+        // when & then
+        assertThatThrownBy(() -> socialUserService.findOrCreate(KAKAO, kakaoUserInfo()))
+                .isSameAs(original);
+        verify(userRepository, times(1)).findByProviderAndProviderId(KAKAO, KAKAO_PROVIDER_ID);
+    }
+
+    private DataIntegrityViolationException constraintViolation(String constraintName) {
+        return new DataIntegrityViolationException("could not execute statement",
+                new ConstraintViolationException("constraint violation", new SQLException(), constraintName));
     }
 
     @Test
@@ -258,7 +274,14 @@ class SocialUserServiceTest {
     void should_create_apple_user_and_set_refresh_token_when_apple_user_not_found() {
         // given
         given(userRepository.findByProviderAndProviderId("apple", APPLE_PROVIDER_ID)).willReturn(Optional.empty());
-        given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(socialUserCreator.create(any(), any())).willReturn(1L);
+        given(userRepository.findById(1L)).willReturn(Optional.of(User.builder()
+                .id(1L)
+                .provider("apple")
+                .providerId(APPLE_PROVIDER_ID)
+                .role(UserRole.PENDING)
+                .status(UserStatus.ACTIVE)
+                .build()));
 
         // when
         SocialUser result = socialUserService.findOrCreateAppleUser(
