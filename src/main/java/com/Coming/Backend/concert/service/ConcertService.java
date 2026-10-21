@@ -35,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -138,13 +139,13 @@ public class ConcertService {
      * <p>모든 필터는 AND로 조합된다. EXCLUDED·PENDING은 항상 숨겨지므로 status로 요청해도 빈 페이지가 반환된다.</p>
      *
      * @param q                 검색어 (공연명, 아티스트명, alias 대소문자 무시 부분 일치). null·공백이면 텍스트 조건 없이 나머지 필터만 적용한다.
-     * @param status            null이면 전체 조회
+     * @param statuses          null·빈 리스트이면 전체 조회. 여러 값이면 그중 하나에 해당하는 공연을 반환한다
      * @param inCalendar        true이면 내 캘린더에 추가한 공연만 반환 (미인증 시 빈 페이지)
      * @param followedOnly      true이면 팔로우한 아티스트의 공연만 반환 (미인증·팔로잉 없으면 빈 페이지)
      * @param ticketOpenPending true이면 티켓 오픈 예정(ticketOpenAt > now) 공연만 반환
      * @param userId            인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
-    public PageResponse<ConcertSummaryResponse> getConcerts(String q, ConcertStatus status, Boolean inCalendar, Boolean followedOnly,
+    public PageResponse<ConcertSummaryResponse> getConcerts(String q, List<ConcertStatus> statuses, Boolean inCalendar, Boolean followedOnly,
                                                               Boolean ticketOpenPending, Pageable pageable, Long userId) {
         if (Boolean.TRUE.equals(inCalendar) && userId == null) {
             return emptyPage(pageable);
@@ -157,12 +158,15 @@ public class ConcertService {
         }
         List<Long> followedArtistIds = followedResolution.orElse(null);
 
+        List<ConcertStatus> statusFilter = statuses == null || statuses.isEmpty() ? null : statuses;
         boolean pending = Boolean.TRUE.equals(ticketOpenPending);
         LocalDateTime now = LocalDateTime.now();
+        // 정렬 값이 같은 공연이 페이지 경계에 걸려도 중복·누락되지 않도록 id를 보조 정렬로 붙인다
+        Pageable stablePageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort().and(Sort.by("id")));
         boolean hasQuery = q != null && !q.isBlank();
         Page<Concert> page = hasQuery
-                ? concertRepository.searchConcerts(HIDDEN_STATUSES, status, calendarUserId, followedArtistIds, pending, now, "%" + q.toLowerCase() + "%", pageable)
-                : concertRepository.findConcerts(HIDDEN_STATUSES, status, calendarUserId, followedArtistIds, pending, now, pageable);
+                ? concertRepository.searchConcerts(HIDDEN_STATUSES, statusFilter, calendarUserId, followedArtistIds, pending, now, "%" + q.toLowerCase() + "%", stablePageable)
+                : concertRepository.findConcerts(HIDDEN_STATUSES, statusFilter, calendarUserId, followedArtistIds, pending, now, stablePageable);
 
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
