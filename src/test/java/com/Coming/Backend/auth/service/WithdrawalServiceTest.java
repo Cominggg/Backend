@@ -12,6 +12,7 @@ import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.event.AppleTokenRevokeEvent;
+import com.Coming.Backend.auth.event.KakaoUnlinkEvent;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import com.Coming.Backend.auth.repository.UserRepository;
@@ -103,6 +104,33 @@ class WithdrawalServiceTest {
         verify(eventPublisher).publishEvent(new AppleTokenRevokeEvent(USER_ID, "apple-refresh-token"));
         assertThat(user.getAppleRefreshToken()).isEqualTo("apple-refresh-token");
         assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
+    }
+
+    @Test
+    void should_publish_kakao_unlink_event_with_original_provider_id_when_kakao_user_withdraws() {
+        // given
+        User user = buildUser("kakao", null);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when
+        withdrawalService.withdraw(USER_ID);
+
+        // then
+        verify(eventPublisher).publishEvent(new KakaoUnlinkEvent(USER_ID, "provider-123"));
+        assertThat(user.getProviderId()).isEqualTo("withdrawn:" + USER_ID);
+    }
+
+    @Test
+    void should_not_publish_kakao_unlink_event_when_non_kakao_user_withdraws() {
+        // given
+        User user = buildUser("google", null);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when
+        withdrawalService.withdraw(USER_ID);
+
+        // then
+        verify(eventPublisher, never()).publishEvent(any(KakaoUnlinkEvent.class));
     }
 
     @Test

@@ -96,6 +96,7 @@ app:
     redirect-base-uri: ${OAUTH2_REDIRECT_BASE_URI:http://localhost:3000/auth/callback}
     kakao:
       app-id: ${KAKAO_APP_ID:}
+      admin-key: ${KAKAO_ADMIN_KEY:}
     apple:
       bundle-id: ${APPLE_BUNDLE_ID:}
       team-id: ${APPLE_TEAM_ID:}
