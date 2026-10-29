@@ -8,6 +8,7 @@ public record CommentResponse(
         String authorNickname,
         boolean isAuthor,
         String content,
+        boolean isDeleted,
         Long likeCount,
         Boolean isLiked,
         LocalDateTime createdAt,

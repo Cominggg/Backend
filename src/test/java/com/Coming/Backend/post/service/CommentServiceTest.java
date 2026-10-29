@@ -223,8 +223,10 @@ class CommentServiceTest {
         assertThat(topResponse.likeCount()).isEqualTo(3L);
         assertThat(topResponse.isLiked()).isNull();
         assertThat(topResponse.isAuthor()).isFalse();
+        assertThat(topResponse.isDeleted()).isTrue();
         assertThat(topResponse.replies()).hasSize(1);
         assertThat(topResponse.replies().get(0).content()).isEqualTo("답글");
+        assertThat(topResponse.replies().get(0).isDeleted()).isFalse();
     }
 
     // -------------------------------------------------------------------------

@@ -193,6 +193,7 @@ public class CommentService {
                 authorNickname,
                 comment.isVisibleAuthor(userId),
                 comment.getDisplayContent(),
+                comment.isDeleted(),
                 comment.getLikeCount(),
                 isLiked,
                 comment.getCreatedAt(),
