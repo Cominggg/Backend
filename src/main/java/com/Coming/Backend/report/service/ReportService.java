@@ -1,5 +1,6 @@
 package com.Coming.Backend.report.service;
 
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.post.repository.CommentRepository;
 import com.Coming.Backend.post.repository.PostRepository;
 import com.Coming.Backend.report.dto.ReportCreateRequest;
@@ -27,6 +28,7 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final UserStatusValidator userStatusValidator;
     private final ApplicationEventPublisher eventPublisher;
 
     /**
@@ -36,6 +38,7 @@ public class ReportService {
      */
     @Transactional
     public ReportCreateResponse create(Long reporterId, ReportCreateRequest request) {
+        userStatusValidator.validateWritable(reporterId);
         if (request.reason() == ReportReason.ETC && (request.detail() == null || request.detail().isBlank())) {
             throw new ReportDetailRequiredException();
         }
