@@ -2,8 +2,11 @@ package com.Coming.Backend.auth.oauth2;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.report.entity.ReportReason;
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,5 +61,40 @@ class OAuth2FailureHandlerTest {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FOUND);
         assertThat(response.getRedirectedUrl())
                 .isEqualTo("http://localhost:3000/auth/callback?error=USER_SUSPENDED");
+    }
+
+    @Test
+    void should_redirect_with_suspended_until_and_reason_when_suspension_cause_is_given() throws Exception {
+        // given
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        UserSuspendedException cause = new UserSuspendedException(
+                LocalDateTime.of(2026, 11, 5, 12, 0, 0, 500_000_000), ReportReason.SPAM);
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error(ErrorCode.USER_SUSPENDED.name()), "정지된 계정입니다.", cause);
+
+        // when
+        oAuth2FailureHandler.onAuthenticationFailure(request, response, exception);
+
+        // then
+        assertThat(response.getRedirectedUrl()).isEqualTo(
+                "http://localhost:3000/auth/callback?error=USER_SUSPENDED&suspendedUntil=2026-11-05T12:00:00&reason=SPAM");
+    }
+
+    @Test
+    void should_omit_suspended_until_when_suspension_is_permanent() throws Exception {
+        // given
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        UserSuspendedException cause = new UserSuspendedException(null, ReportReason.ILLEGAL);
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error(ErrorCode.USER_SUSPENDED.name()), "정지된 계정입니다.", cause);
+
+        // when
+        oAuth2FailureHandler.onAuthenticationFailure(request, response, exception);
+
+        // then
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo("http://localhost:3000/auth/callback?error=USER_SUSPENDED&reason=ILLEGAL");
     }
 }

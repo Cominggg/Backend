@@ -124,12 +124,14 @@ class CustomOAuth2UserServiceTest {
     @Test
     void should_throw_OAuth2AuthenticationException_with_USER_SUSPENDED_when_suspended_user_logs_in() {
         // given
+        UserSuspendedException suspended = new UserSuspendedException(null, ReportReason.SPAM);
         given(socialUserService.findOrCreate(eq("google"), any(OAuth2UserInfo.class)))
-                .willThrow(new UserSuspendedException(null, ReportReason.SPAM));
+                .willThrow(suspended);
 
         // when & then
         assertThatThrownBy(() -> customOAuth2UserService.toCustomOAuth2User("google", GOOGLE_ATTRIBUTES))
                 .isInstanceOf(OAuth2AuthenticationException.class)
+                .hasCause(suspended)
                 .extracting(e -> ((OAuth2AuthenticationException) e).getError().getErrorCode())
                 .isEqualTo(ErrorCode.USER_SUSPENDED.name());
     }

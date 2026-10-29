@@ -36,8 +36,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             SocialUser result = socialUserService.findOrCreate(provider, userInfo);
             return new CustomOAuth2User(result.user(), attributes, result.isNewUser());
         } catch (UserSuspendedException e) {
+            // 정지 기간·사유는 OAuth2FailureHandler가 cause에서 꺼내 리다이렉트 쿼리로 전달한다.
             throw new OAuth2AuthenticationException(
-                    new OAuth2Error(ErrorCode.USER_SUSPENDED.name()), ErrorCode.USER_SUSPENDED.getMessage());
+                    new OAuth2Error(ErrorCode.USER_SUSPENDED.name()), ErrorCode.USER_SUSPENDED.getMessage(), e);
         }
     }
 
