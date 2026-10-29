@@ -16,5 +16,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByNickname(String nickname);
 
-    List<User> findByStatus(UserStatus status);
+    List<User> findByStatusIn(Collection<UserStatus> statuses);
 }

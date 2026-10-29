@@ -13,6 +13,7 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.policy.entity.NotificationStatus;
 import com.Coming.Backend.policy.entity.PolicyNotificationTarget;
 import com.Coming.Backend.policy.repository.PolicyNotificationTargetRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -76,7 +77,7 @@ class PolicyNotificationTargetCreationTaskletTest {
         User user = buildActiveUser(1L, "iu@coming.com");
 
         given(policyNotificationTargetRepository.findByPolicyId(POLICY_ID)).willReturn(List.of());
-        given(userRepository.findByStatus(UserStatus.ACTIVE)).willReturn(List.of(user));
+        given(userRepository.findByStatusIn(List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED))).willReturn(List.of(user));
 
         ArgumentCaptor<PolicyNotificationTarget> targetCaptor = ArgumentCaptor.forClass(PolicyNotificationTarget.class);
 
@@ -90,6 +91,28 @@ class PolicyNotificationTargetCreationTaskletTest {
         assertThat(savedTarget.getUserId()).isEqualTo(1L);
         assertThat(savedTarget.getStatus()).isEqualTo(NotificationStatus.PENDING);
         assertThat(savedTarget.getRetryCount()).isZero();
+    }
+
+    @Test
+    void should_save_pending_target_when_suspended_user_with_email_given() {
+        // given
+        ChunkContext chunkContext = buildChunkContext(POLICY_ID);
+        StepContribution stepContribution = new StepContribution(chunkContext.getStepContext().getStepExecution());
+        User suspendedUser = buildActiveUser(2L, "suspended@coming.com");
+        suspendedUser.suspend(null, ReportReason.SPAM, null);
+
+        given(policyNotificationTargetRepository.findByPolicyId(POLICY_ID)).willReturn(List.of());
+        given(userRepository.findByStatusIn(List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED)))
+                .willReturn(List.of(suspendedUser));
+
+        ArgumentCaptor<PolicyNotificationTarget> targetCaptor = ArgumentCaptor.forClass(PolicyNotificationTarget.class);
+
+        // when
+        policyNotificationTargetCreationTasklet.execute(stepContribution, chunkContext);
+
+        // then
+        verify(policyNotificationTargetRepository).save(targetCaptor.capture());
+        assertThat(targetCaptor.getValue().getUserId()).isEqualTo(2L);
     }
 
     @Test
@@ -107,7 +130,7 @@ class PolicyNotificationTargetCreationTaskletTest {
                 .build();
 
         given(policyNotificationTargetRepository.findByPolicyId(POLICY_ID)).willReturn(List.of(existingTarget));
-        given(userRepository.findByStatus(UserStatus.ACTIVE)).willReturn(List.of(user));
+        given(userRepository.findByStatusIn(List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED))).willReturn(List.of(user));
 
         // when
         policyNotificationTargetCreationTasklet.execute(stepContribution, chunkContext);
@@ -124,7 +147,7 @@ class PolicyNotificationTargetCreationTaskletTest {
         User user = buildActiveUser(1L, null);
 
         given(policyNotificationTargetRepository.findByPolicyId(POLICY_ID)).willReturn(List.of());
-        given(userRepository.findByStatus(UserStatus.ACTIVE)).willReturn(List.of(user));
+        given(userRepository.findByStatusIn(List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED))).willReturn(List.of(user));
 
         // when
         policyNotificationTargetCreationTasklet.execute(stepContribution, chunkContext);
@@ -140,7 +163,7 @@ class PolicyNotificationTargetCreationTaskletTest {
         StepContribution stepContribution = new StepContribution(chunkContext.getStepContext().getStepExecution());
 
         given(policyNotificationTargetRepository.findByPolicyId(POLICY_ID)).willReturn(List.of());
-        given(userRepository.findByStatus(UserStatus.ACTIVE)).willReturn(List.of());
+        given(userRepository.findByStatusIn(List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED))).willReturn(List.of());
 
         // when
         RepeatStatus result = policyNotificationTargetCreationTasklet.execute(stepContribution, chunkContext);

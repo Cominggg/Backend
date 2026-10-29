@@ -18,7 +18,8 @@ import org.springframework.batch.infrastructure.repeat.RepeatStatus;
 import org.springframework.stereotype.Component;
 
 /**
- * 정책 발행 시 ACTIVE 유저 중 아직 발송 대상이 아닌 유저를 PENDING 상태의 PolicyNotificationTarget으로 등록한다.
+ * 정책 발행 시 ACTIVE·SUSPENDED 유저 중 아직 발송 대상이 아닌 유저를 PENDING 상태의 PolicyNotificationTarget으로 등록한다.
+ * 정지 회원도 약관 적용 대상이므로 변경 고지를 받는다.
  */
 @Slf4j
 @Component
@@ -36,9 +37,9 @@ public class PolicyNotificationTargetCreationTasklet implements Tasklet {
                 .map(PolicyNotificationTarget::getUserId)
                 .collect(Collectors.toSet());
 
-        List<User> activeUsers = userRepository.findByStatus(UserStatus.ACTIVE);
+        List<User> targetUsers = userRepository.findByStatusIn(List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED));
         int created = 0;
-        for (User user : activeUsers) {
+        for (User user : targetUsers) {
             if (existingTargetUserIds.contains(user.getId())) {
                 continue;
             }
