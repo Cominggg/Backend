@@ -27,6 +27,7 @@ import com.Coming.Backend.auth.exception.NicknameDuplicateException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
+import com.Coming.Backend.auth.exception.UserSuspendedException;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
 import com.Coming.Backend.auth.jwt.RefreshTokenClaims;
@@ -45,7 +46,9 @@ import com.Coming.Backend.policy.entity.UserPolicyAgreement;
 import com.Coming.Backend.policy.exception.PolicyNotFoundException;
 import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
 import com.Coming.Backend.policy.repository.UserPolicyAgreementRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -261,22 +264,37 @@ class AuthServiceTest {
     }
 
     @Test
-    void should_throw_RefreshTokenInvalidException_when_suspended_user_refreshes_token() {
+    void should_throw_UserSuspendedException_with_period_and_reason_when_suspended_user_refreshes_token() {
         // given
-        User suspendedUser = User.builder()
-                .id(USER_ID)
-                .role(UserRole.USER)
-                .status(UserStatus.SUSPENDED)
-                .provider("google")
-                .providerId("google-123")
-                .build();
+        User suspendedUser = buildUser();
+        LocalDateTime until = LocalDateTime.now().plusDays(7);
+        suspendedUser.suspend(until, ReportReason.ABUSE, "욕설");
         given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(suspendedUser));
 
         // when & then
         assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
-                .isInstanceOf(RefreshTokenInvalidException.class)
-                .hasMessage(ErrorCode.REFRESH_TOKEN_INVALID.getMessage());
+                .isInstanceOf(UserSuspendedException.class)
+                .hasMessage(ErrorCode.USER_SUSPENDED.getMessage())
+                .satisfies(e -> {
+                    UserSuspendedException ex = (UserSuspendedException) e;
+                    assertThat(ex.getSuspendedUntil()).isEqualTo(until);
+                    assertThat(ex.getReason()).isEqualTo(ReportReason.ABUSE);
+                });
+        verify(tokenRepository, never()).rotate(any(), any(), any(), any(), anyLong());
+    }
+
+    @Test
+    void should_throw_RefreshTokenInvalidException_when_suspension_has_expired_but_not_yet_released() {
+        // given
+        User suspendedUser = buildUser();
+        suspendedUser.suspend(LocalDateTime.now().minusMinutes(1), ReportReason.SPAM, null);
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(suspendedUser));
+
+        // when & then
+        assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
+                .isInstanceOf(RefreshTokenInvalidException.class);
     }
 
     @Test

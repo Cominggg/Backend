@@ -18,6 +18,7 @@ import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.TermsNotAgreedException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
+import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
 import com.Coming.Backend.auth.jwt.RefreshTokenClaims;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
@@ -84,6 +85,7 @@ public class AuthService {
      * 해당 세션(기기)의 Refresh Token만 교체되며, 이미 회전된 Refresh Token이 다시 제출되면 그 세션을 폐기한다.
      *
      * @param refreshToken HttpOnly Cookie에서 추출한 Refresh Token
+     * @throws UserSuspendedException 정지 중인 회원인 경우 (클라이언트가 정지 안내를 띄울 수 있도록 기간·사유 포함)
      */
     public TokenPair refreshToken(String refreshToken) {
         RefreshTokenClaims claims = parseRefreshToken(refreshToken);
@@ -91,6 +93,9 @@ public class AuthService {
         String sessionId = claims.sessionId();
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        if (user.getStatus() == UserStatus.SUSPENDED && !user.isSuspensionExpired()) {
+            throw new UserSuspendedException(user.getSuspendedUntil(), user.getSuspensionReason());
+        }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new RefreshTokenInvalidException();
         }
