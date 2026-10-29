@@ -1,11 +1,14 @@
 package com.Coming.Backend.admin.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -35,14 +38,20 @@ import com.Coming.Backend.admin.dto.AdminNoticeUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminReportDetailResponse;
 import com.Coming.Backend.admin.dto.AdminReportListItemResponse;
 import com.Coming.Backend.admin.dto.AdminReportStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminUserListItemResponse;
+import com.Coming.Backend.admin.dto.AdminUserSuspendRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
 import com.Coming.Backend.admin.dto.PipelineConcertCollectResult;
 import com.Coming.Backend.admin.service.AdminService;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
+import com.Coming.Backend.auth.entity.UserRole;
+import com.Coming.Backend.auth.entity.UserStatus;
+import com.Coming.Backend.auth.exception.UserNotFoundException;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertArtistNotFoundException;
@@ -68,6 +77,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -1077,7 +1087,11 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.targetId").value(TARGET_ID))
                 .andExpect(jsonPath("$.detail").value("광고성 게시글입니다."))
                 .andExpect(jsonPath("$.reporterId").value(REPORTER_ID))
-                .andExpect(jsonPath("$.reporterNickname").value("신고자닉네임"));
+                .andExpect(jsonPath("$.reporterNickname").value("신고자닉네임"))
+                .andExpect(jsonPath("$.targetAuthorId").value(40L))
+                .andExpect(jsonPath("$.targetAuthorNickname").value("작성자"))
+                .andExpect(jsonPath("$.targetAuthorSuspended").value(true))
+                .andExpect(jsonPath("$.targetAuthorSuspendedUntil").value("2026-11-05T12:00:00"));
     }
 
     @Test
@@ -1110,6 +1124,48 @@ class AdminControllerTest {
     }
 
     @Test
+    void should_pass_suspend_body_to_service_when_report_status_updated_with_suspend() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "status": "RESOLVED",
+                    "deleteTarget": true,
+                    "suspend": { "days": null, "reason": "ILLEGAL", "detail": "불법 정보 게시" }
+                }
+                """;
+
+        // when
+        mockMvc.perform(patch("/api/admin/reports/{id}/status", REPORT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+
+        // then
+        ArgumentCaptor<AdminReportStatusUpdateRequest> captor = ArgumentCaptor.forClass(AdminReportStatusUpdateRequest.class);
+        verify(adminService).updateReportStatus(eq(REPORT_ID), captor.capture());
+        assertThat(captor.getValue().suspend())
+                .isEqualTo(new AdminUserSuspendRequest(null, ReportReason.ILLEGAL, "불법 정보 게시"));
+    }
+
+    @Test
+    void should_return_400_when_suspend_reason_is_null_on_report_status_update() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "status": "RESOLVED",
+                    "suspend": { "days": 7 }
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(patch("/api/admin/reports/{id}/status", REPORT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+        verify(adminService, never()).updateReportStatus(any(), any());
+    }
+
+    @Test
     void should_return_400_when_status_field_is_null_on_report_status_update() throws Exception {
         // given — status 필드 누락
         String requestBody = """
@@ -1139,5 +1195,96 @@ class AdminControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(ErrorCode.REPORT_NOT_FOUND.name()))
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    // -------------------------------------------------------------------------
+    // /api/admin/users
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_users_when_search_users() throws Exception {
+        // given
+        AdminUserListItemResponse user = new AdminUserListItemResponse(USER_ID, "iu@example.com", "아이유팬", "kakao",
+                UserRole.USER, UserStatus.SUSPENDED, LocalDateTime.of(2026, 11, 5, 12, 0, 0), ReportReason.SPAM, "2026-10-01");
+        given(adminService.searchUsers(eq("아이유"), any(Pageable.class)))
+                .willReturn(new PageResponse<>(List.of(user), 0, 20, 1, 1));
+
+        // when & then
+        mockMvc.perform(get("/api/admin/users").param("keyword", "아이유").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(USER_ID))
+                .andExpect(jsonPath("$.content[0].status").value("SUSPENDED"))
+                .andExpect(jsonPath("$.content[0].suspendedUntil").value("2026-11-05T12:00:00"))
+                .andExpect(jsonPath("$.content[0].suspensionReason").value("SPAM"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void should_return_200_when_suspend_user() throws Exception {
+        // given
+        String requestBody = """
+                { "days": 30, "reason": "ABUSE", "detail": "욕설" }
+                """;
+
+        // when
+        mockMvc.perform(post("/api/admin/users/{id}/suspension", USER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+
+        // then
+        verify(adminService).suspendUser(USER_ID, new AdminUserSuspendRequest(30, ReportReason.ABUSE, "욕설"));
+    }
+
+    @Test
+    void should_return_400_when_suspend_days_is_unsupported() throws Exception {
+        // given
+        willThrow(new InvalidInputException()).given(adminService).suspendUser(eq(USER_ID), any());
+        String requestBody = """
+                { "days": 3, "reason": "SPAM" }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/users/{id}/suspension", USER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
+    }
+
+    @Test
+    void should_return_404_when_suspending_user_not_found() throws Exception {
+        // given
+        willThrow(new UserNotFoundException()).given(adminService).suspendUser(eq(999L), any());
+        String requestBody = """
+                { "days": 7, "reason": "SPAM" }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/users/{id}/suspension", 999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.USER_NOT_FOUND.name()));
+    }
+
+    @Test
+    void should_return_204_when_unsuspend_user() throws Exception {
+        // when
+        mockMvc.perform(delete("/api/admin/users/{id}/suspension", USER_ID))
+                .andExpect(status().isNoContent());
+
+        // then
+        verify(adminService).unsuspendUser(USER_ID);
+    }
+
+    @Test
+    void should_return_204_when_withdraw_user() throws Exception {
+        // when
+        mockMvc.perform(delete("/api/admin/users/{id}", USER_ID))
+                .andExpect(status().isNoContent());
+
+        // then
+        verify(adminService).withdrawUser(USER_ID);
     }
 }
