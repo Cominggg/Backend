@@ -134,6 +134,20 @@ class WithdrawalServiceTest {
     }
 
     @Test
+    void should_throw_UserNotFoundException_and_not_publish_events_when_user_has_already_withdrawn() {
+        // given
+        User user = buildUser("kakao", null);
+        user.withdraw();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> withdrawalService.withdraw(USER_ID))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(eventPublisher, never()).publishEvent(any(KakaoUnlinkEvent.class));
+        verify(tokenRepository, never()).deleteAllSessions(any());
+    }
+
+    @Test
     void should_throw_UserNotFoundException_and_keep_sessions_when_user_does_not_exist() {
         // given
         given(userRepository.findById(USER_ID)).willReturn(Optional.empty());

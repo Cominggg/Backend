@@ -2,6 +2,7 @@ package com.Coming.Backend.auth.service;
 
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.entity.User;
+import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.event.AppleTokenRevokeEvent;
 import com.Coming.Backend.auth.event.KakaoUnlinkEvent;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
@@ -38,6 +39,8 @@ public class WithdrawalService {
      * 회원의 팔로우·캘린더·문의·별점을 삭제하고 개인정보를 파기한 뒤 모든 기기의 세션을 삭제한다.
      * 게시글·댓글은 남기고 작성자 닉네임만 비운다.
      * Apple·Kakao 회원이면 커밋 후 연결 끊기를 요청한다(외부 호출을 트랜잭션 밖으로 분리, 실패해도 탈퇴는 유지).
+     *
+     * @throws UserNotFoundException 존재하지 않거나 이미 탈퇴한 회원인 경우
      */
     @Transactional
     public void withdraw(Long userId) {
@@ -46,7 +49,9 @@ public class WithdrawalService {
         inquiryRepository.deleteByUserId(userId);
         ratingRepository.deleteByUserId(userId);
 
-        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        User user = userRepository.findById(userId)
+                .filter(found -> found.getStatus() != UserStatus.INACTIVE)
+                .orElseThrow(UserNotFoundException::new);
         requestAppleTokenRevoke(user);
         requestKakaoUnlink(user);
         user.withdraw();
