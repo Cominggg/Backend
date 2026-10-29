@@ -21,14 +21,10 @@ import com.Coming.Backend.auth.exception.UserNotFoundException;
 import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
 import com.Coming.Backend.auth.jwt.RefreshTokenClaims;
-import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import com.Coming.Backend.auth.repository.TokenRepository.RotationResult;
 import com.Coming.Backend.auth.repository.UserRepository;
-import com.Coming.Backend.auth.event.AppleTokenRevokeEvent;
-import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
-import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import com.Coming.Backend.policy.entity.PolicyDocument;
 import com.Coming.Backend.policy.entity.PolicyType;
 import com.Coming.Backend.policy.entity.UserPolicyAgreement;
@@ -41,7 +37,6 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,12 +50,9 @@ public class AuthService {
     private final TokenRepository tokenRepository;
     private final BlacklistRepository blacklistRepository;
     private final UserRepository userRepository;
-    private final UserFollowArtistRepository userFollowArtistRepository;
-    private final UserConcertCalendarRepository userConcertCalendarRepository;
-    private final InquiryRepository inquiryRepository;
     private final PolicyDocumentRepository policyDocumentRepository;
     private final UserPolicyAgreementRepository userPolicyAgreementRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final WithdrawalService withdrawalService;
 
     /**
      * 새 로그인 세션(기기)을 만들고 그 세션의 Refresh Token을 발급한다.
@@ -128,31 +120,14 @@ public class AuthService {
     }
 
     /**
-     * 회원 탈퇴 처리 후 Access Token을 블랙리스트에 등록하고 모든 기기의 세션을 삭제한다.
-     * Apple 회원이면 커밋 후 Apple 토큰 revoke를 요청한다(외부 호출을 트랜잭션 밖으로 분리, 실패해도 탈퇴는 유지).
+     * 회원 탈퇴 처리 후 Access Token을 블랙리스트에 등록한다. 탈퇴 처리 내용은 WithdrawalService 참고.
      *
      * @param accessToken Authorization 헤더에서 추출한 Access Token
      * @param userId      인증된 사용자 ID
      */
-    @Transactional
     public void withdraw(String accessToken, Long userId) {
-        userFollowArtistRepository.deleteByUserId(userId);
-        userConcertCalendarRepository.deleteByUserId(userId);
-        inquiryRepository.deleteByUserId(userId);
-
-        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
-        requestAppleTokenRevoke(user);
-        user.withdraw();
-        userRepository.flush();
+        withdrawalService.withdraw(userId);
         blacklistRepository.save(accessToken, jwtProvider.getRemainingExpiry(accessToken));
-        tokenRepository.deleteAllSessions(userId);
-        log.info("회원 탈퇴");
-    }
-
-    private void requestAppleTokenRevoke(User user) {
-        if (user.getAppleRefreshToken() != null) {
-            eventPublisher.publishEvent(new AppleTokenRevokeEvent(user.getId(), user.getAppleRefreshToken()));
-        }
     }
 
     /**

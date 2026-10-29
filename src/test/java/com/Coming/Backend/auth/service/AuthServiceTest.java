@@ -31,15 +31,11 @@ import com.Coming.Backend.auth.exception.UserSuspendedException;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
 import com.Coming.Backend.auth.jwt.RefreshTokenClaims;
-import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import com.Coming.Backend.auth.repository.TokenRepository.RotationResult;
 import com.Coming.Backend.auth.repository.UserRepository;
-import com.Coming.Backend.auth.event.AppleTokenRevokeEvent;
-import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
-import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import com.Coming.Backend.policy.entity.PolicyDocument;
 import com.Coming.Backend.policy.entity.PolicyType;
 import com.Coming.Backend.policy.entity.UserPolicyAgreement;
@@ -57,7 +53,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -78,22 +73,13 @@ class AuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserFollowArtistRepository userFollowArtistRepository;
-
-    @Mock
-    private UserConcertCalendarRepository userConcertCalendarRepository;
-
-    @Mock
-    private InquiryRepository inquiryRepository;
-
-    @Mock
     private PolicyDocumentRepository policyDocumentRepository;
 
     @Mock
     private UserPolicyAgreementRepository userPolicyAgreementRepository;
 
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private WithdrawalService withdrawalService;
 
     private static final Long USER_ID = 1L;
     private static final String REFRESH_TOKEN = "valid-refresh-token";
@@ -398,68 +384,17 @@ class AuthServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_call_withdraw_and_invalidate_all_sessions_when_withdraw() {
+    void should_delegate_withdrawal_and_blacklist_access_token_when_withdraw() {
         // given
-        User user = buildUser();
         long remainingExpiry = 900_000L;
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(remainingExpiry);
 
         // when
         authService.withdraw(ACCESS_TOKEN, USER_ID);
 
         // then
-        assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
-        assertThat(user.getNickname()).isNull();
-        verify(userFollowArtistRepository).deleteByUserId(USER_ID);
-        verify(userConcertCalendarRepository).deleteByUserId(USER_ID);
-        verify(inquiryRepository).deleteByUserId(USER_ID);
+        verify(withdrawalService).withdraw(USER_ID);
         verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
-        verify(tokenRepository).deleteAllSessions(USER_ID);
-    }
-
-    private User buildAppleUser() {
-        return User.builder()
-                .id(USER_ID)
-                .nickname("테스터")
-                .role(UserRole.USER)
-                .status(UserStatus.ACTIVE)
-                .provider("apple")
-                .providerId("001234.abcdef0123456789.0123")
-                .appleRefreshToken("apple-refresh-token")
-                .build();
-    }
-
-    @Test
-    void should_publish_apple_token_revoke_event_and_keep_token_when_apple_user_withdraws() {
-        // given
-        User user = buildAppleUser();
-        long remainingExpiry = 900_000L;
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
-        given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(remainingExpiry);
-
-        // when
-        authService.withdraw(ACCESS_TOKEN, USER_ID);
-
-        // then — revoke는 커밋 후 리스너가 처리하므로 토큰은 아직 지우지 않는다
-        verify(eventPublisher).publishEvent(new AppleTokenRevokeEvent(USER_ID, "apple-refresh-token"));
-        assertThat(user.getAppleRefreshToken()).isEqualTo("apple-refresh-token");
-        assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
-        verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
-        verify(tokenRepository).deleteAllSessions(USER_ID);
-    }
-
-    @Test
-    void should_not_publish_apple_token_revoke_event_when_user_has_no_apple_refresh_token() {
-        // given
-        User user = buildUser();
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
-
-        // when
-        authService.withdraw(ACCESS_TOKEN, USER_ID);
-
-        // then
-        verify(eventPublisher, never()).publishEvent(any(AppleTokenRevokeEvent.class));
     }
 
     // -------------------------------------------------------------------------

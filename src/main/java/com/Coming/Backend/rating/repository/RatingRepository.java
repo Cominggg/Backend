@@ -17,6 +17,8 @@ public interface RatingRepository extends JpaRepository<Rating, Long> {
     Optional<Rating> findByUserIdAndTargetTypeAndTargetId(
             Long userId, RatingTargetType targetType, Long targetId);
 
+    void deleteByUserId(Long userId);
+
     /**
      * user_id·target_type·target_id 유니크 제약을 이용해 별점을 원자적으로 등록·수정한다.
      * 동시에 같은 대상에 첫 별점을 등록하는 요청이 몰려도 유니크 제약 위반 없이 하나는 삽입, 나머지는 갱신으로 처리된다.
