@@ -205,7 +205,9 @@ public class CommentService {
             return Map.of();
         }
         Set<Long> userIds = comments.stream().map(Comment::getUserId).collect(Collectors.toSet());
+        // 탈퇴 회원은 닉네임이 null이라 toMap에 넣을 수 없으므로 제외한다(조회 시 null로 노출).
         return userRepository.findAllByIdIn(userIds).stream()
+                .filter(user -> user.getNickname() != null)
                 .collect(Collectors.toMap(User::getId, User::getNickname));
     }
 

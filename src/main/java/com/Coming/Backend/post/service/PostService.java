@@ -171,7 +171,10 @@ public class PostService {
                 mapEntityTagsByPost(postEntityTagRepository.findByPostIdIn(postIds));
         Map<Long, String> nicknameByUserId = userRepository.findAllByIdIn(
                 posts.stream().map(Post::getUserId).collect(Collectors.toSet())
-        ).stream().collect(Collectors.toMap(User::getId, User::getNickname));
+        ).stream()
+                // 탈퇴 회원은 닉네임이 null이라 toMap에 넣을 수 없으므로 제외한다(조회 시 null로 노출).
+                .filter(user -> user.getNickname() != null)
+                .collect(Collectors.toMap(User::getId, User::getNickname));
 
         return posts.stream().map(post -> new PostSummaryResponse(
                 post.getId(),

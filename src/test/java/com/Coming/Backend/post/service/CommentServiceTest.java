@@ -129,6 +129,30 @@ class CommentServiceTest {
     }
 
     @Test
+    void should_return_null_author_nickname_when_comment_author_has_withdrawn() {
+        // given
+        Comment topComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "탈퇴 회원 댓글", 0L, false);
+        Comment reply = buildComment(REPLY_ID, POST_ID, OTHER_USER_ID, COMMENT_ID, "답글", 0L, false);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
+
+        given(postRepository.existsById(POST_ID)).willReturn(true);
+        given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
+                .willReturn(List.of(reply));
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID, OTHER_USER_ID)))
+                .willReturn(List.of(buildUser(AUTHOR_ID, null), buildUser(OTHER_USER_ID, "뷔")));
+
+        // when
+        PageResponse<CommentResponse> response = commentService.getComments(POST_ID, null, 0, 20);
+
+        // then
+        CommentResponse topResponse = response.content().get(0);
+        assertThat(topResponse.authorNickname()).isNull();
+        assertThat(topResponse.replies().get(0).authorNickname()).isEqualTo("뷔");
+    }
+
+    @Test
     void should_return_null_is_liked_and_false_is_author_when_user_id_not_given() {
         // given
         Comment topComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 1L, false);

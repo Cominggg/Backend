@@ -477,6 +477,24 @@ class PostServiceTest {
         assertThat(response.totalElements()).isEqualTo(1);
     }
 
+    @Test
+    void should_return_null_author_nickname_when_author_has_withdrawn() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 3L);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
+        given(postRepository.findPosts(isNull(), eq(pageable))).willReturn(page);
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, null)));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getList(null, 0, 20);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).authorNickname()).isNull();
+    }
+
     // -------------------------------------------------------------------------
     // getBacklinks
     // -------------------------------------------------------------------------
