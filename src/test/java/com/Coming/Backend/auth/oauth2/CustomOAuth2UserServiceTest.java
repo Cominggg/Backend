@@ -15,6 +15,7 @@ import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.auth.service.SocialUserService;
 import com.Coming.Backend.auth.service.SocialUserService.SocialUser;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -124,7 +125,7 @@ class CustomOAuth2UserServiceTest {
     void should_throw_OAuth2AuthenticationException_with_USER_SUSPENDED_when_suspended_user_logs_in() {
         // given
         given(socialUserService.findOrCreate(eq("google"), any(OAuth2UserInfo.class)))
-                .willThrow(new UserSuspendedException());
+                .willThrow(new UserSuspendedException(null, ReportReason.SPAM));
 
         // when & then
         assertThatThrownBy(() -> customOAuth2UserService.toCustomOAuth2User("google", GOOGLE_ATTRIBUTES))

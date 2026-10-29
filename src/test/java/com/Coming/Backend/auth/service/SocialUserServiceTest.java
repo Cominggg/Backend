@@ -20,7 +20,9 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.auth.service.SocialUserService.SocialUser;
 import com.Coming.Backend.auth.social.AppleUserInfo;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import org.hibernate.exception.ConstraintViolationException;
@@ -91,37 +93,57 @@ class SocialUserServiceTest {
     }
 
     @Test
-    void should_reactivate_user_with_updated_email_and_isNewUser_true_when_inactive_user_exists() {
+    void should_throw_UserSuspendedException_with_period_and_reason_when_suspension_is_ongoing() {
         // given
-        User inactiveUser = buildGoogleUser(UserStatus.INACTIVE);
-        given(userRepository.findByProviderAndProviderId(GOOGLE, GOOGLE_PROVIDER_ID))
-                .willReturn(Optional.of(inactiveUser));
-
-        // when
-        SocialUser result = socialUserService.findOrCreate(GOOGLE, googleUserInfo());
-
-        // then
-        assertThat(result.user()).isSameAs(inactiveUser);
-        assertThat(result.isNewUser()).isTrue();
-        assertThat(inactiveUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(inactiveUser.getRole()).isEqualTo(UserRole.PENDING);
-        assertThat(inactiveUser.getNickname()).isNull();
-        assertThat(inactiveUser.getBirthYear()).isNull();
-        assertThat(inactiveUser.getEmail()).isEqualTo(GOOGLE_EMAIL);
-        verify(socialUserCreator, never()).create(any(), any());
-    }
-
-    @Test
-    void should_throw_UserSuspendedException_when_suspended_user_exists() {
-        // given
-        User suspendedUser = buildGoogleUser(UserStatus.SUSPENDED);
+        User suspendedUser = buildGoogleUser(UserStatus.ACTIVE);
+        LocalDateTime until = LocalDateTime.now().plusDays(7);
+        suspendedUser.suspend(until, ReportReason.SPAM, "도배");
         given(userRepository.findByProviderAndProviderId(GOOGLE, GOOGLE_PROVIDER_ID))
                 .willReturn(Optional.of(suspendedUser));
 
         // when & then
         assertThatThrownBy(() -> socialUserService.findOrCreate(GOOGLE, googleUserInfo()))
                 .isInstanceOf(UserSuspendedException.class)
-                .hasMessage(ErrorCode.USER_SUSPENDED.getMessage());
+                .hasMessage(ErrorCode.USER_SUSPENDED.getMessage())
+                .satisfies(e -> {
+                    UserSuspendedException ex = (UserSuspendedException) e;
+                    assertThat(ex.getSuspendedUntil()).isEqualTo(until);
+                    assertThat(ex.getReason()).isEqualTo(ReportReason.SPAM);
+                });
+        assertThat(suspendedUser.getStatus()).isEqualTo(UserStatus.SUSPENDED);
+    }
+
+    @Test
+    void should_throw_UserSuspendedException_with_null_until_when_suspension_is_permanent() {
+        // given
+        User suspendedUser = buildGoogleUser(UserStatus.ACTIVE);
+        suspendedUser.suspend(null, ReportReason.ILLEGAL, null);
+        given(userRepository.findByProviderAndProviderId(GOOGLE, GOOGLE_PROVIDER_ID))
+                .willReturn(Optional.of(suspendedUser));
+
+        // when & then
+        assertThatThrownBy(() -> socialUserService.findOrCreate(GOOGLE, googleUserInfo()))
+                .isInstanceOf(UserSuspendedException.class)
+                .satisfies(e -> assertThat(((UserSuspendedException) e).getSuspendedUntil()).isNull());
+    }
+
+    @Test
+    void should_release_suspension_and_return_existing_user_when_suspension_period_has_passed() {
+        // given
+        User suspendedUser = buildGoogleUser(UserStatus.ACTIVE);
+        suspendedUser.suspend(LocalDateTime.now().minusMinutes(1), ReportReason.SPAM, "도배");
+        given(userRepository.findByProviderAndProviderId(GOOGLE, GOOGLE_PROVIDER_ID))
+                .willReturn(Optional.of(suspendedUser));
+
+        // when
+        SocialUser result = socialUserService.findOrCreate(GOOGLE, googleUserInfo());
+
+        // then
+        assertThat(result.user()).isSameAs(suspendedUser);
+        assertThat(result.isNewUser()).isFalse();
+        assertThat(suspendedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(suspendedUser.getSuspendedUntil()).isNull();
+        assertThat(suspendedUser.getSuspensionReason()).isNull();
     }
 
     @Test
@@ -217,23 +239,6 @@ class SocialUserServiceTest {
         // then
         assertThat(result.isNewUser()).isFalse();
         assertThat(existingUser.getEmail()).isEqualTo("old@gmail.com");
-    }
-
-    @Test
-    void should_keep_existing_email_when_inactive_user_rejoins_without_email() {
-        // given
-        User inactiveUser = buildGoogleUser(UserStatus.INACTIVE);
-        given(userRepository.findByProviderAndProviderId(GOOGLE, GOOGLE_PROVIDER_ID))
-                .willReturn(Optional.of(inactiveUser));
-        OAuth2UserInfo noEmailUserInfo = new GoogleOAuth2UserInfo(Map.of("sub", GOOGLE_PROVIDER_ID));
-
-        // when
-        SocialUser result = socialUserService.findOrCreate(GOOGLE, noEmailUserInfo);
-
-        // then
-        assertThat(result.isNewUser()).isTrue();
-        assertThat(inactiveUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(inactiveUser.getEmail()).isEqualTo("old@gmail.com");
     }
 
     // -------------------------------------------------------------------------

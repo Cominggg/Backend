@@ -30,9 +30,10 @@ public class SocialUserService {
 
     /**
      * 소셜 제공자 식별자로 회원을 조회하고, 없으면 PENDING 회원으로 생성한다.
-     * 탈퇴(INACTIVE) 회원은 재가입 처리하고, 정지(SUSPENDED) 회원은 로그인을 막는다.
+     * 정지(SUSPENDED) 회원은 정지 기간이 지났으면 자동 해제하고, 아니면 로그인을 막는다.
+     * 탈퇴 회원은 provider_id가 바뀌어 조회되지 않으므로 새 회원으로 생성된다.
      *
-     * @throws UserSuspendedException 정지된 계정인 경우
+     * @throws UserSuspendedException 정지 중인 계정인 경우
      */
     @Transactional
     public SocialUser findOrCreate(String provider, OAuth2UserInfo userInfo) {
@@ -40,14 +41,7 @@ public class SocialUserService {
         if (existing.isPresent()) {
             User user = existing.get();
             if (user.getStatus() == UserStatus.SUSPENDED) {
-                log.warn("정지된 계정 로그인 시도 — userId: {}", user.getId());
-                throw new UserSuspendedException();
-            }
-            if (user.getStatus() == UserStatus.INACTIVE) {
-                log.info("탈퇴 후 재가입 처리 — userId: {}", user.getId());
-                user.reactivate();
-                updateEmailIfPresent(user, userInfo);
-                return new SocialUser(user, true);
+                releaseExpiredSuspensionOrThrow(user);
             }
             updateEmailIfPresent(user, userInfo);
             return new SocialUser(user, false);
@@ -71,7 +65,7 @@ public class SocialUserService {
      * Apple 회원을 조회·생성하고, 탈퇴 시 revoke에 쓸 Apple refresh_token을 같은 트랜잭션에서 저장한다.
      * 로그인할 때마다 최신 값으로 덮어쓴다.
      *
-     * @throws UserSuspendedException 정지된 계정인 경우
+     * @throws UserSuspendedException 정지 중인 계정인 경우
      */
     @Transactional
     public SocialUser findOrCreateAppleUser(OAuth2UserInfo userInfo, String appleRefreshToken) {
@@ -86,6 +80,15 @@ public class SocialUserService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void clearAppleRefreshToken(Long userId) {
         userRepository.findById(userId).ifPresent(user -> user.updateAppleRefreshToken(null));
+    }
+
+    private void releaseExpiredSuspensionOrThrow(User user) {
+        if (!user.isSuspensionExpired()) {
+            log.warn("정지된 계정 로그인 시도 — userId: {}", user.getId());
+            throw new UserSuspendedException(user.getSuspendedUntil(), user.getSuspensionReason());
+        }
+        log.info("정지 기간 만료로 자동 해제 — userId: {}", user.getId());
+        user.unsuspend();
     }
 
     private boolean isProviderIdDuplicate(DataIntegrityViolationException e) {

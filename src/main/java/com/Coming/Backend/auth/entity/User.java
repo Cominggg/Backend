@@ -146,12 +146,4 @@ public class User extends BaseTimeEntity {
     public boolean hasNoEmail() {
         return email == null || email.isBlank();
     }
-
-    public void reactivate() {
-        this.status = UserStatus.ACTIVE;
-        this.role = UserRole.PENDING;
-        this.nickname = null;
-        this.birthYear = null;
-        this.agreedMarketing = null;
-    }
 }
