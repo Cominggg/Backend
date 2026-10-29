@@ -24,6 +24,8 @@ import com.Coming.Backend.admin.dto.AdminPendingConcertResponse;
 import com.Coming.Backend.admin.dto.AdminReportDetailResponse;
 import com.Coming.Backend.admin.dto.AdminReportListItemResponse;
 import com.Coming.Backend.admin.dto.AdminReportStatusUpdateRequest;
+import com.Coming.Backend.admin.dto.AdminUserListItemResponse;
+import com.Coming.Backend.admin.dto.AdminUserSuspendRequest;
 import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
@@ -40,10 +42,14 @@ import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.ArtistUrlRepository;
+import com.Coming.Backend.auth.dto.SuspensionCommand;
+import com.Coming.Backend.auth.entity.SuspensionDuration;
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.auth.service.SuspensionService;
+import com.Coming.Backend.auth.service.WithdrawalService;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
@@ -71,6 +77,10 @@ import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import com.Coming.Backend.notice.entity.Notice;
 import com.Coming.Backend.notice.exception.NoticeNotFoundException;
 import com.Coming.Backend.notice.repository.NoticeRepository;
+import com.Coming.Backend.post.entity.Comment;
+import com.Coming.Backend.post.entity.Post;
+import com.Coming.Backend.post.repository.CommentRepository;
+import com.Coming.Backend.post.repository.PostRepository;
 import com.Coming.Backend.post.service.CommentService;
 import com.Coming.Backend.post.service.PostService;
 import com.Coming.Backend.report.entity.Report;
@@ -78,11 +88,13 @@ import com.Coming.Backend.report.entity.ReportReason;
 import com.Coming.Backend.report.entity.ReportStatus;
 import com.Coming.Backend.report.entity.ReportTargetType;
 import com.Coming.Backend.report.exception.ReportNotFoundException;
+import com.Coming.Backend.report.exception.ReportTargetNotFoundException;
 import com.Coming.Backend.report.repository.ReportRepository;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -103,6 +115,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -160,6 +173,18 @@ class AdminServiceTest {
     @Mock
     private ArtistCollectLockRepository artistCollectLockRepository;
 
+    @Mock
+    private PostRepository postRepository;
+
+    @Mock
+    private CommentRepository commentRepository;
+
+    @Mock
+    private SuspensionService suspensionService;
+
+    @Mock
+    private WithdrawalService withdrawalService;
+
     private static final Long USER_ID = 10L;
     private static final Long INQUIRY_ID = 1L;
     private static final Long TARGET_ID = 100L;
@@ -168,6 +193,7 @@ class AdminServiceTest {
     private static final Long ADMIN_ID = 5L;
     private static final Long REPORT_ID = 1L;
     private static final Long REPORTER_ID = 30L;
+    private static final Long TARGET_AUTHOR_ID = 40L;
     private static final Pageable PAGEABLE = PageRequest.of(0, 20);
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2025, 8, 20, 0, 0);
 
@@ -2306,6 +2332,63 @@ class AdminServiceTest {
     }
 
     @Test
+    void should_return_target_author_with_suspension_when_post_author_is_suspended() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        User author = buildUser(TARGET_AUTHOR_ID, "작성자");
+        LocalDateTime until = LocalDateTime.of(2026, 11, 5, 12, 0, 0);
+        author.suspend(until, ReportReason.SPAM, null);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+        given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(buildUser(REPORTER_ID, "신고자닉네임")));
+        given(postRepository.findById(TARGET_ID)).willReturn(Optional.of(Post.builder().id(TARGET_ID).userId(TARGET_AUTHOR_ID).build()));
+        given(userRepository.findById(TARGET_AUTHOR_ID)).willReturn(Optional.of(author));
+
+        // when
+        AdminReportDetailResponse response = adminService.getReportDetail(REPORT_ID);
+
+        // then
+        assertThat(response.targetAuthorId()).isEqualTo(TARGET_AUTHOR_ID);
+        assertThat(response.targetAuthorNickname()).isEqualTo("작성자");
+        assertThat(response.targetAuthorSuspended()).isTrue();
+        assertThat(response.targetAuthorSuspendedUntil()).isEqualTo(until);
+    }
+
+    @Test
+    void should_return_comment_author_without_suspension_when_comment_author_is_active() {
+        // given
+        Report report = buildReport(ReportTargetType.COMMENT, TARGET_ID, ReportStatus.PENDING);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+        given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(buildUser(REPORTER_ID, "신고자닉네임")));
+        given(commentRepository.findById(TARGET_ID)).willReturn(Optional.of(Comment.builder().id(TARGET_ID).userId(TARGET_AUTHOR_ID).build()));
+        given(userRepository.findById(TARGET_AUTHOR_ID)).willReturn(Optional.of(buildUser(TARGET_AUTHOR_ID, "작성자")));
+
+        // when
+        AdminReportDetailResponse response = adminService.getReportDetail(REPORT_ID);
+
+        // then
+        assertThat(response.targetAuthorId()).isEqualTo(TARGET_AUTHOR_ID);
+        assertThat(response.targetAuthorSuspended()).isFalse();
+        assertThat(response.targetAuthorSuspendedUntil()).isNull();
+    }
+
+    @Test
+    void should_return_null_target_author_when_reported_post_was_deleted() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.RESOLVED);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+        given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(buildUser(REPORTER_ID, "신고자닉네임")));
+        given(postRepository.findById(TARGET_ID)).willReturn(Optional.empty());
+
+        // when
+        AdminReportDetailResponse response = adminService.getReportDetail(REPORT_ID);
+
+        // then
+        assertThat(response.targetAuthorId()).isNull();
+        assertThat(response.targetAuthorNickname()).isNull();
+        assertThat(response.targetAuthorSuspended()).isFalse();
+    }
+
+    @Test
     void should_throw_report_not_found_when_report_id_does_not_exist() {
         // given
         given(reportRepository.findById(999L)).willReturn(Optional.empty());
@@ -2323,7 +2406,7 @@ class AdminServiceTest {
     void should_update_status_without_deleting_target_when_delete_target_is_null() {
         // given
         Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
-        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "처리 완료", null);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "처리 완료", null, null);
         given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
 
         // when
@@ -2340,7 +2423,7 @@ class AdminServiceTest {
     void should_not_delete_target_when_delete_target_is_false() {
         // given
         Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
-        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.REJECTED, "정상 게시글입니다.", false);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.REJECTED, "정상 게시글입니다.", false, null);
         given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
 
         // when
@@ -2356,7 +2439,7 @@ class AdminServiceTest {
     void should_delete_post_when_delete_target_true_and_target_type_post() {
         // given
         Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
-        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "삭제 처리", true);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "삭제 처리", true, null);
         given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
 
         // when
@@ -2371,7 +2454,7 @@ class AdminServiceTest {
     void should_delete_comment_when_delete_target_true_and_target_type_comment() {
         // given
         Report report = buildReport(ReportTargetType.COMMENT, TARGET_ID, ReportStatus.PENDING);
-        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "삭제 처리", true);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "삭제 처리", true, null);
         given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
 
         // when
@@ -2383,13 +2466,150 @@ class AdminServiceTest {
     }
 
     @Test
+    void should_suspend_post_author_before_deleting_post_when_suspend_and_delete_target_given() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        AdminUserSuspendRequest suspend = new AdminUserSuspendRequest(7, ReportReason.SPAM, "광고 도배");
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "정지 처리", true, suspend);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+        given(postRepository.findById(TARGET_ID)).willReturn(Optional.of(Post.builder().id(TARGET_ID).userId(TARGET_AUTHOR_ID).build()));
+
+        // when
+        adminService.updateReportStatus(REPORT_ID, request);
+
+        // then
+        InOrder inOrder = inOrder(suspensionService, postService);
+        inOrder.verify(suspensionService).suspend(TARGET_AUTHOR_ID,
+                new SuspensionCommand(SuspensionDuration.DAYS_7, ReportReason.SPAM, "광고 도배"));
+        inOrder.verify(postService).adminDelete(TARGET_ID);
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.RESOLVED);
+    }
+
+    @Test
+    void should_suspend_comment_author_permanently_when_suspend_days_is_null() {
+        // given
+        Report report = buildReport(ReportTargetType.COMMENT, TARGET_ID, ReportStatus.PENDING);
+        AdminUserSuspendRequest suspend = new AdminUserSuspendRequest(null, ReportReason.ILLEGAL, null);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, null, null, suspend);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+        given(commentRepository.findById(TARGET_ID)).willReturn(Optional.of(Comment.builder().id(TARGET_ID).userId(TARGET_AUTHOR_ID).build()));
+
+        // when
+        adminService.updateReportStatus(REPORT_ID, request);
+
+        // then
+        verify(suspensionService).suspend(TARGET_AUTHOR_ID,
+                new SuspensionCommand(SuspensionDuration.PERMANENT, ReportReason.ILLEGAL, null));
+        verify(commentService, never()).adminDelete(any());
+    }
+
+    @Test
+    void should_throw_report_target_not_found_when_suspend_given_but_target_is_gone() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        AdminUserSuspendRequest suspend = new AdminUserSuspendRequest(30, ReportReason.SPAM, null);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, null, true, suspend);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+        given(postRepository.findById(TARGET_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> adminService.updateReportStatus(REPORT_ID, request))
+                .isInstanceOf(ReportTargetNotFoundException.class);
+        verify(suspensionService, never()).suspend(any(), any());
+        verify(postService, never()).adminDelete(any());
+    }
+
+    @Test
+    void should_throw_invalid_input_and_not_suspend_when_suspend_days_is_unsupported() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        AdminUserSuspendRequest suspend = new AdminUserSuspendRequest(3, ReportReason.SPAM, null);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, null, null, suspend);
+        given(reportRepository.findById(REPORT_ID)).willReturn(Optional.of(report));
+        given(postRepository.findById(TARGET_ID)).willReturn(Optional.of(Post.builder().id(TARGET_ID).userId(TARGET_AUTHOR_ID).build()));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.updateReportStatus(REPORT_ID, request))
+                .isInstanceOf(InvalidInputException.class);
+        verify(suspensionService, never()).suspend(any(), any());
+    }
+
+    @Test
     void should_throw_report_not_found_when_update_target_does_not_exist() {
         // given
-        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, null, null);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, null, null, null);
         given(reportRepository.findById(999L)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> adminService.updateReportStatus(999L, request))
                 .isInstanceOf(ReportNotFoundException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // searchUsers
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_search_not_withdrawn_users_by_keyword_when_keyword_given() {
+        // given
+        User user = buildUser(USER_ID, "아이유팬");
+        ReflectionTestUtils.setField(user, "createdAt", CREATED_AT);
+        given(userRepository.searchByEmailOrNickname("아이유", List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED), PAGEABLE))
+                .willReturn(new PageImpl<>(List.of(user), PAGEABLE, 1));
+
+        // when
+        PageResponse<AdminUserListItemResponse> response = adminService.searchUsers(" 아이유 ", PAGEABLE);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).id()).isEqualTo(USER_ID);
+        assertThat(response.content().get(0).nickname()).isEqualTo("아이유팬");
+        assertThat(response.content().get(0).status()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
+    void should_list_all_not_withdrawn_users_when_keyword_is_blank() {
+        // given
+        given(userRepository.findByStatusIn(List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED), PAGEABLE))
+                .willReturn(new PageImpl<>(List.of(), PAGEABLE, 0));
+
+        // when
+        PageResponse<AdminUserListItemResponse> response = adminService.searchUsers("  ", PAGEABLE);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        verify(userRepository, never()).searchByEmailOrNickname(any(), any(), any());
+    }
+
+    // -------------------------------------------------------------------------
+    // suspendUser / unsuspendUser / withdrawUser
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_delegate_suspension_with_mapped_duration_when_suspend_user() {
+        // when
+        adminService.suspendUser(USER_ID, new AdminUserSuspendRequest(30, ReportReason.ABUSE, "욕설"));
+
+        // then
+        verify(suspensionService).suspend(USER_ID,
+                new SuspensionCommand(SuspensionDuration.DAYS_30, ReportReason.ABUSE, "욕설"));
+    }
+
+    @Test
+    void should_delegate_unsuspension_when_unsuspend_user() {
+        // when
+        adminService.unsuspendUser(USER_ID);
+
+        // then
+        verify(suspensionService).unsuspend(USER_ID);
+    }
+
+    @Test
+    void should_delegate_withdrawal_when_withdraw_user() {
+        // when
+        adminService.withdrawUser(USER_ID);
+
+        // then
+        verify(withdrawalService).withdraw(USER_ID);
     }
 }

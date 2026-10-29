@@ -1065,7 +1065,8 @@ class AdminControllerTest {
         // given
         AdminReportDetailResponse detail = new AdminReportDetailResponse(
                 REPORT_ID, ReportTargetType.POST, TARGET_ID, ReportReason.SPAM, "광고성 게시글입니다.",
-                ReportStatus.PENDING, null, REPORTER_ID, "신고자닉네임", LocalDateTime.of(2025, 8, 20, 0, 0)
+                ReportStatus.PENDING, null, REPORTER_ID, "신고자닉네임", LocalDateTime.of(2025, 8, 20, 0, 0),
+                40L, "작성자", true, LocalDateTime.of(2026, 11, 5, 12, 0, 0)
         );
         given(adminService.getReportDetail(REPORT_ID)).willReturn(detail);
 
@@ -1098,7 +1099,7 @@ class AdminControllerTest {
     @Test
     void should_return_200_when_report_status_updated_successfully() throws Exception {
         // given
-        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "삭제 처리", true);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, "삭제 처리", true, null);
         willDoNothing().given(adminService).updateReportStatus(eq(REPORT_ID), any(AdminReportStatusUpdateRequest.class));
 
         // when & then
@@ -1127,7 +1128,7 @@ class AdminControllerTest {
     @Test
     void should_return_404_when_report_not_found_on_status_update() throws Exception {
         // given
-        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, null, null);
+        AdminReportStatusUpdateRequest request = new AdminReportStatusUpdateRequest(ReportStatus.RESOLVED, null, null, null);
         willThrow(new ReportNotFoundException())
                 .given(adminService).updateReportStatus(eq(999L), any(AdminReportStatusUpdateRequest.class));
 
