@@ -583,6 +583,21 @@ class AdminServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
+    void should_return_empty_user_nickname_when_inquiry_author_has_withdrawn() {
+        // given
+        Inquiry inquiry = buildInquiry(InquiryType.ARTIST, InquiryStatus.PENDING, null);
+        Page<Inquiry> page = new PageImpl<>(List.of(inquiry), PAGEABLE, 1);
+        given(inquiryRepository.findAll(PAGEABLE)).willReturn(page);
+        given(userRepository.findAllByIdIn(List.of(USER_ID))).willReturn(List.of(buildUser(USER_ID, null)));
+
+        // when
+        PageResponse<AdminInquiryListItemResponse> response = adminService.getInquiries(null, null, PAGEABLE);
+
+        // then
+        assertThat(response.content().get(0).userNickname()).isEmpty();
+    }
+
+    @Test
     void should_call_find_all_when_type_and_status_are_null() {
         // given
         Inquiry inquiry = buildInquiry(InquiryType.ARTIST, InquiryStatus.PENDING, null);
@@ -2182,6 +2197,21 @@ class AdminServiceTest {
     // -------------------------------------------------------------------------
     // getReports
     // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_empty_reporter_nickname_when_reporter_has_withdrawn() {
+        // given
+        Report report = buildReport(ReportTargetType.POST, TARGET_ID, ReportStatus.PENDING);
+        Page<Report> page = new PageImpl<>(List.of(report), PAGEABLE, 1);
+        given(reportRepository.findAll(PAGEABLE)).willReturn(page);
+        given(userRepository.findAllByIdIn(List.of(REPORTER_ID))).willReturn(List.of(buildUser(REPORTER_ID, null)));
+
+        // when
+        PageResponse<AdminReportListItemResponse> response = adminService.getReports(null, null, PAGEABLE);
+
+        // then
+        assertThat(response.content().get(0).reporterNickname()).isEmpty();
+    }
 
     @Test
     void should_call_find_all_when_target_type_and_status_are_null() {

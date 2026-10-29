@@ -225,7 +225,9 @@ public class AdminService {
                 .map(Inquiry::getUserId)
                 .distinct()
                 .toList();
+        // 탈퇴 회원은 닉네임이 null이라 toMap에 넣을 수 없으므로 제외한다(getOrDefault로 빈 문자열 노출).
         Map<Long, String> nicknameByUserId = userRepository.findAllByIdIn(userIds).stream()
+                .filter(user -> user.getNickname() != null)
                 .collect(Collectors.toMap(User::getId, User::getNickname));
 
         return PageResponse.from(page.map(inquiry ->
@@ -332,7 +334,9 @@ public class AdminService {
                 .map(Report::getReporterId)
                 .distinct()
                 .toList();
+        // 탈퇴 회원은 닉네임이 null이라 toMap에 넣을 수 없으므로 제외한다(getOrDefault로 빈 문자열 노출).
         Map<Long, String> nicknameByUserId = userRepository.findAllByIdIn(reporterIds).stream()
+                .filter(user -> user.getNickname() != null)
                 .collect(Collectors.toMap(User::getId, User::getNickname));
 
         return PageResponse.from(page.map(report ->
