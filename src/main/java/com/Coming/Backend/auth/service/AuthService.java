@@ -53,6 +53,7 @@ public class AuthService {
     private final PolicyDocumentRepository policyDocumentRepository;
     private final UserPolicyAgreementRepository userPolicyAgreementRepository;
     private final WithdrawalService withdrawalService;
+    private final UserStatusValidator userStatusValidator;
 
     /**
      * 새 로그인 세션(기기)을 만들고 그 세션의 Refresh Token을 발급한다.
@@ -121,11 +122,14 @@ public class AuthService {
 
     /**
      * 회원 탈퇴 처리 후 Access Token을 블랙리스트에 등록한다. 탈퇴 처리 내용은 WithdrawalService 참고.
+     * 정지 회원은 정지 직후 남은 Access Token으로 탈퇴해 정지를 피할 수 없도록 막는다(운영 메일 요청 시 관리자 대리 탈퇴).
      *
      * @param accessToken Authorization 헤더에서 추출한 Access Token
      * @param userId      인증된 사용자 ID
+     * @throws UserSuspendedException 정지 중인 회원인 경우
      */
     public void withdraw(String accessToken, Long userId) {
+        userStatusValidator.validateWritable(userId);
         withdrawalService.withdraw(userId);
         blacklistRepository.save(accessToken, jwtProvider.getRemainingExpiry(accessToken));
     }

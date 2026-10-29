@@ -81,6 +81,9 @@ class AuthServiceTest {
     @Mock
     private WithdrawalService withdrawalService;
 
+    @Mock
+    private UserStatusValidator userStatusValidator;
+
     private static final Long USER_ID = 1L;
     private static final String REFRESH_TOKEN = "valid-refresh-token";
     private static final String NEW_REFRESH_TOKEN = "new-refresh-token";
@@ -395,6 +398,18 @@ class AuthServiceTest {
         // then
         verify(withdrawalService).withdraw(USER_ID);
         verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
+    }
+
+    @Test
+    void should_throw_UserSuspendedException_and_not_withdraw_when_suspended_user_withdraws() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> authService.withdraw(ACCESS_TOKEN, USER_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(withdrawalService, never()).withdraw(any());
+        verify(blacklistRepository, never()).save(any(), anyLong());
     }
 
     // -------------------------------------------------------------------------
