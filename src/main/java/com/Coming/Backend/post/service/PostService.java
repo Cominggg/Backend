@@ -2,6 +2,7 @@ package com.Coming.Backend.post.service;
 
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.post.dto.EntityCardResponse;
@@ -61,6 +62,7 @@ public class PostService {
     private final CommentLikeRepository commentLikeRepository;
     private final UserRepository userRepository;
     private final EntityLookupService entityLookupService;
+    private final UserStatusValidator userStatusValidator;
 
     /**
      * content 컬럼(jsonb)의 String ↔ Object 변환 전용. Spring이 HTTP 메시지 변환에 사용하는
@@ -88,6 +90,7 @@ public class PostService {
      */
     @Transactional
     public PostCreateResponse create(Long userId, PostCreateRequest request) {
+        userStatusValidator.validateWritable(userId);
         List<EntityTagRequest> tags = request.entityTags() == null ? List.of() : request.entityTags();
 
         String contentText = TiptapTextExtractor.extract(request.content());
@@ -272,6 +275,7 @@ public class PostService {
      */
     @Transactional
     public void update(Long userId, Long id, PostUpdateRequest request) {
+        userStatusValidator.validateWritable(userId);
         Post post = postRepository.findById(id).orElseThrow(PostNotFoundException::new);
         if (!post.isAuthoredBy(userId)) {
             throw new PostForbiddenException();
@@ -329,6 +333,7 @@ public class PostService {
      */
     @Transactional
     public RecommendCountResponse recommend(Long userId, Long id) {
+        userStatusValidator.validateWritable(userId);
         postRepository.findById(id).orElseThrow(PostNotFoundException::new);
         if (postRecommendRepository.existsByUserIdAndPostId(userId, id)) {
             throw new AlreadyRecommendedException();

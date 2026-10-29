@@ -1,7 +1,9 @@
 package com.Coming.Backend.post.service;
 
 import com.Coming.Backend.auth.entity.User;
+import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.post.dto.CommentCreateRequest;
@@ -19,6 +21,7 @@ import com.Coming.Backend.post.exception.PostNotFoundException;
 import com.Coming.Backend.post.repository.CommentLikeRepository;
 import com.Coming.Backend.post.repository.CommentRepository;
 import com.Coming.Backend.post.repository.PostRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -37,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -57,6 +61,9 @@ class CommentServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserStatusValidator userStatusValidator;
 
     private static final Long POST_ID = 100L;
     private static final Long OTHER_POST_ID = 200L;
@@ -232,6 +239,28 @@ class CommentServiceTest {
     // -------------------------------------------------------------------------
     // create
     // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_save_when_suspended_user_creates_comment() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> commentService.create(AUTHOR_ID, POST_ID, new CommentCreateRequest("댓글", null)))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(commentRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_when_suspended_user_likes_comment() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> commentService.like(AUTHOR_ID, COMMENT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(commentLikeRepository, never()).save(any());
+    }
 
     @Test
     void should_throw_post_not_found_exception_when_post_does_not_exist_on_create() {
