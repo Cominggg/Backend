@@ -263,6 +263,29 @@ class CommentServiceTest {
     }
 
     @Test
+    void should_throw_user_suspended_exception_and_not_delete_when_suspended_user_deletes_comment() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> commentService.delete(AUTHOR_ID, COMMENT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(commentRepository, never()).findById(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_decrement_when_suspended_user_unlikes_comment() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> commentService.unlike(AUTHOR_ID, COMMENT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(commentLikeRepository, never()).delete(any());
+        verify(commentRepository, never()).decrementLikeCount(any());
+    }
+
+    @Test
     void should_throw_post_not_found_exception_when_post_does_not_exist_on_create() {
         // given
         given(postRepository.existsById(POST_ID)).willReturn(false);

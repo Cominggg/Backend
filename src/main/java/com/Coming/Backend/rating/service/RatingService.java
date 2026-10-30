@@ -80,6 +80,7 @@ public class RatingService {
         if (userId == null) {
             throw new UnauthorizedException();
         }
+        userStatusValidator.validateWritable(userId);
         Rating rating = ratingRepository
                 .findByUserIdAndTargetTypeAndTargetId(userId, targetType, targetId)
                 .orElseThrow(RatingNotFoundException::new);

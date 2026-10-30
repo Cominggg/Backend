@@ -492,6 +492,29 @@ class PostServiceTest {
         verify(postRecommendRepository, never()).save(any());
     }
 
+    @Test
+    void should_throw_user_suspended_exception_and_not_delete_when_suspended_user_deletes_post() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> postService.delete(AUTHOR_ID, POST_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(postRepository, never()).delete(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_decrement_when_suspended_user_unrecommends_post() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> postService.unrecommend(AUTHOR_ID, POST_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(postRecommendRepository, never()).deleteByUserIdAndPostId(any(), any());
+        verify(postRepository, never()).decrementRecommendCount(any());
+    }
+
     // -------------------------------------------------------------------------
     // getList
     // -------------------------------------------------------------------------

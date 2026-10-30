@@ -1,5 +1,6 @@
 package com.Coming.Backend.calendar.service;
 
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistAlias;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
@@ -49,6 +50,7 @@ public class CalendarService {
     private final ArtistRepository artistRepository;
     private final ArtistAliasRepository artistAliasRepository;
     private final UserConcertCalendarRepository userConcertCalendarRepository;
+    private final UserStatusValidator userStatusValidator;
 
     /**
      * 특정 연·월에 해당하는 공연 및 티켓팅 일정을 조회한다. 공연은 startDate 기준, 티켓팅은 ticketOpenAt 기준으로 포함된다.
@@ -111,6 +113,7 @@ public class CalendarService {
      */
     @Transactional
     public void addToCalendar(Long userId, Long concertId) {
+        userStatusValidator.validateWritable(userId);
         if (!concertRepository.existsById(concertId)) {
             throw new ConcertNotFoundException();
         }
@@ -136,6 +139,7 @@ public class CalendarService {
      */
     @Transactional
     public void removeFromCalendar(Long userId, Long concertId) {
+        userStatusValidator.validateWritable(userId);
         UserConcertCalendar entry = userConcertCalendarRepository
                 .findByUserIdAndConcertId(userId, concertId)
                 .orElseThrow(NotInCalendarException::new);

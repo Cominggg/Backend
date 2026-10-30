@@ -126,6 +126,7 @@ public class CommentService {
      */
     @Transactional
     public void delete(Long userId, Long commentId) {
+        userStatusValidator.validateWritable(userId);
         Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
         if (!comment.isAuthoredBy(userId)) {
             throw new CommentForbiddenException();
@@ -172,6 +173,7 @@ public class CommentService {
      */
     @Transactional
     public CommentLikeCountResponse unlike(Long userId, Long commentId) {
+        userStatusValidator.validateWritable(userId);
         Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
         if (comment.isDeleted()) {
             throw new CommentNotFoundException();

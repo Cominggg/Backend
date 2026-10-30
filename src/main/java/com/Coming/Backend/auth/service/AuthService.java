@@ -147,6 +147,7 @@ public class AuthService {
      */
     @Transactional
     public MeResponse updateMe(Long userId, String nickname) {
+        userStatusValidator.validateWritable(userId);
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         if (nickname != null && nickname.length() > 20) {
             throw new NicknameTooLongException();
@@ -162,6 +163,7 @@ public class AuthService {
      */
     @Transactional
     public TokenResponse register(Long userId, RegisterRequest request) {
+        userStatusValidator.validateWritable(userId);
         validateRegisterRequest(request);
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         user.completeRegistration(
@@ -223,6 +225,7 @@ public class AuthService {
      */
     @Transactional
     public void updateMarketing(Long userId, MarketingUpdateRequest request) {
+        userStatusValidator.validateWritable(userId);
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         user.updateMarketing(request.agreedMarketing());
     }

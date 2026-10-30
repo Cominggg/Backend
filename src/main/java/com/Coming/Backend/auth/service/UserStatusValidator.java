@@ -19,7 +19,8 @@ public class UserStatusValidator {
     private final UserRepository userRepository;
 
     /**
-     * 게시글·댓글·신고·별점 등 쓰기가 가능한 회원인지 확인한다. 정지 기간이 지난 회원은 다음 로그인 때 해제되므로 허용한다.
+     * 쓰기·수정·삭제가 가능한 회원인지 확인한다. 정지 회원은 비회원처럼 조회만 할 수 있다.
+     * 정지 기간이 지난 회원은 다음 로그인 때 해제되므로 허용한다.
      *
      * @throws UserSuspendedException 정지 중인 회원인 경우
      * @throws UserNotFoundException  존재하지 않거나 탈퇴한 회원인 경우

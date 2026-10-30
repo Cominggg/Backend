@@ -303,6 +303,7 @@ public class PostService {
      */
     @Transactional
     public void delete(Long userId, Long id) {
+        userStatusValidator.validateWritable(userId);
         Post post = postRepository.findById(id).orElseThrow(PostNotFoundException::new);
         if (!post.isAuthoredBy(userId)) {
             throw new PostForbiddenException();
@@ -355,6 +356,7 @@ public class PostService {
      */
     @Transactional
     public RecommendCountResponse unrecommend(Long userId, Long id) {
+        userStatusValidator.validateWritable(userId);
         postRepository.findById(id).orElseThrow(PostNotFoundException::new);
         long deletedCount = postRecommendRepository.deleteByUserIdAndPostId(userId, id);
         if (deletedCount == 0) {

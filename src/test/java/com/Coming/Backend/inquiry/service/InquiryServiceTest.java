@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.auth.exception.UserSuspendedException;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.inquiry.event.InquiryCreatedEvent;
 import com.Coming.Backend.common.response.PageResponse;
@@ -22,6 +25,7 @@ import com.Coming.Backend.inquiry.exception.InquiryAlreadyPendingException;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.Coming.Backend.inquiry.exception.TargetNotFoundException;
 import com.Coming.Backend.inquiry.repository.InquiryRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +58,9 @@ class InquiryServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private UserStatusValidator userStatusValidator;
 
     private static final Long USER_ID = 10L;
     private static final Long INQUIRY_ID = 1L;
@@ -205,6 +212,20 @@ class InquiryServiceTest {
         verify(inquiryRepository, org.mockito.Mockito.never()).existsByUserIdAndTargetIdAndTypeAndStatus(any(), any(), any(), any());
         verify(inquiryRepository).save(any(Inquiry.class));
         verify(eventPublisher).publishEvent(any(InquiryCreatedEvent.class));
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_save_when_suspended_user_creates_inquiry() {
+        // given
+        InquiryCreateRequest request = new InquiryCreateRequest(
+                InquiryType.CONCERT, TARGET_ID, "공연 정보 오류 신고", "공연 날짜가 잘못 표기되어 있습니다.");
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> inquiryService.createInquiry(USER_ID, request))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(inquiryRepository, org.mockito.Mockito.never()).save(any(Inquiry.class));
+        verify(eventPublisher, org.mockito.Mockito.never()).publishEvent(any(Object.class));
     }
 
     // -------------------------------------------------------------------------

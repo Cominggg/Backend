@@ -229,6 +229,16 @@ class RatingServiceTest {
     }
 
     @Test
+    void should_throw_user_suspended_exception_and_not_delete_when_suspended_user_deletes() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+        // when & then
+        assertThatThrownBy(() -> ratingService.delete(USER_ID, RatingTargetType.CONCERT, CONCERT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(ratingRepository, never()).delete(any());
+    }
+
+    @Test
     void should_throw_rating_not_found_exception_when_rating_does_not_exist() {
         // given
         given(ratingRepository.findByUserIdAndTargetTypeAndTargetId(USER_ID, RatingTargetType.CONCERT, CONCERT_ID))

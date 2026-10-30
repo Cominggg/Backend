@@ -501,6 +501,17 @@ class AuthServiceTest {
                 .isInstanceOf(UserNotFoundException.class);
     }
 
+    @Test
+    void should_throw_UserNotFoundException_and_not_update_marketing_when_withdrawn_user_updates_marketing() {
+        // given
+        willThrow(new UserNotFoundException()).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> authService.updateMarketing(USER_ID, new MarketingUpdateRequest(true)))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(userRepository, never()).findById(any());
+    }
+
     // -------------------------------------------------------------------------
     // updateMe
     // -------------------------------------------------------------------------
@@ -518,6 +529,17 @@ class AuthServiceTest {
         assertThat(response.nickname()).isEqualTo("새닉네임");
         assertThat(response.id()).isEqualTo(USER_ID);
         assertThat(response.role()).isEqualTo(UserRole.USER.name());
+    }
+
+    @Test
+    void should_throw_UserSuspendedException_and_not_update_nickname_when_suspended_user_updates_me() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> authService.updateMe(USER_ID, "새닉네임"))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(userRepository, never()).findById(any());
     }
 
     // -------------------------------------------------------------------------
@@ -609,5 +631,20 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.register(USER_ID, request))
                 .isInstanceOf(PolicyNotFoundException.class)
                 .hasMessage(ErrorCode.POLICY_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_throw_UserNotFoundException_and_not_register_when_withdrawn_user_registers() {
+        // given
+        RegisterRequest request = new RegisterRequest("IU", 1993, true, true, false);
+        willThrow(new UserNotFoundException()).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> authService.register(USER_ID, request))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(userRepository, never()).findById(any());
+        verify(userPolicyAgreementRepository, never()).save(any());
+        verify(userRepository, never()).flush();
+        verify(jwtProvider, never()).generateAccessToken(anyLong(), anyString());
     }
 }

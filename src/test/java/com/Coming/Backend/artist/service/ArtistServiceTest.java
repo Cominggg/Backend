@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -25,12 +26,15 @@ import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.ArtistUrlRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
+import com.Coming.Backend.auth.exception.UserSuspendedException;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -66,6 +70,9 @@ class ArtistServiceTest {
 
     @Mock
     private ConcertRepository concertRepository;
+
+    @Mock
+    private UserStatusValidator userStatusValidator;
 
     private static final Long ARTIST_ID = 1L;
     private static final Long USER_ID = 10L;
@@ -670,6 +677,17 @@ class ArtistServiceTest {
                 .hasMessage(ErrorCode.ALREADY_FOLLOWING.getMessage());
     }
 
+    @Test
+    void should_throw_user_suspended_exception_and_not_save_when_suspended_user_follows() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> artistService.follow(USER_ID, ARTIST_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(userFollowArtistRepository, never()).save(any(UserFollowArtist.class));
+    }
+
     // -------------------------------------------------------------------------
     // unfollow
     // -------------------------------------------------------------------------
@@ -701,6 +719,17 @@ class ArtistServiceTest {
         assertThatThrownBy(() -> artistService.unfollow(USER_ID, ARTIST_ID))
                 .isInstanceOf(NotFollowingException.class)
                 .hasMessage(ErrorCode.NOT_FOLLOWING.getMessage());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_delete_when_suspended_user_unfollows() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> artistService.unfollow(USER_ID, ARTIST_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(userFollowArtistRepository, never()).delete(any(UserFollowArtist.class));
     }
 
     // -------------------------------------------------------------------------
