@@ -1,5 +1,6 @@
 package com.Coming.Backend.rating.service;
 
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertNotEndedException;
@@ -35,6 +36,7 @@ public class RatingService {
     private final RatingRepository ratingRepository;
     private final ConcertRepository concertRepository;
     private final ReleaseGroupRepository releaseGroupRepository;
+    private final UserStatusValidator userStatusValidator;
 
     /**
      * 별점을 등록하거나 수정한다. 대상이 존재하지 않으면 RatingTargetNotFoundException,
@@ -49,6 +51,7 @@ public class RatingService {
         if (userId == null) {
             throw new UnauthorizedException();
         }
+        userStatusValidator.validateWritable(userId);
         if (score.compareTo(MIN_SCORE) < 0 || score.compareTo(MAX_SCORE) > 0
                 || score.remainder(SCORE_STEP).compareTo(BigDecimal.ZERO) != 0) {
             throw new InvalidRatingScoreException();
@@ -77,6 +80,7 @@ public class RatingService {
         if (userId == null) {
             throw new UnauthorizedException();
         }
+        userStatusValidator.validateWritable(userId);
         Rating rating = ratingRepository
                 .findByUserIdAndTargetTypeAndTargetId(userId, targetType, targetId)
                 .orElseThrow(RatingNotFoundException::new);

@@ -1,5 +1,7 @@
 package com.Coming.Backend.report.service;
 
+import com.Coming.Backend.auth.exception.UserSuspendedException;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.post.repository.CommentRepository;
 import com.Coming.Backend.post.repository.PostRepository;
@@ -26,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -47,6 +50,9 @@ class ReportServiceTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private UserStatusValidator userStatusValidator;
+
     private static final Long REPORTER_ID = 1L;
     private static final Long REPORT_ID = 100L;
     private static final Long POST_ID = 10L;
@@ -55,6 +61,18 @@ class ReportServiceTest {
     // -------------------------------------------------------------------------
     // create
     // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_save_when_suspended_user_reports() {
+        // given
+        ReportCreateRequest request = new ReportCreateRequest(ReportTargetType.POST, POST_ID, ReportReason.SPAM, null);
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(REPORTER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> reportService.create(REPORTER_ID, request))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(reportRepository, never()).save(any(Report.class));
+    }
 
     @Test
     void should_throw_report_detail_required_exception_when_reason_is_etc_and_detail_is_null() {

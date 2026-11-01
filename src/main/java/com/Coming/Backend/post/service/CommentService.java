@@ -2,6 +2,7 @@ package com.Coming.Backend.post.service;
 
 import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.post.dto.CommentCreateRequest;
 import com.Coming.Backend.post.dto.CommentCreateResponse;
@@ -42,6 +43,7 @@ public class CommentService {
     private final CommentLikeRepository commentLikeRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final UserStatusValidator userStatusValidator;
 
     /**
      * 게시글의 댓글·답글 목록을 조회한다. 최상위 댓글만 페이지네이션 대상이며, 답글은 각 최상위 댓글에 전체 포함된다.
@@ -88,6 +90,7 @@ public class CommentService {
      */
     @Transactional
     public CommentCreateResponse create(Long userId, Long postId, CommentCreateRequest request) {
+        userStatusValidator.validateWritable(userId);
         if (!postRepository.existsById(postId)) {
             throw new PostNotFoundException();
         }
@@ -123,6 +126,7 @@ public class CommentService {
      */
     @Transactional
     public void delete(Long userId, Long commentId) {
+        userStatusValidator.validateWritable(userId);
         Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
         if (!comment.isAuthoredBy(userId)) {
             throw new CommentForbiddenException();
@@ -144,6 +148,7 @@ public class CommentService {
      */
     @Transactional
     public CommentLikeCountResponse like(Long userId, Long commentId) {
+        userStatusValidator.validateWritable(userId);
         Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
         if (comment.isDeleted()) {
             throw new CommentNotFoundException();
@@ -168,6 +173,7 @@ public class CommentService {
      */
     @Transactional
     public CommentLikeCountResponse unlike(Long userId, Long commentId) {
+        userStatusValidator.validateWritable(userId);
         Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
         if (comment.isDeleted()) {
             throw new CommentNotFoundException();
@@ -193,6 +199,7 @@ public class CommentService {
                 authorNickname,
                 comment.isVisibleAuthor(userId),
                 comment.getDisplayContent(),
+                comment.isDeleted(),
                 comment.getLikeCount(),
                 isLiked,
                 comment.getCreatedAt(),
@@ -205,7 +212,9 @@ public class CommentService {
             return Map.of();
         }
         Set<Long> userIds = comments.stream().map(Comment::getUserId).collect(Collectors.toSet());
+        // 탈퇴 회원은 닉네임이 null이라 toMap에 넣을 수 없으므로 제외한다(조회 시 null로 노출).
         return userRepository.findAllByIdIn(userIds).stream()
+                .filter(user -> user.getNickname() != null)
                 .collect(Collectors.toMap(User::getId, User::getNickname));
     }
 

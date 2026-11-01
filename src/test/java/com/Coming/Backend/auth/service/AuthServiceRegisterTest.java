@@ -70,6 +70,9 @@ class AuthServiceRegisterTest {
     @Mock
     private UserPolicyAgreementRepository userPolicyAgreementRepository;
 
+    @Mock
+    private UserStatusValidator userStatusValidator;
+
     private static final Long USER_ID = 1L;
     private static final String NEW_ACCESS_TOKEN = "new-access-token";
 

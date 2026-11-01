@@ -88,12 +88,21 @@ jwt:
   refresh-token-expiry: 604800000
 
 app:
+  web-base-url: ${WEB_BASE_URL:https://www.comingg.com}
   post:
     popular-board-threshold: 10
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   oauth2:
     redirect-base-uri: ${OAUTH2_REDIRECT_BASE_URI:http://localhost:3000/auth/callback}
+    kakao:
+      app-id: ${KAKAO_APP_ID:}
+      admin-key: ${KAKAO_ADMIN_KEY:}
+    apple:
+      bundle-id: ${APPLE_BUNDLE_ID:}
+      team-id: ${APPLE_TEAM_ID:}
+      key-id: ${APPLE_KEY_ID:}
+      private-key: ${APPLE_PRIVATE_KEY:}
   cookie:
     secure: true
 

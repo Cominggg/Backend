@@ -33,7 +33,7 @@ public class DevAuthController {
     ) {
         DevTokenResult result = devAuthService.login(request.nickname(), request.role());
         addRefreshTokenCookie(response, result.refreshToken());
-        return Map.of("accessToken", result.accessToken());
+        return Map.of("accessToken", result.accessToken(), "refreshToken", result.refreshToken());
     }
 
     private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {

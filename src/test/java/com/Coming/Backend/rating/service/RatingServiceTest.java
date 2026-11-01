@@ -1,5 +1,7 @@
 package com.Coming.Backend.rating.service;
 
+import com.Coming.Backend.auth.exception.UserSuspendedException;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
@@ -15,6 +17,7 @@ import com.Coming.Backend.rating.exception.RatingNotFoundException;
 import com.Coming.Backend.rating.exception.RatingTargetNotFoundException;
 import com.Coming.Backend.rating.repository.RatingRepository;
 import com.Coming.Backend.release.repository.ReleaseGroupRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,7 +34,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -50,6 +55,9 @@ class RatingServiceTest {
     @Mock
     private ReleaseGroupRepository releaseGroupRepository;
 
+    @Mock
+    private UserStatusValidator userStatusValidator;
+
     private static final Long USER_ID = 1L;
     private static final Long CONCERT_ID = 10L;
 
@@ -63,6 +71,17 @@ class RatingServiceTest {
         assertThatThrownBy(() -> ratingService.upsert(null, RatingTargetType.CONCERT, CONCERT_ID, BigDecimal.valueOf(4.5)))
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessage(ErrorCode.UNAUTHORIZED.getMessage());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_upsert_when_suspended_user_rates() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> ratingService.upsert(USER_ID, RatingTargetType.CONCERT, CONCERT_ID, BigDecimal.valueOf(4.5)))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(ratingRepository, never()).upsert(any(), any(), any(), any());
     }
 
     @Test
@@ -207,6 +226,16 @@ class RatingServiceTest {
         assertThatThrownBy(() -> ratingService.delete(null, RatingTargetType.CONCERT, CONCERT_ID))
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessage(ErrorCode.UNAUTHORIZED.getMessage());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_delete_when_suspended_user_deletes() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+        // when & then
+        assertThatThrownBy(() -> ratingService.delete(USER_ID, RatingTargetType.CONCERT, CONCERT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(ratingRepository, never()).delete(any());
     }
 
     @Test

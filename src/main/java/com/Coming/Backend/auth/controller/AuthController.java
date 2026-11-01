@@ -1,5 +1,7 @@
 package com.Coming.Backend.auth.controller;
 
+import com.Coming.Backend.auth.dto.AppLogoutRequest;
+import com.Coming.Backend.auth.dto.AppRefreshRequest;
 import com.Coming.Backend.auth.dto.MarketingUpdateRequest;
 import com.Coming.Backend.auth.dto.MeResponse;
 import com.Coming.Backend.auth.dto.NicknameCheckResponse;
@@ -62,6 +64,24 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create("/oauth2/authorization/" + provider))
                 .build();
+    }
+
+    @Operation(summary = "앱 Access Token 재발급")
+    @ApiResponse(responseCode = "401", description = "Refresh Token 만료 또는 유효하지 않음")
+    @PostMapping("/app/refresh")
+    public ResponseEntity<TokenPair> refreshForApp(@Valid @RequestBody AppRefreshRequest request) {
+        return ResponseEntity.ok(authService.refreshToken(request.refreshToken()));
+    }
+
+    @Operation(summary = "앱 로그아웃")
+    @PostMapping("/app/logout")
+    public ResponseEntity<Void> logoutForApp(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody(required = false) AppLogoutRequest request) {
+        String refreshToken = request == null ? null : request.refreshToken();
+        authService.logout(authorizationHeader.substring(BEARER_PREFIX.length()), userId, refreshToken);
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "Access Token 재발급")

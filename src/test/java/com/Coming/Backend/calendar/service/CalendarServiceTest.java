@@ -7,8 +7,11 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.Coming.Backend.auth.exception.UserSuspendedException;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
@@ -25,6 +28,7 @@ import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -62,6 +66,9 @@ class CalendarServiceTest {
 
     @Mock
     private UserConcertCalendarRepository userConcertCalendarRepository;
+
+    @Mock
+    private UserStatusValidator userStatusValidator;
 
     private static final Long CONCERT_ID = 1L;
     private static final Long ARTIST_ID = 10L;
@@ -369,6 +376,17 @@ class CalendarServiceTest {
                 .hasMessage(ErrorCode.ALREADY_IN_CALENDAR.getMessage());
     }
 
+    @Test
+    void should_throw_user_suspended_exception_and_not_save_when_suspended_user_adds_to_calendar() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> calendarService.addToCalendar(USER_ID, CONCERT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(userConcertCalendarRepository, never()).save(any(UserConcertCalendar.class));
+    }
+
     // -------------------------------------------------------------------------
     // removeFromCalendar
     // -------------------------------------------------------------------------
@@ -400,5 +418,16 @@ class CalendarServiceTest {
         assertThatThrownBy(() -> calendarService.removeFromCalendar(USER_ID, CONCERT_ID))
                 .isInstanceOf(NotInCalendarException.class)
                 .hasMessage(ErrorCode.NOT_IN_CALENDAR.getMessage());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_delete_when_suspended_user_removes_from_calendar() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> calendarService.removeFromCalendar(USER_ID, CONCERT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(userConcertCalendarRepository, never()).delete(any(UserConcertCalendar.class));
     }
 }

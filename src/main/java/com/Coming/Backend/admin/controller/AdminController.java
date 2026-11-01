@@ -10,6 +10,8 @@ import com.Coming.Backend.admin.dto.AdminExcludedConcertResponse;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCreateResponse;
+import com.Coming.Backend.admin.dto.AdminUserListItemResponse;
+import com.Coming.Backend.admin.dto.AdminUserSuspendRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
 import com.Coming.Backend.admin.dto.PipelineArtistCollectResult;
@@ -181,6 +183,41 @@ public class AdminController {
             @RequestBody @Valid AdminReportStatusUpdateRequest request) {
         adminService.updateReportStatus(id, request);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "회원 검색 (이메일·닉네임, 탈퇴 회원 제외)")
+    @GetMapping("/users")
+    public ResponseEntity<PageResponse<AdminUserListItemResponse>> searchUsers(
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        return ResponseEntity.ok(adminService.searchUsers(keyword, pageable));
+    }
+
+    @Operation(summary = "회원 정지 (days: 7 | 30 | null=영구)")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT")
+    @ApiResponse(responseCode = "404", description = "USER_NOT_FOUND")
+    @PostMapping("/users/{id}/suspension")
+    public ResponseEntity<Void> suspendUser(
+            @PathVariable Long id,
+            @RequestBody @Valid AdminUserSuspendRequest request) {
+        adminService.suspendUser(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "회원 정지 해제")
+    @ApiResponse(responseCode = "404", description = "USER_NOT_FOUND")
+    @DeleteMapping("/users/{id}/suspension")
+    public ResponseEntity<Void> unsuspendUser(@PathVariable Long id) {
+        adminService.unsuspendUser(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "회원 대리 탈퇴")
+    @ApiResponse(responseCode = "404", description = "USER_NOT_FOUND")
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<Void> withdrawUser(@PathVariable Long id) {
+        adminService.withdrawUser(id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "EXCLUDED 공연 목록 조회")

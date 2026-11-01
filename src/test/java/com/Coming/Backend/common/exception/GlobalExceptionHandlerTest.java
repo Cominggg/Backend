@@ -1,8 +1,10 @@
 package com.Coming.Backend.common.exception;
 
 import com.Coming.Backend.auth.exception.InvalidTokenException;
+import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.common.discord.DiscordNotifier;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
+import com.Coming.Backend.report.entity.ReportReason;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +18,9 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -69,6 +73,52 @@ class GlobalExceptionHandlerTest {
 
         // then
         then(discordNotifier).should().notifyFourXx(request, ErrorCode.USER_SUSPENDED);
+    }
+
+    @Test
+    void should_return_suspension_period_and_reason_and_notify_discord_when_user_suspended_exception_thrown() {
+        // given
+        LocalDateTime until = LocalDateTime.of(2026, 11, 5, 12, 0, 0);
+        UserSuspendedException exception = new UserSuspendedException(until, ReportReason.SPAM);
+
+        // when
+        ResponseEntity<UserSuspendedErrorResponse> response = handler.handleUserSuspended(exception, request);
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("USER_SUSPENDED");
+        assertThat(response.getBody().message()).isEqualTo(ErrorCode.USER_SUSPENDED.getMessage());
+        assertThat(response.getBody().suspendedUntil()).isEqualTo(until);
+        assertThat(response.getBody().reason()).isEqualTo(ReportReason.SPAM);
+        then(discordNotifier).should().notifyFourXx(request, ErrorCode.USER_SUSPENDED);
+    }
+
+    @Test
+    void should_serialize_suspended_until_without_offset_and_fraction_when_user_suspended_response_written() {
+        // given
+        UserSuspendedErrorResponse body = UserSuspendedErrorResponse.of(
+                new UserSuspendedException(LocalDateTime.of(2026, 11, 5, 12, 0, 0, 123_000_000), ReportReason.SPAM));
+
+        // when
+        String json = JsonMapper.builder().build().writeValueAsString(body);
+
+        // then
+        assertThat(json).isEqualTo("{\"code\":\"USER_SUSPENDED\",\"message\":\"정지된 계정입니다.\","
+                + "\"suspendedUntil\":\"2026-11-05T12:00:00\",\"reason\":\"SPAM\"}");
+    }
+
+    @Test
+    void should_serialize_null_suspended_until_when_suspension_is_permanent() {
+        // given
+        UserSuspendedErrorResponse body = UserSuspendedErrorResponse.of(
+                new UserSuspendedException(null, ReportReason.ILLEGAL));
+
+        // when
+        String json = JsonMapper.builder().build().writeValueAsString(body);
+
+        // then
+        assertThat(json).contains("\"suspendedUntil\":null");
     }
 
     @Test
