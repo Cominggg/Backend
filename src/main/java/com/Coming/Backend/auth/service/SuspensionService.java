@@ -39,7 +39,7 @@ public class SuspensionService {
         LocalDateTime until = command.duration().untilFrom(LocalDateTime.now());
         user.suspend(until, command.reason(), command.detail());
         tokenRepository.deleteAllSessions(userId);
-        if (user.getEmail() != null) {
+        if (!user.hasNoEmail()) {
             eventPublisher.publishEvent(
                     new SuspensionNoticeEvent(userId, user.getEmail(), until, command.reason(), command.detail()));
         }

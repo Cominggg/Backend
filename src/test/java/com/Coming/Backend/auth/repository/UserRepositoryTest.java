@@ -71,4 +71,17 @@ class UserRepositoryTest {
         // then
         assertThat(result.getContent()).extracting(User::getId).containsExactly(user.getId());
     }
+
+    @Test
+    void should_match_wildcard_literally_when_keyword_is_escaped() {
+        // given
+        User literal = saveUser("repo-test-6", "zq139_fan@example.com", "언더바회원", UserStatus.ACTIVE);
+        saveUser("repo-test-7", "zq139xfan@example.com", "다른회원", UserStatus.ACTIVE);
+
+        // when
+        Page<User> result = userRepository.searchByEmailOrNickname("zq139\\_fan", NOT_WITHDRAWN, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(User::getId).containsExactly(literal.getId());
+    }
 }

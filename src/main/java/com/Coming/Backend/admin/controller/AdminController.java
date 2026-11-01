@@ -189,7 +189,7 @@ public class AdminController {
     @GetMapping("/users")
     public ResponseEntity<PageResponse<AdminUserListItemResponse>> searchUsers(
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
         return ResponseEntity.ok(adminService.searchUsers(keyword, pageable));
     }
 

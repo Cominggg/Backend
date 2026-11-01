@@ -117,6 +117,20 @@ class SuspensionServiceTest {
     }
 
     @Test
+    void should_not_publish_notice_when_user_email_is_blank() {
+        // given
+        User user = buildUser(UserStatus.ACTIVE, " ");
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when
+        suspensionService.suspend(USER_ID,
+                new SuspensionCommand(SuspensionDuration.DAYS_30, ReportReason.ABUSE, null));
+
+        // then
+        verify(eventPublisher, never()).publishEvent(any(SuspensionNoticeEvent.class));
+    }
+
+    @Test
     void should_throw_UserNotFoundException_when_suspending_withdrawn_user() {
         // given
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(buildUser(UserStatus.INACTIVE, null)));

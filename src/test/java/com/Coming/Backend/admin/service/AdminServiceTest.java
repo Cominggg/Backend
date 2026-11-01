@@ -2581,6 +2581,20 @@ class AdminServiceTest {
         verify(userRepository, never()).searchByEmailOrNickname(any(), any(), any());
     }
 
+    @Test
+    void should_escape_like_wildcards_when_keyword_contains_them() {
+        // given
+        given(userRepository.searchByEmailOrNickname("a\\_b\\%c\\\\", List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED), PAGEABLE))
+                .willReturn(new PageImpl<>(List.of(), PAGEABLE, 0));
+
+        // when
+        PageResponse<AdminUserListItemResponse> response = adminService.searchUsers("a_b%c\\", PAGEABLE);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        verify(userRepository).searchByEmailOrNickname("a\\_b\\%c\\\\", List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED), PAGEABLE);
+    }
+
     // -------------------------------------------------------------------------
     // suspendUser / unsuspendUser / withdrawUser
     // -------------------------------------------------------------------------

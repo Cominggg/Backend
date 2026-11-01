@@ -25,13 +25,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Page<User> findByStatusIn(Collection<UserStatus> statuses, Pageable pageable);
 
     /**
-     * 이메일 또는 닉네임에 keyword가 포함된 회원을 대소문자 구분 없이 조회한다.
+     * 이메일 또는 닉네임에 keyword가 포함된 회원을 대소문자 구분 없이 조회한다. keyword의 %·_는 \로 이스케이프해 넘긴다.
      */
     @Query("""
             SELECT u FROM User u
             WHERE u.status IN :statuses
-              AND (LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                   OR LOWER(u.nickname) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND (LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                   OR LOWER(u.nickname) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\')
             """)
     Page<User> searchByEmailOrNickname(@Param("keyword") String keyword,
                                        @Param("statuses") Collection<UserStatus> statuses,

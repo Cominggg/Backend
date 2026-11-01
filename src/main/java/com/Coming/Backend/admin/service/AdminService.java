@@ -407,8 +407,14 @@ public class AdminService {
         List<UserStatus> notWithdrawn = List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED);
         Page<User> page = keyword == null || keyword.isBlank()
                 ? userRepository.findByStatusIn(notWithdrawn, pageable)
-                : userRepository.searchByEmailOrNickname(keyword.strip(), notWithdrawn, pageable);
+                : userRepository.searchByEmailOrNickname(escapeLikeWildcards(keyword.strip()), notWithdrawn, pageable);
         return PageResponse.from(page.map(AdminUserListItemResponse::from));
+    }
+
+    private String escapeLikeWildcards(String keyword) {
+        return keyword.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     /**
@@ -416,6 +422,7 @@ public class AdminService {
      *
      * @throws InvalidInputException 지원하지 않는 정지 일수인 경우
      */
+    @Transactional
     public void suspendUser(Long userId, AdminUserSuspendRequest request) {
         suspensionService.suspend(userId, request.toCommand());
     }
@@ -423,6 +430,7 @@ public class AdminService {
     /**
      * 회원 정지를 해제한다.
      */
+    @Transactional
     public void unsuspendUser(Long userId) {
         suspensionService.unsuspend(userId);
     }
@@ -430,6 +438,7 @@ public class AdminService {
     /**
      * 로그인할 수 없는 정지 회원의 이메일 요청 등으로 관리자가 대신 탈퇴 처리한다. 본인 탈퇴와 같은 로직을 쓴다.
      */
+    @Transactional
     public void withdrawUser(Long userId) {
         withdrawalService.withdraw(userId);
     }

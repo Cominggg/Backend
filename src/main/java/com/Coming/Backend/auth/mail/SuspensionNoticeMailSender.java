@@ -1,6 +1,7 @@
 package com.Coming.Backend.auth.mail;
 
 import com.Coming.Backend.auth.event.SuspensionNoticeEvent;
+import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.report.entity.ReportReason;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -63,7 +64,7 @@ public class SuspensionNoticeMailSender {
             helper.addInline(LOGO_CONTENT_ID, new ClassPathResource(LOGO_PATH));
             javaMailSender.send(message);
         } catch (MessagingException | UnsupportedEncodingException e) {
-            throw new IllegalStateException("정지 통지 메일 메시지 생성에 실패했습니다.", e);
+            throw new IllegalStateException(ErrorCode.INTERNAL_ERROR.getMessage(), e);
         }
     }
 
