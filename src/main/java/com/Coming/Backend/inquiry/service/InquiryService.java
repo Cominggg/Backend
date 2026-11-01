@@ -1,5 +1,6 @@
 package com.Coming.Backend.inquiry.service;
 
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.event.InquiryCreatedEvent;
@@ -31,6 +32,7 @@ public class InquiryService {
     private final ConcertRepository concertRepository;
     private final ArtistRepository artistRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserStatusValidator userStatusValidator;
 
     /**
      * 문의를 등록한다. CONCERT·ARTIST·SETLIST 타입은 동일 targetId·type으로 PENDING 문의가 존재하면 예외를 던진다.
@@ -38,6 +40,7 @@ public class InquiryService {
      */
     @Transactional
     public void createInquiry(Long userId, InquiryCreateRequest request) {
+        userStatusValidator.validateWritable(userId);
         boolean isTargetless = isTargetlessType(request.type());
 
         if (!isTargetless) {

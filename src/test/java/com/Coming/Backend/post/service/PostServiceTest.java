@@ -6,12 +6,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.auth.entity.User;
+import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
@@ -40,6 +43,7 @@ import com.Coming.Backend.post.repository.EntityTagCount;
 import com.Coming.Backend.post.repository.PostEntityTagRepository;
 import com.Coming.Backend.post.repository.PostRecommendRepository;
 import com.Coming.Backend.post.repository.PostRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +89,9 @@ class PostServiceTest {
 
     @Mock
     private EntityLookupService entityLookupService;
+
+    @Mock
+    private UserStatusValidator userStatusValidator;
 
     private static final Long POST_ID = 10L;
     private static final Long AUTHOR_ID = 1L;
@@ -452,6 +459,62 @@ class PostServiceTest {
         assertThat(response.entityTags().get(0).releaseGroupId()).isEqualTo(100L);
     }
 
+    @Test
+    void should_throw_user_suspended_exception_and_not_save_when_suspended_user_creates_post() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> postService.create(AUTHOR_ID, null))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(postRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_when_suspended_user_updates_post() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, null))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(postRepository, never()).findById(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_when_suspended_user_recommends_post() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> postService.recommend(AUTHOR_ID, POST_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(postRecommendRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_delete_when_suspended_user_deletes_post() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> postService.delete(AUTHOR_ID, POST_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(postRepository, never()).delete(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_decrement_when_suspended_user_unrecommends_post() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> postService.unrecommend(AUTHOR_ID, POST_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(postRecommendRepository, never()).deleteByUserIdAndPostId(any(), any());
+        verify(postRepository, never()).decrementRecommendCount(any());
+    }
+
     // -------------------------------------------------------------------------
     // getList
     // -------------------------------------------------------------------------
@@ -475,6 +538,24 @@ class PostServiceTest {
         assertThat(response.page()).isEqualTo(0);
         assertThat(response.size()).isEqualTo(20);
         assertThat(response.totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void should_return_null_author_nickname_when_author_has_withdrawn() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 3L);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
+        given(postRepository.findPosts(isNull(), eq(pageable))).willReturn(page);
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, null)));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getList(null, 0, 20);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).authorNickname()).isNull();
     }
 
     // -------------------------------------------------------------------------

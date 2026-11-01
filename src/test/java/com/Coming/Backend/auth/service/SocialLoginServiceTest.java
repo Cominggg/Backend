@@ -28,6 +28,7 @@ import com.Coming.Backend.auth.social.AppleIdentityTokenVerifier;
 import com.Coming.Backend.auth.social.AppleUserInfo;
 import com.Coming.Backend.auth.social.SocialTokenVerifier;
 import com.Coming.Backend.common.exception.InvalidInputException;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -297,7 +298,7 @@ class SocialLoginServiceTest {
     void should_propagate_UserSuspendedException_and_not_create_session_when_user_is_suspended() {
         // given
         given(googleVerifier.verify(GOOGLE_ID_TOKEN)).willReturn(googleUserInfo);
-        given(socialUserService.findOrCreate("google", googleUserInfo)).willThrow(new UserSuspendedException());
+        given(socialUserService.findOrCreate("google", googleUserInfo)).willThrow(new UserSuspendedException(null, ReportReason.SPAM));
 
         // when & then
         assertThatThrownBy(() -> socialLoginService.login("google",

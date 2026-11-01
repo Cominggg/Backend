@@ -7,6 +7,8 @@ import com.Coming.Backend.admin.dto.AdminArtistUpdateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCollectRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCreateRequest;
 import com.Coming.Backend.admin.dto.AdminConcertCreateResponse;
+import com.Coming.Backend.admin.dto.AdminUserListItemResponse;
+import com.Coming.Backend.admin.dto.AdminUserSuspendRequest;
 import com.Coming.Backend.admin.dto.BookingLinkRequest;
 import com.Coming.Backend.admin.dto.DataArtistSearchResult;
 import com.Coming.Backend.admin.dto.DataConcertSearchResult;
@@ -38,6 +40,9 @@ import com.Coming.Backend.admin.repository.ArtistCollectLockRepository;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.ArtistAlias;
 import com.Coming.Backend.artist.entity.ArtistUrl;
+import com.Coming.Backend.auth.entity.UserStatus;
+import com.Coming.Backend.auth.service.SuspensionService;
+import com.Coming.Backend.auth.service.WithdrawalService;
 import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
@@ -73,12 +78,17 @@ import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import com.Coming.Backend.notice.entity.Notice;
 import com.Coming.Backend.notice.exception.NoticeNotFoundException;
 import com.Coming.Backend.notice.repository.NoticeRepository;
+import com.Coming.Backend.post.entity.Comment;
+import com.Coming.Backend.post.entity.Post;
+import com.Coming.Backend.post.repository.CommentRepository;
+import com.Coming.Backend.post.repository.PostRepository;
 import com.Coming.Backend.post.service.CommentService;
 import com.Coming.Backend.post.service.PostService;
 import com.Coming.Backend.report.entity.Report;
 import com.Coming.Backend.report.entity.ReportStatus;
 import com.Coming.Backend.report.entity.ReportTargetType;
 import com.Coming.Backend.report.exception.ReportNotFoundException;
+import com.Coming.Backend.report.exception.ReportTargetNotFoundException;
 import com.Coming.Backend.report.repository.ReportRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -91,6 +101,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -109,6 +120,10 @@ public class AdminService {
     private final PostService postService;
     private final CommentService commentService;
     private final UserRepository userRepository;
+    private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
+    private final SuspensionService suspensionService;
+    private final WithdrawalService withdrawalService;
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
     private final ConcertArtistCandidateRepository concertArtistCandidateRepository;
@@ -225,7 +240,9 @@ public class AdminService {
                 .map(Inquiry::getUserId)
                 .distinct()
                 .toList();
+        // 탈퇴 회원은 닉네임이 null이라 toMap에 넣을 수 없으므로 제외한다(getOrDefault로 빈 문자열 노출).
         Map<Long, String> nicknameByUserId = userRepository.findAllByIdIn(userIds).stream()
+                .filter(user -> user.getNickname() != null)
                 .collect(Collectors.toMap(User::getId, User::getNickname));
 
         return PageResponse.from(page.map(inquiry ->
@@ -332,7 +349,9 @@ public class AdminService {
                 .map(Report::getReporterId)
                 .distinct()
                 .toList();
+        // 탈퇴 회원은 닉네임이 null이라 toMap에 넣을 수 없으므로 제외한다(getOrDefault로 빈 문자열 노출).
         Map<Long, String> nicknameByUserId = userRepository.findAllByIdIn(reporterIds).stream()
+                .filter(user -> user.getNickname() != null)
                 .collect(Collectors.toMap(User::getId, User::getNickname));
 
         return PageResponse.from(page.map(report ->
@@ -347,17 +366,24 @@ public class AdminService {
         String nickname = userRepository.findById(report.getReporterId())
                 .map(User::getNickname)
                 .orElse("");
-        return AdminReportDetailResponse.of(report, nickname);
+        User targetAuthor = findTargetAuthorId(report).flatMap(userRepository::findById).orElse(null);
+        return AdminReportDetailResponse.of(report, nickname, targetAuthor);
     }
 
     /**
-     * 신고 처리 상태를 변경한다. deleteTarget이 true이면 신고 대상 게시글·댓글을 함께 강제 삭제한다.
-     * 존재하지 않는 ID이면 ReportNotFoundException을 던진다.
+     * 신고 처리 상태를 변경한다. suspend가 있으면 신고 대상 작성자를 정지하고, deleteTarget이 true이면
+     * 신고 대상 게시글·댓글을 함께 강제 삭제한다. 모두 한 트랜잭션으로 처리한다.
+     * 존재하지 않는 ID이면 ReportNotFoundException, 정지할 작성자를 찾을 수 없으면 ReportTargetNotFoundException을 던진다.
      */
     @Transactional
     public void updateReportStatus(Long id, AdminReportStatusUpdateRequest request) {
         Report report = reportRepository.findById(id).orElseThrow(ReportNotFoundException::new);
         report.updateStatus(request.status(), request.adminNote());
+        // 게시글은 물리 삭제되어 작성자를 알 수 없게 되므로 삭제보다 먼저 정지한다.
+        if (request.suspend() != null) {
+            Long authorId = findTargetAuthorId(report).orElseThrow(ReportTargetNotFoundException::new);
+            suspensionService.suspend(authorId, request.suspend().toCommand());
+        }
         if (Boolean.TRUE.equals(request.deleteTarget())) {
             if (report.getTargetType() == ReportTargetType.POST) {
                 postService.adminDelete(report.getTargetId());
@@ -365,6 +391,56 @@ public class AdminService {
                 commentService.adminDelete(report.getTargetId());
             }
         }
+    }
+
+    private Optional<Long> findTargetAuthorId(Report report) {
+        if (report.getTargetType() == ReportTargetType.POST) {
+            return postRepository.findById(report.getTargetId()).map(Post::getUserId);
+        }
+        return commentRepository.findById(report.getTargetId()).map(Comment::getUserId);
+    }
+
+    /**
+     * 탈퇴하지 않은 회원을 이메일·닉네임으로 검색한다. keyword가 비어 있으면 전체 회원을 조회한다.
+     */
+    public PageResponse<AdminUserListItemResponse> searchUsers(String keyword, Pageable pageable) {
+        List<UserStatus> notWithdrawn = List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED);
+        Page<User> page = keyword == null || keyword.isBlank()
+                ? userRepository.findByStatusIn(notWithdrawn, pageable)
+                : userRepository.searchByEmailOrNickname(escapeLikeWildcards(keyword.strip()), notWithdrawn, pageable);
+        return PageResponse.from(page.map(AdminUserListItemResponse::from));
+    }
+
+    private String escapeLikeWildcards(String keyword) {
+        return keyword.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+    }
+
+    /**
+     * 회원을 정지한다. 정지 처리 내용은 SuspensionService 참고.
+     *
+     * @throws InvalidInputException 지원하지 않는 정지 일수인 경우
+     */
+    @Transactional
+    public void suspendUser(Long userId, AdminUserSuspendRequest request) {
+        suspensionService.suspend(userId, request.toCommand());
+    }
+
+    /**
+     * 회원 정지를 해제한다.
+     */
+    @Transactional
+    public void unsuspendUser(Long userId) {
+        suspensionService.unsuspend(userId);
+    }
+
+    /**
+     * 로그인할 수 없는 정지 회원의 이메일 요청 등으로 관리자가 대신 탈퇴 처리한다. 본인 탈퇴와 같은 로직을 쓴다.
+     */
+    @Transactional
+    public void withdrawUser(Long userId) {
+        withdrawalService.withdraw(userId);
     }
 
     /**

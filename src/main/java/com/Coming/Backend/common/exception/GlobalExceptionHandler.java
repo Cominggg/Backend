@@ -1,5 +1,6 @@
 package com.Coming.Backend.common.exception;
 
+import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.common.discord.DiscordNotifier;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -36,6 +37,18 @@ public class GlobalExceptionHandler {
             discordNotifier.notifyFourXx(request, errorCode);
         }
         return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+    }
+
+    /**
+     * 정지 회원 응답에는 클라이언트가 안내 화면을 그릴 수 있도록 정지 만료 시각과 사유를 함께 내려준다.
+     */
+    @ExceptionHandler(UserSuspendedException.class)
+    public ResponseEntity<UserSuspendedErrorResponse> handleUserSuspended(UserSuspendedException e,
+            HttpServletRequest request) {
+        ErrorCode errorCode = e.getErrorCode();
+        log.warn("BusinessException — code: {}, message: {}", errorCode.name(), errorCode.getMessage());
+        discordNotifier.notifyFourXx(request, errorCode);
+        return ResponseEntity.status(errorCode.getStatus()).body(UserSuspendedErrorResponse.of(e));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

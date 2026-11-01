@@ -1,5 +1,6 @@
 package com.Coming.Backend.artist.service;
 
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.artist.dto.ArtistConcertResponse;
 import com.Coming.Backend.artist.dto.ArtistDetailResponse;
 import com.Coming.Backend.artist.dto.ArtistLinkDto;
@@ -57,6 +58,7 @@ public class ArtistService {
     private final ArtistUrlRepository artistUrlRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
     private final ConcertRepository concertRepository;
+    private final UserStatusValidator userStatusValidator;
 
     /**
      * 아티스트 목록을 조회한다. name, isComing, following 필터를 조합해 적용하며, 기본 정렬은 sortName ASC(동률 시 id ASC)다.
@@ -212,6 +214,7 @@ public class ArtistService {
      */
     @Transactional
     public void follow(Long userId, Long artistId) {
+        userStatusValidator.validateWritable(userId);
         if (!artistRepository.existsById(artistId)) {
             throw new ArtistNotFoundException();
         }
@@ -233,6 +236,7 @@ public class ArtistService {
      */
     @Transactional
     public void unfollow(Long userId, Long artistId) {
+        userStatusValidator.validateWritable(userId);
         UserFollowArtist follow = userFollowArtistRepository
                 .findByUserIdAndArtistId(userId, artistId)
                 .orElseThrow(NotFollowingException::new);

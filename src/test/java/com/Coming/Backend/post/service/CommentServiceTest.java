@@ -1,7 +1,9 @@
 package com.Coming.Backend.post.service;
 
 import com.Coming.Backend.auth.entity.User;
+import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.auth.repository.UserRepository;
+import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.post.dto.CommentCreateRequest;
@@ -19,6 +21,7 @@ import com.Coming.Backend.post.exception.PostNotFoundException;
 import com.Coming.Backend.post.repository.CommentLikeRepository;
 import com.Coming.Backend.post.repository.CommentRepository;
 import com.Coming.Backend.post.repository.PostRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -37,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -57,6 +61,9 @@ class CommentServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserStatusValidator userStatusValidator;
 
     private static final Long POST_ID = 100L;
     private static final Long OTHER_POST_ID = 200L;
@@ -126,6 +133,30 @@ class CommentServiceTest {
         assertThat(topResponse.replies().get(0).replies()).isEmpty();
         assertThat(response.page()).isEqualTo(0);
         assertThat(response.totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void should_return_null_author_nickname_when_comment_author_has_withdrawn() {
+        // given
+        Comment topComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "탈퇴 회원 댓글", 0L, false);
+        Comment reply = buildComment(REPLY_ID, POST_ID, OTHER_USER_ID, COMMENT_ID, "답글", 0L, false);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
+
+        given(postRepository.existsById(POST_ID)).willReturn(true);
+        given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
+                .willReturn(List.of(reply));
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID, OTHER_USER_ID)))
+                .willReturn(List.of(buildUser(AUTHOR_ID, null), buildUser(OTHER_USER_ID, "뷔")));
+
+        // when
+        PageResponse<CommentResponse> response = commentService.getComments(POST_ID, null, 0, 20);
+
+        // then
+        CommentResponse topResponse = response.content().get(0);
+        assertThat(topResponse.authorNickname()).isNull();
+        assertThat(topResponse.replies().get(0).authorNickname()).isEqualTo("뷔");
     }
 
     @Test
@@ -199,13 +230,60 @@ class CommentServiceTest {
         assertThat(topResponse.likeCount()).isEqualTo(3L);
         assertThat(topResponse.isLiked()).isNull();
         assertThat(topResponse.isAuthor()).isFalse();
+        assertThat(topResponse.isDeleted()).isTrue();
         assertThat(topResponse.replies()).hasSize(1);
         assertThat(topResponse.replies().get(0).content()).isEqualTo("답글");
+        assertThat(topResponse.replies().get(0).isDeleted()).isFalse();
     }
 
     // -------------------------------------------------------------------------
     // create
     // -------------------------------------------------------------------------
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_save_when_suspended_user_creates_comment() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> commentService.create(AUTHOR_ID, POST_ID, new CommentCreateRequest("댓글", null)))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(commentRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_when_suspended_user_likes_comment() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> commentService.like(AUTHOR_ID, COMMENT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(commentLikeRepository, never()).save(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_delete_when_suspended_user_deletes_comment() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> commentService.delete(AUTHOR_ID, COMMENT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(commentRepository, never()).findById(any());
+    }
+
+    @Test
+    void should_throw_user_suspended_exception_and_not_decrement_when_suspended_user_unlikes_comment() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(AUTHOR_ID);
+
+        // when & then
+        assertThatThrownBy(() -> commentService.unlike(AUTHOR_ID, COMMENT_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(commentLikeRepository, never()).delete(any());
+        verify(commentRepository, never()).decrementLikeCount(any());
+    }
 
     @Test
     void should_throw_post_not_found_exception_when_post_does_not_exist_on_create() {

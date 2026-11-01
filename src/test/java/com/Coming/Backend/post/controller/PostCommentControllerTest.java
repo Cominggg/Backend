@@ -80,7 +80,7 @@ class PostCommentControllerTest {
     }
 
     private CommentResponse sampleComment() {
-        return new CommentResponse(PARENT_COMMENT_ID, "IU", true, "좋은 게시글이네요", 0L, false,
+        return new CommentResponse(PARENT_COMMENT_ID, "IU", true, "좋은 게시글이네요", false, 0L, false,
                 LocalDateTime.now(), List.of());
     }
 
@@ -99,6 +99,7 @@ class PostCommentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content[0].id").value(PARENT_COMMENT_ID))
+                .andExpect(jsonPath("$.content[0].isDeleted").value(false))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(1));

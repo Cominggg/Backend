@@ -27,25 +27,24 @@ import com.Coming.Backend.auth.exception.NicknameDuplicateException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
+import com.Coming.Backend.auth.exception.UserSuspendedException;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.Coming.Backend.auth.jwt.JwtProvider;
 import com.Coming.Backend.auth.jwt.RefreshTokenClaims;
-import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.auth.repository.BlacklistRepository;
 import com.Coming.Backend.auth.repository.TokenRepository;
 import com.Coming.Backend.auth.repository.TokenRepository.RotationResult;
 import com.Coming.Backend.auth.repository.UserRepository;
-import com.Coming.Backend.auth.event.AppleTokenRevokeEvent;
-import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.exception.ErrorCode;
-import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import com.Coming.Backend.policy.entity.PolicyDocument;
 import com.Coming.Backend.policy.entity.PolicyType;
 import com.Coming.Backend.policy.entity.UserPolicyAgreement;
 import com.Coming.Backend.policy.exception.PolicyNotFoundException;
 import com.Coming.Backend.policy.repository.PolicyDocumentRepository;
 import com.Coming.Backend.policy.repository.UserPolicyAgreementRepository;
+import com.Coming.Backend.report.entity.ReportReason;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -54,7 +53,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -75,22 +73,16 @@ class AuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserFollowArtistRepository userFollowArtistRepository;
-
-    @Mock
-    private UserConcertCalendarRepository userConcertCalendarRepository;
-
-    @Mock
-    private InquiryRepository inquiryRepository;
-
-    @Mock
     private PolicyDocumentRepository policyDocumentRepository;
 
     @Mock
     private UserPolicyAgreementRepository userPolicyAgreementRepository;
 
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private WithdrawalService withdrawalService;
+
+    @Mock
+    private UserStatusValidator userStatusValidator;
 
     private static final Long USER_ID = 1L;
     private static final String REFRESH_TOKEN = "valid-refresh-token";
@@ -261,22 +253,37 @@ class AuthServiceTest {
     }
 
     @Test
-    void should_throw_RefreshTokenInvalidException_when_suspended_user_refreshes_token() {
+    void should_throw_UserSuspendedException_with_period_and_reason_when_suspended_user_refreshes_token() {
         // given
-        User suspendedUser = User.builder()
-                .id(USER_ID)
-                .role(UserRole.USER)
-                .status(UserStatus.SUSPENDED)
-                .provider("google")
-                .providerId("google-123")
-                .build();
+        User suspendedUser = buildUser();
+        LocalDateTime until = LocalDateTime.now().plusDays(7);
+        suspendedUser.suspend(until, ReportReason.ABUSE, "욕설");
         given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(suspendedUser));
 
         // when & then
         assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
-                .isInstanceOf(RefreshTokenInvalidException.class)
-                .hasMessage(ErrorCode.REFRESH_TOKEN_INVALID.getMessage());
+                .isInstanceOf(UserSuspendedException.class)
+                .hasMessage(ErrorCode.USER_SUSPENDED.getMessage())
+                .satisfies(e -> {
+                    UserSuspendedException ex = (UserSuspendedException) e;
+                    assertThat(ex.getSuspendedUntil()).isEqualTo(until);
+                    assertThat(ex.getReason()).isEqualTo(ReportReason.ABUSE);
+                });
+        verify(tokenRepository, never()).rotate(any(), any(), any(), any(), anyLong());
+    }
+
+    @Test
+    void should_throw_RefreshTokenInvalidException_when_suspension_has_expired_but_not_yet_released() {
+        // given
+        User suspendedUser = buildUser();
+        suspendedUser.suspend(LocalDateTime.now().minusMinutes(1), ReportReason.SPAM, null);
+        given(jwtProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(REFRESH_CLAIMS);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(suspendedUser));
+
+        // when & then
+        assertThatThrownBy(() -> authService.refreshToken(REFRESH_TOKEN))
+                .isInstanceOf(RefreshTokenInvalidException.class);
     }
 
     @Test
@@ -380,68 +387,29 @@ class AuthServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void should_call_withdraw_and_invalidate_all_sessions_when_withdraw() {
+    void should_delegate_withdrawal_and_blacklist_access_token_when_withdraw() {
         // given
-        User user = buildUser();
         long remainingExpiry = 900_000L;
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(remainingExpiry);
 
         // when
         authService.withdraw(ACCESS_TOKEN, USER_ID);
 
         // then
-        assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
-        assertThat(user.getNickname()).isNull();
-        verify(userFollowArtistRepository).deleteByUserId(USER_ID);
-        verify(userConcertCalendarRepository).deleteByUserId(USER_ID);
-        verify(inquiryRepository).deleteByUserId(USER_ID);
+        verify(withdrawalService).withdraw(USER_ID);
         verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
-        verify(tokenRepository).deleteAllSessions(USER_ID);
-    }
-
-    private User buildAppleUser() {
-        return User.builder()
-                .id(USER_ID)
-                .nickname("테스터")
-                .role(UserRole.USER)
-                .status(UserStatus.ACTIVE)
-                .provider("apple")
-                .providerId("001234.abcdef0123456789.0123")
-                .appleRefreshToken("apple-refresh-token")
-                .build();
     }
 
     @Test
-    void should_publish_apple_token_revoke_event_and_keep_token_when_apple_user_withdraws() {
+    void should_throw_UserSuspendedException_and_not_withdraw_when_suspended_user_withdraws() {
         // given
-        User user = buildAppleUser();
-        long remainingExpiry = 900_000L;
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
-        given(jwtProvider.getRemainingExpiry(ACCESS_TOKEN)).willReturn(remainingExpiry);
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
 
-        // when
-        authService.withdraw(ACCESS_TOKEN, USER_ID);
-
-        // then — revoke는 커밋 후 리스너가 처리하므로 토큰은 아직 지우지 않는다
-        verify(eventPublisher).publishEvent(new AppleTokenRevokeEvent(USER_ID, "apple-refresh-token"));
-        assertThat(user.getAppleRefreshToken()).isEqualTo("apple-refresh-token");
-        assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
-        verify(blacklistRepository).save(ACCESS_TOKEN, remainingExpiry);
-        verify(tokenRepository).deleteAllSessions(USER_ID);
-    }
-
-    @Test
-    void should_not_publish_apple_token_revoke_event_when_user_has_no_apple_refresh_token() {
-        // given
-        User user = buildUser();
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
-
-        // when
-        authService.withdraw(ACCESS_TOKEN, USER_ID);
-
-        // then
-        verify(eventPublisher, never()).publishEvent(any(AppleTokenRevokeEvent.class));
+        // when & then
+        assertThatThrownBy(() -> authService.withdraw(ACCESS_TOKEN, USER_ID))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(withdrawalService, never()).withdraw(any());
+        verify(blacklistRepository, never()).save(any(), anyLong());
     }
 
     // -------------------------------------------------------------------------
@@ -533,6 +501,17 @@ class AuthServiceTest {
                 .isInstanceOf(UserNotFoundException.class);
     }
 
+    @Test
+    void should_throw_UserNotFoundException_and_not_update_marketing_when_withdrawn_user_updates_marketing() {
+        // given
+        willThrow(new UserNotFoundException()).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> authService.updateMarketing(USER_ID, new MarketingUpdateRequest(true)))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(userRepository, never()).findById(any());
+    }
+
     // -------------------------------------------------------------------------
     // updateMe
     // -------------------------------------------------------------------------
@@ -550,6 +529,17 @@ class AuthServiceTest {
         assertThat(response.nickname()).isEqualTo("새닉네임");
         assertThat(response.id()).isEqualTo(USER_ID);
         assertThat(response.role()).isEqualTo(UserRole.USER.name());
+    }
+
+    @Test
+    void should_throw_UserSuspendedException_and_not_update_nickname_when_suspended_user_updates_me() {
+        // given
+        willThrow(new UserSuspendedException(null, ReportReason.SPAM)).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> authService.updateMe(USER_ID, "새닉네임"))
+                .isInstanceOf(UserSuspendedException.class);
+        verify(userRepository, never()).findById(any());
     }
 
     // -------------------------------------------------------------------------
@@ -641,5 +631,20 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.register(USER_ID, request))
                 .isInstanceOf(PolicyNotFoundException.class)
                 .hasMessage(ErrorCode.POLICY_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void should_throw_UserNotFoundException_and_not_register_when_withdrawn_user_registers() {
+        // given
+        RegisterRequest request = new RegisterRequest("IU", 1993, true, true, false);
+        willThrow(new UserNotFoundException()).given(userStatusValidator).validateWritable(USER_ID);
+
+        // when & then
+        assertThatThrownBy(() -> authService.register(USER_ID, request))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(userRepository, never()).findById(any());
+        verify(userPolicyAgreementRepository, never()).save(any());
+        verify(userRepository, never()).flush();
+        verify(jwtProvider, never()).generateAccessToken(anyLong(), anyString());
     }
 }
