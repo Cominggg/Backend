@@ -55,7 +55,7 @@ public class ConcertController {
     @GetMapping
     public ResponseEntity<PageResponse<ConcertSummaryResponse>> getConcerts(
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) ConcertStatus status,
+            @RequestParam(required = false) List<ConcertStatus> status,
             @RequestParam(required = false) Boolean inCalendar,
             @RequestParam(required = false) Boolean followedOnly,
             @RequestParam(required = false) Boolean ticketOpenPending,

@@ -84,7 +84,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query(value = """
             SELECT c FROM Concert c
             WHERE c.status NOT IN :hidden
-            AND (:status IS NULL OR c.status = :status)
+            AND (:statuses IS NULL OR c.status IN :statuses)
             AND (:calendarUserId IS NULL OR c.id IN (
                 SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :calendarUserId
             ))
@@ -96,7 +96,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             countQuery = """
             SELECT COUNT(c) FROM Concert c
             WHERE c.status NOT IN :hidden
-            AND (:status IS NULL OR c.status = :status)
+            AND (:statuses IS NULL OR c.status IN :statuses)
             AND (:calendarUserId IS NULL OR c.id IN (
                 SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :calendarUserId
             ))
@@ -106,7 +106,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             AND (:ticketOpenPending = false OR (c.ticketOpenAt IS NOT NULL AND c.ticketOpenAt > :now))
             """)
     Page<Concert> findConcerts(@Param("hidden") Collection<ConcertStatus> hidden,
-                                @Param("status") ConcertStatus status,
+                                @Param("statuses") Collection<ConcertStatus> statuses,
                                 @Param("calendarUserId") Long calendarUserId,
                                 @Param("followedArtistIds") List<Long> followedArtistIds,
                                 @Param("ticketOpenPending") boolean ticketOpenPending,
@@ -119,7 +119,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query(value = """
             SELECT DISTINCT c FROM Concert c
             WHERE c.status NOT IN :hidden
-            AND (:status IS NULL OR c.status = :status)
+            AND (:statuses IS NULL OR c.status IN :statuses)
             AND (:calendarUserId IS NULL OR c.id IN (
                 SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :calendarUserId
             ))
@@ -143,7 +143,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             countQuery = """
             SELECT COUNT(DISTINCT c) FROM Concert c
             WHERE c.status NOT IN :hidden
-            AND (:status IS NULL OR c.status = :status)
+            AND (:statuses IS NULL OR c.status IN :statuses)
             AND (:calendarUserId IS NULL OR c.id IN (
                 SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :calendarUserId
             ))
@@ -165,7 +165,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             )
             """)
     Page<Concert> searchConcerts(@Param("hidden") Collection<ConcertStatus> hidden,
-                                  @Param("status") ConcertStatus status,
+                                  @Param("statuses") Collection<ConcertStatus> statuses,
                                   @Param("calendarUserId") Long calendarUserId,
                                   @Param("followedArtistIds") List<Long> followedArtistIds,
                                   @Param("ticketOpenPending") boolean ticketOpenPending,
