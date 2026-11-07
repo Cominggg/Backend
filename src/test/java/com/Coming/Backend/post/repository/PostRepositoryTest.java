@@ -17,6 +17,7 @@ import com.Coming.Backend.release.repository.TrackRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -290,6 +291,30 @@ class PostRepositoryTest {
 
         // then
         assertThat(recommendCount).isEqualTo(5L);
+    }
+
+    @Test
+    void should_return_author_id_when_finding_user_id_by_existing_post_id() {
+        // given
+        Post saved = postRepository.save(buildPost("작성자 조회", "내용"));
+
+        // when
+        Optional<Long> userId = postRepository.findUserIdById(saved.getId());
+
+        // then
+        assertThat(userId).contains(AUTHOR_ID);
+    }
+
+    @Test
+    void should_return_empty_when_finding_user_id_by_non_existent_post_id() {
+        // given
+        Long nonExistentPostId = -1L;
+
+        // when
+        Optional<Long> userId = postRepository.findUserIdById(nonExistentPostId);
+
+        // then
+        assertThat(userId).isEmpty();
     }
 
     @Test

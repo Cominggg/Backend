@@ -38,6 +38,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
@@ -98,7 +99,7 @@ class CommentServiceTest {
     @Test
     void should_throw_post_not_found_exception_when_post_does_not_exist_on_get_comments() {
         // given
-        given(postRepository.existsById(POST_ID)).willReturn(false);
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> commentService.getComments(POST_ID, null, 0, 20))
@@ -114,7 +115,7 @@ class CommentServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
 
-        given(postRepository.existsById(POST_ID)).willReturn(true);
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of(reply));
@@ -143,7 +144,7 @@ class CommentServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
 
-        given(postRepository.existsById(POST_ID)).willReturn(true);
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of(reply));
@@ -166,7 +167,7 @@ class CommentServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
 
-        given(postRepository.existsById(POST_ID)).willReturn(true);
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of());
@@ -188,7 +189,7 @@ class CommentServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
 
-        given(postRepository.existsById(POST_ID)).willReturn(true);
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of());
@@ -211,7 +212,7 @@ class CommentServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         Page<Comment> topLevelPage = new PageImpl<>(List.of(deletedTopComment), pageable, 1);
 
-        given(postRepository.existsById(POST_ID)).willReturn(true);
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
         given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
         given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
                 .willReturn(List.of(reply));
@@ -234,6 +235,130 @@ class CommentServiceTest {
         assertThat(topResponse.replies()).hasSize(1);
         assertThat(topResponse.replies().get(0).content()).isEqualTo("답글");
         assertThat(topResponse.replies().get(0).isDeleted()).isFalse();
+    }
+
+    @Test
+    void should_mark_is_post_author_only_for_comment_by_post_author_when_top_level_comments_given() {
+        // given
+        Comment postAuthorComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "글쓴이 댓글", 0L, false);
+        Comment otherUserComment = buildComment(PARENT_ID, POST_ID, OTHER_USER_ID, null, "다른 회원 댓글", 0L, false);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Comment> topLevelPage = new PageImpl<>(List.of(postAuthorComment, otherUserComment), pageable, 2);
+
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
+        given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID, PARENT_ID)))
+                .willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID, OTHER_USER_ID)))
+                .willReturn(List.of(buildUser(AUTHOR_ID, "IU"), buildUser(OTHER_USER_ID, "뷔")));
+        given(commentLikeRepository.findLikedCommentIds(AUTHOR_ID, List.of(COMMENT_ID, PARENT_ID)))
+                .willReturn(List.of());
+
+        // when
+        PageResponse<CommentResponse> response = commentService.getComments(POST_ID, AUTHOR_ID, 0, 20);
+
+        // then
+        assertThat(response.content()).extracting(CommentResponse::id, CommentResponse::isPostAuthor)
+                .containsExactly(
+                        tuple(COMMENT_ID, true),
+                        tuple(PARENT_ID, false));
+    }
+
+    @Test
+    void should_mark_reply_as_post_author_when_post_author_writes_reply() {
+        // given
+        Comment topComment = buildComment(COMMENT_ID, POST_ID, OTHER_USER_ID, null, "질문 댓글", 0L, false);
+        Comment postAuthorReply = buildComment(REPLY_ID, POST_ID, AUTHOR_ID, COMMENT_ID, "글쓴이 답글", 0L, false);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Comment> topLevelPage = new PageImpl<>(List.of(topComment), pageable, 1);
+
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
+        given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
+                .willReturn(List.of(postAuthorReply));
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID, OTHER_USER_ID)))
+                .willReturn(List.of(buildUser(AUTHOR_ID, "IU"), buildUser(OTHER_USER_ID, "뷔")));
+        given(commentLikeRepository.findLikedCommentIds(OTHER_USER_ID, List.of(COMMENT_ID, REPLY_ID)))
+                .willReturn(List.of());
+
+        // when
+        PageResponse<CommentResponse> response = commentService.getComments(POST_ID, OTHER_USER_ID, 0, 20);
+
+        // then
+        CommentResponse topResponse = response.content().get(0);
+        assertThat(topResponse.isPostAuthor()).isFalse();
+        assertThat(topResponse.replies().get(0).isPostAuthor()).isTrue();
+    }
+
+    @Test
+    void should_mark_is_post_author_but_not_is_author_when_user_id_not_given() {
+        // given
+        Comment postAuthorComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "글쓴이 댓글", 0L, false);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Comment> topLevelPage = new PageImpl<>(List.of(postAuthorComment), pageable, 1);
+
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
+        given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
+                .willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PageResponse<CommentResponse> response = commentService.getComments(POST_ID, null, 0, 20);
+
+        // then
+        CommentResponse topResponse = response.content().get(0);
+        assertThat(topResponse.isPostAuthor()).isTrue();
+        assertThat(topResponse.isAuthor()).isFalse();
+    }
+
+    @Test
+    void should_return_false_is_post_author_when_post_author_comment_is_deleted() {
+        // given
+        Comment deletedComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "삭제된 글쓴이 댓글", 0L, true);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Comment> topLevelPage = new PageImpl<>(List.of(deletedComment), pageable, 1);
+
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
+        given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID)))
+                .willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PageResponse<CommentResponse> response = commentService.getComments(POST_ID, null, 0, 20);
+
+        // then
+        assertThat(response.content().get(0).isPostAuthor()).isFalse();
+    }
+
+    @Test
+    void should_determine_is_post_author_by_post_author_when_viewer_is_other_member() {
+        // given
+        Comment postAuthorComment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "글쓴이 댓글", 0L, false);
+        Comment viewerComment = buildComment(PARENT_ID, POST_ID, VIEWER_ID, null, "조회자 댓글", 0L, false);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Comment> topLevelPage = new PageImpl<>(List.of(postAuthorComment, viewerComment), pageable, 2);
+
+        given(postRepository.findUserIdById(POST_ID)).willReturn(Optional.of(AUTHOR_ID));
+        given(commentRepository.findTopLevelByPostId(POST_ID, pageable)).willReturn(topLevelPage);
+        given(commentRepository.findByParentCommentIdInOrderByCreatedAtAscIdAsc(List.of(COMMENT_ID, PARENT_ID)))
+                .willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID, VIEWER_ID)))
+                .willReturn(List.of(buildUser(AUTHOR_ID, "IU"), buildUser(VIEWER_ID, "정국")));
+        given(commentLikeRepository.findLikedCommentIds(VIEWER_ID, List.of(COMMENT_ID, PARENT_ID)))
+                .willReturn(List.of());
+
+        // when
+        PageResponse<CommentResponse> response = commentService.getComments(POST_ID, VIEWER_ID, 0, 20);
+
+        // then
+        CommentResponse postAuthorResponse = response.content().get(0);
+        CommentResponse viewerResponse = response.content().get(1);
+        assertThat(postAuthorResponse.isPostAuthor()).isTrue();
+        assertThat(postAuthorResponse.isAuthor()).isFalse();
+        assertThat(viewerResponse.isPostAuthor()).isFalse();
+        assertThat(viewerResponse.isAuthor()).isTrue();
     }
 
     // -------------------------------------------------------------------------

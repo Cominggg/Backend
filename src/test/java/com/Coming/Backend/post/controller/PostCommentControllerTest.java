@@ -80,7 +80,7 @@ class PostCommentControllerTest {
     }
 
     private CommentResponse sampleComment() {
-        return new CommentResponse(PARENT_COMMENT_ID, "IU", true, "좋은 게시글이네요", false, 0L, false,
+        return new CommentResponse(PARENT_COMMENT_ID, "IU", true, false, "좋은 게시글이네요", false, 0L, false,
                 LocalDateTime.now(), List.of());
     }
 

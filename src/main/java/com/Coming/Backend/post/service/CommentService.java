@@ -48,12 +48,12 @@ public class CommentService {
     /**
      * 게시글의 댓글·답글 목록을 조회한다. 최상위 댓글만 페이지네이션 대상이며, 답글은 각 최상위 댓글에 전체 포함된다.
      *
+     * isPostAuthor는 현재 사용자와 무관하게 댓글 작성자와 게시글 작성자의 회원 id를 비교한다.
+     *
      * @param userId 인증 사용자 ID. null이면 isLiked는 null, isAuthor는 false로 반환된다.
      */
     public PageResponse<CommentResponse> getComments(Long postId, Long userId, int page, int size) {
-        if (!postRepository.existsById(postId)) {
-            throw new PostNotFoundException();
-        }
+        Long postAuthorId = postRepository.findUserIdById(postId).orElseThrow(PostNotFoundException::new);
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Comment> topLevelPage = commentRepository.findTopLevelByPostId(postId, pageable);
@@ -74,10 +74,10 @@ public class CommentService {
         // 소프트 삭제된 댓글은 좋아요 여부를 노출하지 않으므로 배치 조회 대상에서 제외한다.
         List<Comment> notDeletedComments = allComments.stream().filter(comment -> !comment.isDeleted()).toList();
         Set<Long> likedCommentIds = findLikedCommentIds(userId, notDeletedComments);
+        CommentViewContext context = new CommentViewContext(userId, postAuthorId, nicknameByUserId, likedCommentIds);
 
         List<CommentResponse> content = topLevelComments.stream()
-                .map(comment -> toResponse(comment, repliesByParentId.getOrDefault(comment.getId(), List.of()),
-                        userId, nicknameByUserId, likedCommentIds))
+                .map(comment -> toResponse(comment, repliesByParentId.getOrDefault(comment.getId(), List.of()), context))
                 .toList();
 
         return new PageResponse<>(content, topLevelPage.getNumber(), topLevelPage.getSize(),
@@ -185,19 +185,21 @@ public class CommentService {
         return new CommentLikeCountResponse(commentRepository.findLikeCountById(commentId));
     }
 
-    private CommentResponse toResponse(Comment comment, List<Comment> replies, Long userId,
-            Map<Long, String> nicknameByUserId, Set<Long> likedCommentIds) {
+    private CommentResponse toResponse(Comment comment, List<Comment> replies, CommentViewContext context) {
         List<CommentResponse> replyResponses = replies.stream()
-                .map(reply -> toResponse(reply, List.of(), userId, nicknameByUserId, likedCommentIds))
+                .map(reply -> toResponse(reply, List.of(), context))
                 .toList();
 
-        String authorNickname = nicknameByUserId.get(comment.getUserId());
-        Boolean isLiked = userId == null || comment.isDeleted() ? null : likedCommentIds.contains(comment.getId());
+        String authorNickname = context.nicknameByUserId().get(comment.getUserId());
+        Boolean isLiked = context.viewerId() == null || comment.isDeleted()
+                ? null
+                : context.likedCommentIds().contains(comment.getId());
 
         return new CommentResponse(
                 comment.getId(),
                 authorNickname,
-                comment.isVisibleAuthor(userId),
+                comment.isVisibleAuthor(context.viewerId()),
+                comment.isVisibleAuthor(context.postAuthorId()),
                 comment.getDisplayContent(),
                 comment.isDeleted(),
                 comment.getLikeCount(),
@@ -224,5 +226,12 @@ public class CommentService {
         }
         List<Long> commentIds = comments.stream().map(Comment::getId).toList();
         return new HashSet<>(commentLikeRepository.findLikedCommentIds(userId, commentIds));
+    }
+
+    /**
+     * 댓글 응답 변환에 필요한 조회 결과. viewerId는 현재 사용자(비인증이면 null), postAuthorId는 게시글 작성자다.
+     */
+    private record CommentViewContext(Long viewerId, Long postAuthorId,
+                                      Map<Long, String> nicknameByUserId, Set<Long> likedCommentIds) {
     }
 }

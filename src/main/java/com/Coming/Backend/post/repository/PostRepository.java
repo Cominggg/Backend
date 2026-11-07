@@ -14,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
@@ -37,6 +38,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Modifying
     @Query("UPDATE Post p SET p.recommendCount = p.recommendCount - 1 WHERE p.id = :id")
     void decrementRecommendCount(@Param("id") Long id);
+
+    /**
+     * 게시글 작성자 id만 조회한다. 본문(jsonb)까지 읽지 않으려고 엔티티 대신 쓴다.
+     */
+    @Query("SELECT p.userId FROM Post p WHERE p.id = :id")
+    Optional<Long> findUserIdById(@Param("id") Long id);
 
     @Query("SELECT p.recommendCount FROM Post p WHERE p.id = :id")
     Long findRecommendCountById(@Param("id") Long id);
