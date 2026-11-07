@@ -106,6 +106,40 @@ class PostCommentControllerTest {
     }
 
     @Test
+    void should_return_is_post_author_for_comments_and_replies_when_getting_comments() throws Exception {
+        // given: 게시글 작성자가 단 최상위 댓글(true)과 다른 회원이 단 답글(false)
+        CommentResponse reply = new CommentResponse(101L, "태연", false, false, "저도 다녀왔어요", false, 0L, false,
+                LocalDateTime.now(), List.of());
+        CommentResponse postAuthorComment = new CommentResponse(PARENT_COMMENT_ID, "IU", true, true, "후기 남겨요",
+                false, 0L, false, LocalDateTime.now(), List.of(reply));
+        PageResponse<CommentResponse> pageResponse = new PageResponse<>(List.of(postAuthorComment), 0, 20, 1, 1);
+        given(commentService.getComments(eq(POST_ID), eq(USER_ID), eq(0), eq(20))).willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/posts/{postId}/comments", POST_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].isPostAuthor").value(true))
+                .andExpect(jsonPath("$.content[0].replies[0].isPostAuthor").value(false));
+    }
+
+    @Test
+    void should_return_is_post_author_true_for_reply_when_post_author_replied() throws Exception {
+        // given: 다른 회원의 최상위 댓글(false)에 게시글 작성자가 단 답글(true)
+        CommentResponse postAuthorReply = new CommentResponse(101L, "IU", true, true, "와주셔서 감사해요", false, 0L,
+                false, LocalDateTime.now(), List.of());
+        CommentResponse otherComment = new CommentResponse(PARENT_COMMENT_ID, "태연", false, false, "저도 다녀왔어요",
+                false, 0L, false, LocalDateTime.now(), List.of(postAuthorReply));
+        PageResponse<CommentResponse> pageResponse = new PageResponse<>(List.of(otherComment), 0, 20, 1, 1);
+        given(commentService.getComments(eq(POST_ID), eq(USER_ID), eq(0), eq(20))).willReturn(pageResponse);
+
+        // when & then
+        mockMvc.perform(get("/api/posts/{postId}/comments", POST_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].isPostAuthor").value(false))
+                .andExpect(jsonPath("$.content[0].replies[0].isPostAuthor").value(true));
+    }
+
+    @Test
     void should_return_200_with_comments_when_anonymous_user_requests() throws Exception {
         // given
         SecurityContextHolder.getContext().setAuthentication(null);
