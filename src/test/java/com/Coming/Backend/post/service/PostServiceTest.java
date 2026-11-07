@@ -18,6 +18,9 @@ import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.concert.entity.Concert;
+import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.dto.EntityTagRequest;
 import com.Coming.Backend.post.dto.PostCreateRequest;
@@ -34,6 +37,7 @@ import com.Coming.Backend.post.entity.PostEntityTag;
 import com.Coming.Backend.post.entity.PostRecommend;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
+import com.Coming.Backend.post.exception.PostConcertTagHiddenException;
 import com.Coming.Backend.post.exception.PostContentTooLongException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
@@ -86,6 +90,9 @@ class PostServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ConcertRepository concertRepository;
 
     @Mock
     private EntityLookupService entityLookupService;
@@ -159,6 +166,26 @@ class PostServiceTest {
 
     private User buildUser(Long id, String nickname) {
         return User.builder().id(id).nickname(nickname).build();
+    }
+
+    private Concert buildConcert(Long id, ConcertStatus status) {
+        return Concert.builder().id(id).status(status).build();
+    }
+
+    private PostEntityTag buildConcertTag(Long concertId) {
+        return PostEntityTag.builder()
+                .postId(POST_ID)
+                .entityType(EntityType.CONCERT)
+                .entityId(concertId)
+                .build();
+    }
+
+    private void stubPostSaveAssigningId() {
+        given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", POST_ID);
+            return saved;
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -309,6 +336,93 @@ class PostServiceTest {
         verify(postRepository, never()).save(any(Post.class));
     }
 
+    @Test
+    void should_throw_concert_tag_hidden_exception_and_not_save_when_excluded_concert_tagged_on_create() {
+        // given
+        List<EntityTagRequest> tags = List.of(
+                new EntityTagRequest(EntityType.CONCERT, 100L),
+                new EntityTagRequest(EntityType.CONCERT, 200L)
+        );
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags);
+        given(concertRepository.findAllById(Set.of(100L, 200L))).willReturn(List.of(
+                buildConcert(100L, ConcertStatus.UPCOMING),
+                buildConcert(200L, ConcertStatus.EXCLUDED)
+        ));
+
+        // when & then
+        assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
+                .isInstanceOf(PostConcertTagHiddenException.class)
+                .hasMessage(ErrorCode.POST_CONCERT_TAG_HIDDEN.getMessage());
+        verify(postRepository, never()).save(any(Post.class));
+        verify(postEntityTagRepository, never()).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_throw_concert_tag_hidden_exception_and_not_save_when_pending_concert_tagged_on_create() {
+        // given
+        List<EntityTagRequest> tags = List.of(new EntityTagRequest(EntityType.CONCERT, 100L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags);
+        given(concertRepository.findAllById(Set.of(100L))).willReturn(List.of(buildConcert(100L, ConcertStatus.PENDING)));
+
+        // when & then
+        assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
+                .isInstanceOf(PostConcertTagHiddenException.class)
+                .hasMessage(ErrorCode.POST_CONCERT_TAG_HIDDEN.getMessage());
+        verify(postRepository, never()).save(any(Post.class));
+    }
+
+    @Test
+    void should_create_post_when_only_public_concerts_tagged() {
+        // given
+        List<EntityTagRequest> tags = List.of(
+                new EntityTagRequest(EntityType.CONCERT, 100L),
+                new EntityTagRequest(EntityType.CONCERT, 200L)
+        );
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags);
+        given(concertRepository.findAllById(Set.of(100L, 200L))).willReturn(List.of(
+                buildConcert(100L, ConcertStatus.UPCOMING),
+                buildConcert(200L, ConcertStatus.ENDED)
+        ));
+        stubPostSaveAssigningId();
+
+        // when
+        PostCreateResponse response = postService.create(AUTHOR_ID, request);
+
+        // then
+        assertThat(response.id()).isEqualTo(POST_ID);
+        verify(postEntityTagRepository, times(2)).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_create_post_when_tagged_concert_does_not_exist() {
+        // given
+        List<EntityTagRequest> tags = List.of(new EntityTagRequest(EntityType.CONCERT, 999L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags);
+        given(concertRepository.findAllById(Set.of(999L))).willReturn(List.of());
+        stubPostSaveAssigningId();
+
+        // when
+        PostCreateResponse response = postService.create(AUTHOR_ID, request);
+
+        // then
+        assertThat(response.id()).isEqualTo(POST_ID);
+        verify(postEntityTagRepository).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_not_query_concerts_when_no_concert_tag_given_on_create() {
+        // given
+        List<EntityTagRequest> tags = List.of(new EntityTagRequest(EntityType.ARTIST, 1L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags);
+        stubPostSaveAssigningId();
+
+        // when
+        postService.create(AUTHOR_ID, request);
+
+        // then
+        verify(concertRepository, never()).findAllById(any());
+    }
+
     // -------------------------------------------------------------------------
     // getDetail
     // -------------------------------------------------------------------------
@@ -457,6 +571,60 @@ class PostServiceTest {
         assertThat(response.entityTags().get(0).entityType()).isEqualTo(EntityType.TRACK);
         assertThat(response.entityTags().get(0).title()).isEqualTo("라일락");
         assertThat(response.entityTags().get(0).releaseGroupId()).isEqualTo(100L);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_remove_hidden_and_missing_concert_mentions_and_keep_public_one_when_getting_detail() {
+        // given: 100은 숨김, 200은 공개, 300은 존재하지 않는 공연
+        String content = """
+                {"type":"doc","content":[
+                  {"type":"entityMentionCard","attrs":{"entityType":"CONCERT","entityId":100}},
+                  {"type":"entityMentionCard","attrs":{"entityType":"CONCERT","entityId":200}},
+                  {"type":"entityMentionCard","attrs":{"entityType":"CONCERT","entityId":300}}
+                ]}""";
+        Post post = Post.builder()
+                .id(POST_ID)
+                .userId(AUTHOR_ID)
+                .category(PostCategory.REVIEW)
+                .title("제목")
+                .content(content)
+                .contentText("")
+                .recommendCount(0L)
+                .viewCount(0L)
+                .commentCount(0L)
+                .build();
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+        given(concertRepository.findAllById(Set.of(100L, 200L, 300L))).willReturn(List.of(
+                buildConcert(100L, ConcertStatus.EXCLUDED),
+                buildConcert(200L, ConcertStatus.UPCOMING)
+        ));
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, null);
+
+        // then
+        List<Map<String, Object>> nodes = (List<Map<String, Object>>) ((Map<String, Object>) response.content()).get("content");
+        assertThat(nodes)
+                .extracting(node -> ((Map<String, Object>) node.get("attrs")).get("entityId"))
+                .containsExactly(200);
+    }
+
+    @Test
+    void should_not_query_concerts_when_content_has_no_concert_mention_on_get_detail() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        postService.getDetail(POST_ID, null);
+
+        // then
+        verify(concertRepository, never()).findAllById(any());
     }
 
     @Test
@@ -620,6 +788,55 @@ class PostServiceTest {
         // then
         assertThat(response.content()).isEmpty();
         assertThat(response.totalElements()).isZero();
+    }
+
+    @Test
+    void should_return_empty_page_without_querying_posts_when_backlink_concert_is_hidden() {
+        // given
+        given(concertRepository.findById(2L)).willReturn(Optional.of(buildConcert(2L, ConcertStatus.PENDING)));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getBacklinks(EntityType.CONCERT, 2L, "latest", 1, 10);
+
+        // then
+        assertThat(response.content()).isEmpty();
+        assertThat(response.page()).isEqualTo(1);
+        assertThat(response.size()).isEqualTo(10);
+        assertThat(response.totalElements()).isZero();
+        assertThat(response.totalPages()).isZero();
+        verify(postRepository, never()).findByEntityTag(any(), any(), any());
+    }
+
+    @Test
+    void should_query_backlinks_when_backlink_concert_is_public() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 3L);
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        given(concertRepository.findById(2L)).willReturn(Optional.of(buildConcert(2L, ConcertStatus.UPCOMING)));
+        given(postRepository.findByEntityTag(EntityType.CONCERT, 2L, pageable))
+                .willReturn(new PageImpl<>(List.of(post), pageable, 1));
+        given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
+        given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PageResponse<PostSummaryResponse> response = postService.getBacklinks(EntityType.CONCERT, 2L, "latest", 0, 20);
+
+        // then
+        assertThat(response.content()).hasSize(1);
+        verify(postRepository).findByEntityTag(EntityType.CONCERT, 2L, pageable);
+    }
+
+    @Test
+    void should_not_query_concert_when_backlink_entity_type_is_artist() {
+        // given
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        given(postRepository.findByEntityTag(EntityType.ARTIST, 1L, pageable)).willReturn(Page.empty(pageable));
+
+        // when
+        postService.getBacklinks(EntityType.ARTIST, 1L, "latest", 0, 20);
+
+        // then
+        verify(concertRepository, never()).findById(any());
     }
 
     // -------------------------------------------------------------------------
@@ -960,6 +1177,82 @@ class PostServiceTest {
         assertThat(post.getTitle()).isEqualTo("기존 제목");
         assertThat(post.getContent()).isEqualTo("{\"type\":\"doc\"}");
         assertThat(post.getContentText()).isEqualTo("기존 텍스트");
+    }
+
+    @Test
+    void should_throw_concert_tag_hidden_exception_and_not_replace_tags_when_newly_added_concert_is_hidden() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
+        given(concertRepository.findAllById(Set.of(200L))).willReturn(List.of(buildConcert(200L, ConcertStatus.EXCLUDED)));
+        List<EntityTagRequest> newTags = List.of(
+                new EntityTagRequest(EntityType.CONCERT, 100L),
+                new EntityTagRequest(EntityType.CONCERT, 200L)
+        );
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, newTags);
+
+        // when & then
+        assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
+                .isInstanceOf(PostConcertTagHiddenException.class)
+                .hasMessage(ErrorCode.POST_CONCERT_TAG_HIDDEN.getMessage());
+        verify(postEntityTagRepository, never()).deleteByPostId(any());
+        verify(postEntityTagRepository, never()).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_replace_tags_without_querying_concerts_when_already_stored_hidden_concert_tag_resent() {
+        // given: 100은 저장 이후 숨김 처리된 공연이지만 이미 저장된 태그라 검사 대상이 아니다
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null,
+                List.of(new EntityTagRequest(EntityType.CONCERT, 100L)));
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        verify(concertRepository, never()).findAllById(any());
+        verify(postEntityTagRepository).deleteByPostId(POST_ID);
+        verify(postEntityTagRepository).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_validate_only_newly_added_concert_when_stored_hidden_concert_tag_resent_with_new_one() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
+        given(concertRepository.findAllById(Set.of(200L))).willReturn(List.of(buildConcert(200L, ConcertStatus.UPCOMING)));
+        List<EntityTagRequest> newTags = List.of(
+                new EntityTagRequest(EntityType.CONCERT, 100L),
+                new EntityTagRequest(EntityType.CONCERT, 200L)
+        );
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, newTags);
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        verify(concertRepository).findAllById(Set.of(200L));
+        verify(postEntityTagRepository).deleteByPostId(POST_ID);
+        verify(postEntityTagRepository, times(2)).save(any(PostEntityTag.class));
+    }
+
+    @Test
+    void should_not_validate_concert_tags_when_entity_tags_is_null_on_update() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null);
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        verify(postEntityTagRepository, never()).findByPostId(any());
+        verify(concertRepository, never()).findAllById(any());
     }
 
     // -------------------------------------------------------------------------

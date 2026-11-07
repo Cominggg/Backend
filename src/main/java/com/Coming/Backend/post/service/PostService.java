@@ -5,7 +5,9 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.dto.EntityTagRequest;
 import com.Coming.Backend.post.dto.PostCreateRequest;
@@ -23,6 +25,7 @@ import com.Coming.Backend.post.entity.PostEntityTag;
 import com.Coming.Backend.post.entity.PostRecommend;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
+import com.Coming.Backend.post.exception.PostConcertTagHiddenException;
 import com.Coming.Backend.post.exception.PostContentTooLongException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
@@ -32,6 +35,7 @@ import com.Coming.Backend.post.repository.EntityTagCount;
 import com.Coming.Backend.post.repository.PostEntityTagRepository;
 import com.Coming.Backend.post.repository.PostRecommendRepository;
 import com.Coming.Backend.post.repository.PostRepository;
+import com.Coming.Backend.post.util.TiptapConcertMentionFilter;
 import com.Coming.Backend.post.util.TiptapTextExtractor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,9 +50,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
@@ -65,6 +72,7 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final UserRepository userRepository;
+    private final ConcertRepository concertRepository;
     private final EntityLookupService entityLookupService;
     private final UserStatusValidator userStatusValidator;
 
@@ -84,20 +92,22 @@ public class PostService {
 
     private static final int MIN_SEARCH_QUERY_LENGTH = 2;
 
-    private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
+    private static final Set<ConcertStatus> HIDDEN_STATUSES = EnumSet.of(EXCLUDED, PENDING);
 
     @Value("${app.post.popular-board-threshold:10}")
     private long popularBoardThreshold;
 
     /**
      * 게시글을 생성한다.
-     * entityTags가 가리키는 엔티티의 실존 여부는 검증하지 않는다 — 삭제된 참조와 동일하게
+     * 숨김 상태(EXCLUDED·PENDING) 공연 태그는 PostConcertTagHiddenException으로 거부한다.
+     * 그 밖에 entityTags가 가리키는 엔티티의 실존 여부는 검증하지 않는다 — 삭제된 참조와 동일하게
      * 조회 시점에 EntityLookupService가 조용히 제외한다.
      */
     @Transactional
     public PostCreateResponse create(Long userId, PostCreateRequest request) {
         userStatusValidator.validateWritable(userId);
         List<EntityTagRequest> tags = request.entityTags() == null ? List.of() : request.entityTags();
+        validateConcertsNotHidden(concertIdsOf(tags));
 
         String contentText = TiptapTextExtractor.extract(request.content());
         validateContentTextLength(contentText);
@@ -122,6 +132,7 @@ public class PostService {
 
     /**
      * 게시글 상세를 조회한다. 조회할 때마다 viewCount가 1 증가한다(중복 조회 방지 없음).
+     * 본문의 공연 멘션 중 숨김 상태이거나 없는 공연은 응답에서 뺀다(DB 본문은 그대로 둔다).
      *
      * @param userId 인증 사용자 ID. null이면 isRecommended는 null, isAuthor는 false로 반환된다.
      */
@@ -143,7 +154,7 @@ public class PostService {
                 authorNickname,
                 post.getCategory(),
                 post.getTitle(),
-                readContent(post.getContent()),
+                removeUnavailableConcertMentions(readContent(post.getContent())),
                 entityTags,
                 post.getRecommendCount(),
                 post.getViewCount() + 1,
@@ -199,6 +210,7 @@ public class PostService {
 
     /**
      * 특정 엔티티(공연·아티스트·발매)에 태그된 게시글을 백링크로 조회한다.
+     * 숨김 상태 공연이면 빈 페이지를 반환한다.
      *
      * @param sort "recommend"(추천순) 또는 "latest"(최신순). 그 외 값이면 InvalidInputException.
      */
@@ -208,6 +220,9 @@ public class PostService {
             case "latest" -> Sort.by(Sort.Direction.DESC, "createdAt");
             default -> throw new InvalidInputException();
         };
+        if (entityType == EntityType.CONCERT && isHiddenConcert(entityId)) {
+            return new PageResponse<>(List.of(), page, size, 0, 0);
+        }
         Pageable pageable = PageRequest.of(page, size, sortOrder);
         Page<Post> result = postRepository.findByEntityTag(entityType, entityId, pageable);
         List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
@@ -277,7 +292,8 @@ public class PostService {
     /**
      * 게시글을 수정한다. 작성자 본인만 수정할 수 있다.
      * category·title·content는 null이면 기존값을 유지하고, entityTags는 null이면 기존 태그를 유지한다.
-     * entityTags가 주어지면 기존 태그를 전체 삭제 후 재삽입한다.
+     * entityTags가 주어지면 기존 태그를 전체 삭제 후 재삽입한다. 새로 추가한 숨김 상태 공연 태그는 거부하고,
+     * 이미 저장돼 있던 태그는 그 사이 공연이 숨겨졌어도 통과시킨다(수정 화면이 같은 태그를 다시 보내므로).
      */
     @Transactional
     public void update(Long userId, Long id, PostUpdateRequest request) {
@@ -285,6 +301,12 @@ public class PostService {
         Post post = postRepository.findById(id).orElseThrow(PostNotFoundException::new);
         if (!post.isAuthoredBy(userId)) {
             throw new PostForbiddenException();
+        }
+
+        if (request.entityTags() != null) {
+            Set<Long> addedConcertIds = concertIdsOf(request.entityTags());
+            addedConcertIds.removeAll(storedConcertIdsOf(id));
+            validateConcertsNotHidden(addedConcertIds);
         }
 
         String contentText = request.content() != null ? TiptapTextExtractor.extract(request.content()) : null;
@@ -404,6 +426,49 @@ public class PostService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("저장된 게시글 content가 유효한 JSON이 아닙니다.", e);
         }
+    }
+
+    private Set<Long> concertIdsOf(Collection<EntityTagRequest> tags) {
+        return tags.stream()
+                .filter(tag -> tag.entityType() == EntityType.CONCERT)
+                .map(EntityTagRequest::entityId)
+                .collect(Collectors.toSet());
+    }
+
+    private Set<Long> storedConcertIdsOf(Long postId) {
+        return postEntityTagRepository.findByPostId(postId).stream()
+                .filter(tag -> tag.getEntityType() == EntityType.CONCERT)
+                .map(PostEntityTag::getEntityId)
+                .collect(Collectors.toSet());
+    }
+
+    private void validateConcertsNotHidden(Set<Long> concertIds) {
+        if (concertIds.isEmpty()) {
+            return;
+        }
+        boolean hasHidden = concertRepository.findAllById(concertIds).stream()
+                .anyMatch(concert -> HIDDEN_STATUSES.contains(concert.getStatus()));
+        if (hasHidden) {
+            throw new PostConcertTagHiddenException();
+        }
+    }
+
+    private boolean isHiddenConcert(Long concertId) {
+        return concertRepository.findById(concertId)
+                .map(concert -> HIDDEN_STATUSES.contains(concert.getStatus()))
+                .orElse(false);
+    }
+
+    private Object removeUnavailableConcertMentions(Object content) {
+        Set<Long> mentionedConcertIds = TiptapConcertMentionFilter.collectConcertIds(content);
+        if (mentionedConcertIds.isEmpty()) {
+            return content;
+        }
+        Set<Long> visibleConcertIds = concertRepository.findAllById(mentionedConcertIds).stream()
+                .filter(concert -> !HIDDEN_STATUSES.contains(concert.getStatus()))
+                .map(Concert::getId)
+                .collect(Collectors.toSet());
+        return TiptapConcertMentionFilter.removeConcertMentionsExcept(content, visibleConcertIds);
     }
 
     private void saveEntityTags(Long postId, List<EntityTagRequest> tags) {
