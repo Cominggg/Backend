@@ -57,6 +57,8 @@ public enum ErrorCode {
     ALREADY_RECOMMENDED(HttpStatus.CONFLICT, "이미 추천한 게시글입니다."),
     NOT_RECOMMENDED(HttpStatus.BAD_REQUEST, "추천하지 않은 게시글입니다."),
     POST_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "본문은 10000자를 초과할 수 없습니다."),
+    POST_CONCERT_TAG_HIDDEN(HttpStatus.BAD_REQUEST, "공개되지 않은 공연은 태그할 수 없습니다."),
+    POST_COVER_CONCERT_NOT_TAGGED(HttpStatus.BAD_REQUEST, "대표 공연은 게시글에 태그한 공연 중에서 선택해야 합니다."),
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 댓글입니다."),
