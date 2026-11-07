@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.concert.entity.Concert;
+import com.Coming.Backend.concert.entity.ConcertStatus;
+import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
@@ -11,6 +14,8 @@ import com.Coming.Backend.post.entity.PostEntityTag;
 import com.Coming.Backend.release.entity.Track;
 import com.Coming.Backend.release.repository.TrackRepository;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -40,9 +45,13 @@ class PostRepositoryTest {
     private TrackRepository trackRepository;
 
     @Autowired
+    private ConcertRepository concertRepository;
+
+    @Autowired
     private TestEntityManager entityManager;
 
     private static final Long AUTHOR_ID = 1L;
+    private static final List<ConcertStatus> HIDDEN = List.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING);
 
     private String likeQuery(String q) {
         return "%" + q.toLowerCase(Locale.ROOT) + "%";
@@ -74,13 +83,36 @@ class PostRepositoryTest {
                 .build();
     }
 
+    private Concert saveConcert(String title, ConcertStatus status) {
+        return concertRepository.save(Concert.builder()
+                .title(title)
+                .startDate(LocalDate.of(2026, 12, 20))
+                .endDate(LocalDate.of(2026, 12, 21))
+                .venueName("KSPO DOME")
+                .status(status)
+                .viewCount(0L)
+                .kopisUpdateDate(LocalDate.of(2026, 11, 1))
+                .build());
+    }
+
+    private Post saveConcertTaggedPost(Concert concert) {
+        // 게시글 제목·본문에는 검색어가 없어 공연 태그로만 매칭되도록 한다
+        Post post = postRepository.save(buildPost("이 공연 가요", "같이 갈 사람"));
+        postEntityTagRepository.save(PostEntityTag.builder()
+                .postId(post.getId())
+                .entityType(EntityType.CONCERT)
+                .entityId(concert.getId())
+                .build());
+        return post;
+    }
+
     @Test
     void should_return_post_when_title_matches_search_query() {
         // given
         Post post = postRepository.save(buildPost("아이유 단독 콘서트 후기", "정말 좋았다"));
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
@@ -92,7 +124,7 @@ class PostRepositoryTest {
         Post post = postRepository.save(buildPost("공연 후기", "정말 재밌는 아이유 콘서트였다"));
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
@@ -114,7 +146,7 @@ class PostRepositoryTest {
                 .build());
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
@@ -136,10 +168,49 @@ class PostRepositoryTest {
                 .build());
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("LILAC"), PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(likeQuery("LILAC"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
+    }
+
+    @Test
+    void should_return_post_when_tagged_public_concert_title_matches_search_query() {
+        // given
+        Concert concert = saveConcert("아이유 HER 월드투어", ConcertStatus.UPCOMING);
+        Post post = saveConcertTaggedPost(concert);
+
+        // when
+        Page<Post> result = postRepository.searchPosts(likeQuery("HER 월드투어"), HIDDEN, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
+    }
+
+    @Test
+    void should_not_return_post_when_tagged_concert_is_excluded() {
+        // given
+        Concert concert = saveConcert("아이유 HER 월드투어 제외", ConcertStatus.EXCLUDED);
+        Post post = saveConcertTaggedPost(concert);
+
+        // when
+        Page<Post> result = postRepository.searchPosts(likeQuery("HER 월드투어"), HIDDEN, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId).doesNotContain(post.getId());
+    }
+
+    @Test
+    void should_not_return_post_when_tagged_concert_is_pending() {
+        // given
+        Concert concert = saveConcert("아이유 HER 월드투어 대기", ConcertStatus.PENDING);
+        Post post = saveConcertTaggedPost(concert);
+
+        // when
+        Page<Post> result = postRepository.searchPosts(likeQuery("HER 월드투어"), HIDDEN, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId).doesNotContain(post.getId());
     }
 
     @Test
@@ -148,7 +219,7 @@ class PostRepositoryTest {
         postRepository.save(buildPost("다른 제목", "다른 내용"));
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("존재하지않는검색어"), PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(likeQuery("존재하지않는검색어"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).isEmpty();
@@ -230,7 +301,7 @@ class PostRepositoryTest {
 
         // when
         Pageable pageable = PageRequest.of(0, 20);
-        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), pageable);
+        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), HIDDEN, pageable);
 
         // then
         assertThat(result.getContent()).extracting(Post::getId)

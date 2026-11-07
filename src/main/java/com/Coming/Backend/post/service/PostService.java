@@ -5,6 +5,7 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.dto.EntityTagRequest;
 import com.Coming.Backend.post.dto.PostCreateRequest;
@@ -50,6 +51,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
+import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -79,6 +83,8 @@ public class PostService {
     private static final int MAX_CONTENT_LENGTH = 50000;
 
     private static final int MIN_SEARCH_QUERY_LENGTH = 2;
+
+    private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
 
     @Value("${app.post.popular-board-threshold:10}")
     private long popularBoardThreshold;
@@ -232,7 +238,7 @@ public class PostService {
      */
     public List<TrendingTagResponse> getTrendingTags(int days, int limit) {
         LocalDateTime since = LocalDateTime.now().minusDays(days);
-        List<EntityTagCount> counts = postEntityTagRepository.findTrendingEntityTags(since, PageRequest.of(0, limit));
+        List<EntityTagCount> counts = postEntityTagRepository.findTrendingEntityTags(since, HIDDEN_STATUSES, PageRequest.of(0, limit));
         if (counts.isEmpty()) {
             return List.of();
         }
@@ -263,7 +269,7 @@ public class PostService {
         }
         Pageable pageable = PageRequest.of(page, size);
         String likeQ = "%" + escapeLikeWildcards(trimmedQ.toLowerCase(Locale.ROOT)) + "%";
-        Page<Post> result = postRepository.searchPosts(likeQ, pageable);
+        Page<Post> result = postRepository.searchPosts(likeQ, HIDDEN_STATUSES, pageable);
         List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
         return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }

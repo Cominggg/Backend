@@ -707,7 +707,7 @@ class PostServiceTest {
         EntityTagCount count = new EntityTagCount(EntityType.ARTIST, 1L, 3L);
         EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
         EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
-        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable))).willReturn(List.of(count));
+        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), any(), eq(pageable))).willReturn(List.of(count));
         given(entityLookupService.findCards(List.of(key))).willReturn(Map.of(key, card));
 
         // when
@@ -725,7 +725,7 @@ class PostServiceTest {
     void should_return_empty_list_when_no_trending_tags_found() {
         // given
         Pageable pageable = PageRequest.of(0, 10);
-        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable))).willReturn(List.of());
+        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), any(), eq(pageable))).willReturn(List.of());
 
         // when
         List<TrendingTagResponse> response = postService.getTrendingTags(7, 10);
@@ -744,7 +744,7 @@ class PostServiceTest {
         EntityLookupService.EntityKey aliveKey = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
         EntityLookupService.EntityKey deletedKey = new EntityLookupService.EntityKey(EntityType.CONCERT, 2L);
         EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
-        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(pageable)))
+        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), any(), eq(pageable)))
                 .willReturn(List.of(aliveCount, deletedCount));
         given(entityLookupService.findCards(List.of(aliveKey, deletedKey))).willReturn(Map.of(aliveKey, card));
 
@@ -766,7 +766,7 @@ class PostServiceTest {
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "IU 콘서트 후기", 3L);
         Pageable pageable = PageRequest.of(0, 20);
         Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
-        given(postRepository.searchPosts(eq("%iu%"), eq(pageable))).willReturn(page);
+        given(postRepository.searchPosts(eq("%iu%"), any(), eq(pageable))).willReturn(page);
         given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
         given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
 
@@ -776,14 +776,14 @@ class PostServiceTest {
         // then
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).title()).isEqualTo("IU 콘서트 후기");
-        verify(postRepository).searchPosts("%iu%", pageable);
+        verify(postRepository).searchPosts(eq("%iu%"), any(), eq(pageable));
     }
 
     @Test
     void should_return_empty_content_when_no_search_result_found() {
         // given
         Pageable pageable = PageRequest.of(0, 20);
-        given(postRepository.searchPosts(eq("%없는검색어%"), eq(pageable))).willReturn(Page.empty(pageable));
+        given(postRepository.searchPosts(eq("%없는검색어%"), any(), eq(pageable))).willReturn(Page.empty(pageable));
 
         // when
         PageResponse<PostSummaryResponse> response = postService.search("없는검색어", 0, 20);
@@ -797,13 +797,13 @@ class PostServiceTest {
     void should_escape_like_wildcards_when_search_query_contains_percent_and_underscore() {
         // given
         Pageable pageable = PageRequest.of(0, 20);
-        given(postRepository.searchPosts(eq("%50\\%\\_off%"), eq(pageable))).willReturn(Page.empty(pageable));
+        given(postRepository.searchPosts(eq("%50\\%\\_off%"), any(), eq(pageable))).willReturn(Page.empty(pageable));
 
         // when
         postService.search("50%_off", 0, 20);
 
         // then
-        verify(postRepository).searchPosts("%50\\%\\_off%", pageable);
+        verify(postRepository).searchPosts(eq("%50\\%\\_off%"), any(), eq(pageable));
     }
 
     @Test
@@ -812,7 +812,7 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.search("a", 0, 20))
                 .isInstanceOf(InvalidInputException.class)
                 .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
-        verify(postRepository, never()).searchPosts(any(), any());
+        verify(postRepository, never()).searchPosts(any(), any(), any());
     }
 
     @Test
@@ -821,7 +821,7 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.search("  a  ", 0, 20))
                 .isInstanceOf(InvalidInputException.class)
                 .hasMessage(ErrorCode.INVALID_INPUT.getMessage());
-        verify(postRepository, never()).searchPosts(any(), any());
+        verify(postRepository, never()).searchPosts(any(), any(), any());
     }
 
     // -------------------------------------------------------------------------

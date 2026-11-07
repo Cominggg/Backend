@@ -1,5 +1,6 @@
 package com.Coming.Backend.post.repository;
 
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
@@ -11,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
@@ -68,7 +70,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
                 WHERE (t.entityType = com.Coming.Backend.post.entity.EntityType.ARTIST
                         AND t.entityId IN (SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.CONCERT
-                        AND t.entityId IN (SELECT c.id FROM Concert c WHERE LOWER(c.title) LIKE :q))
+                        AND t.entityId IN (SELECT c.id FROM Concert c WHERE LOWER(c.title) LIKE :q AND c.status NOT IN :hidden))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.RELEASE
                         AND t.entityId IN (SELECT r.id FROM ReleaseGroup r WHERE LOWER(r.title) LIKE :q))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.TRACK
@@ -76,5 +78,5 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             )
             ORDER BY p.createdAt DESC
             """)
-    Page<Post> searchPosts(@Param("q") String q, Pageable pageable);
+    Page<Post> searchPosts(@Param("q") String q, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);
 }
