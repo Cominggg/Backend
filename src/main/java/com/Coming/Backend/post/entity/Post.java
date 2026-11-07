@@ -55,6 +55,10 @@ public class Post extends BaseTimeEntity {
     @Column(name = "comment_count", nullable = false)
     private Long commentCount;
 
+    // 공연 태그 중 대표 공연 id. 공연 행을 참조하지만 태그와 같이 FK 없이 둔다.
+    @Column(name = "cover_concert_id")
+    private Long coverConcertId;
+
     public boolean isAuthoredBy(Long userId) {
         return userId != null && this.userId.equals(userId);
     }
@@ -64,5 +68,12 @@ public class Post extends BaseTimeEntity {
         if (title != null) this.title = title;
         if (content != null) this.content = content;
         if (contentText != null) this.contentText = contentText;
+    }
+
+    /**
+     * 대표 공연을 바꾼다. update와 달리 null이면 대표 공연을 비운다.
+     */
+    public void changeCoverConcert(Long coverConcertId) {
+        this.coverConcertId = coverConcertId;
     }
 }

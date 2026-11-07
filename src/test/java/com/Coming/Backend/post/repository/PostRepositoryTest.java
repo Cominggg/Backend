@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +38,9 @@ class PostRepositoryTest {
 
     @Autowired
     private TrackRepository trackRepository;
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     private static final Long AUTHOR_ID = 1L;
 
@@ -274,5 +278,26 @@ class PostRepositoryTest {
         // then
         assertThat(result.getContent()).extracting(Post::getId)
                 .containsSubsequence(newerPost.getId(), olderPost.getId());
+    }
+
+    @Test
+    void should_persist_and_clear_cover_concert_id_when_cover_concert_changed() {
+        // given
+        Post post = postRepository.save(buildPost("대표 공연 저장", "내용"));
+
+        // when
+        post.changeCoverConcert(42L);
+        entityManager.flush();
+        entityManager.clear();
+        Post saved = postRepository.findById(post.getId()).orElseThrow();
+        Long savedCoverConcertId = saved.getCoverConcertId();
+        saved.changeCoverConcert(null);
+        entityManager.flush();
+        entityManager.clear();
+        Post cleared = postRepository.findById(post.getId()).orElseThrow();
+
+        // then
+        assertThat(savedCoverConcertId).isEqualTo(42L);
+        assertThat(cleared.getCoverConcertId()).isNull();
     }
 }
