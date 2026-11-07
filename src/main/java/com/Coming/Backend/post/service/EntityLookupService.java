@@ -3,6 +3,7 @@ package com.Coming.Backend.post.service;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.concert.entity.Concert;
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.entity.EntityType;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,10 +24,16 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
+import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class EntityLookupService {
+
+    // EnumSet은 contains(null)에서 예외 없이 false를 반환한다
+    private static final Set<ConcertStatus> HIDDEN_STATUSES = EnumSet.of(EXCLUDED, PENDING);
 
     private final ConcertRepository concertRepository;
     private final ArtistRepository artistRepository;
@@ -34,13 +42,14 @@ public class EntityLookupService {
 
     /**
      * entityType·entityId 키 목록에 대응하는 엔티티 카드 정보를 일괄 조회한다.
-     * 참조 대상이 삭제된 경우 결과 Map에서 해당 키가 제외된다.
+     * 참조 대상이 삭제됐거나 숨김 상태(EXCLUDED·PENDING)인 공연이면 결과 Map에서 해당 키가 제외된다.
      */
     public Map<EntityKey, EntityCardResponse> findCards(Collection<EntityKey> keys) {
         Map<EntityKey, EntityCardResponse> result = new HashMap<>();
 
-        concertRepository.findAllById(idsOf(keys, EntityType.CONCERT)).forEach(concert ->
-                result.put(new EntityKey(EntityType.CONCERT, concert.getId()), toCard(concert)));
+        concertRepository.findAllById(idsOf(keys, EntityType.CONCERT)).stream()
+                .filter(concert -> !HIDDEN_STATUSES.contains(concert.getStatus()))
+                .forEach(concert -> result.put(new EntityKey(EntityType.CONCERT, concert.getId()), toCard(concert)));
 
         artistRepository.findAllById(idsOf(keys, EntityType.ARTIST)).forEach(artist ->
                 result.put(new EntityKey(EntityType.ARTIST, artist.getId()), toCard(artist)));

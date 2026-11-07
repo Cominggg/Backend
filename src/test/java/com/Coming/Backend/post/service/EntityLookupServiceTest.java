@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.concert.entity.Concert;
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.entity.EntityType;
@@ -58,6 +59,17 @@ class EntityLookupServiceTest {
                 .startDate(LocalDate.of(2025, 10, 1))
                 .venueName("올림픽공원 케이스포돔")
                 .posterUrl("https://example.com/concert-poster.jpg")
+                .build();
+    }
+
+    private Concert buildConcert(Long id, ConcertStatus status) {
+        return Concert.builder()
+                .id(id)
+                .title("IU Concert : HEREH WORLD TOUR")
+                .startDate(LocalDate.of(2025, 10, 1))
+                .venueName("올림픽공원 케이스포돔")
+                .posterUrl("https://example.com/concert-poster.jpg")
+                .status(status)
                 .build();
     }
 
@@ -218,6 +230,79 @@ class EntityLookupServiceTest {
 
         // then
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_exclude_concert_key_from_result_when_concert_status_is_excluded() {
+        // given
+        given(concertRepository.findAllById(any()))
+                .willReturn(List.of(buildConcert(CONCERT_ID, ConcertStatus.EXCLUDED)));
+
+        // when
+        Map<EntityKey, EntityCardResponse> result =
+                entityLookupService.findCards(List.of(new EntityKey(EntityType.CONCERT, CONCERT_ID)));
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_exclude_concert_key_from_result_when_concert_status_is_pending() {
+        // given
+        given(concertRepository.findAllById(any()))
+                .willReturn(List.of(buildConcert(CONCERT_ID, ConcertStatus.PENDING)));
+
+        // when
+        Map<EntityKey, EntityCardResponse> result =
+                entityLookupService.findCards(List.of(new EntityKey(EntityType.CONCERT, CONCERT_ID)));
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_include_concert_keys_when_concert_status_is_ended_or_cancelled() {
+        // given
+        Long cancelledConcertId = 2L;
+        given(concertRepository.findAllById(any())).willReturn(List.of(
+                buildConcert(CONCERT_ID, ConcertStatus.ENDED),
+                buildConcert(cancelledConcertId, ConcertStatus.CANCELLED)));
+
+        // when
+        Map<EntityKey, EntityCardResponse> result = entityLookupService.findCards(List.of(
+                new EntityKey(EntityType.CONCERT, CONCERT_ID),
+                new EntityKey(EntityType.CONCERT, cancelledConcertId)));
+
+        // then
+        assertThat(result).containsOnlyKeys(
+                new EntityKey(EntityType.CONCERT, CONCERT_ID),
+                new EntityKey(EntityType.CONCERT, cancelledConcertId));
+    }
+
+    @Test
+    void should_exclude_only_hidden_concerts_when_hidden_and_public_concerts_and_other_types_mixed() {
+        // given
+        Long excludedConcertId = 2L;
+        Long pendingConcertId = 3L;
+        given(concertRepository.findAllById(any())).willReturn(List.of(
+                buildConcert(CONCERT_ID, ConcertStatus.UPCOMING),
+                buildConcert(excludedConcertId, ConcertStatus.EXCLUDED),
+                buildConcert(pendingConcertId, ConcertStatus.PENDING)));
+        given(artistRepository.findAllById(any())).willReturn(List.of(buildArtist(ARTIST_ID, "IU")));
+
+        List<EntityKey> keys = List.of(
+                new EntityKey(EntityType.CONCERT, CONCERT_ID),
+                new EntityKey(EntityType.CONCERT, excludedConcertId),
+                new EntityKey(EntityType.CONCERT, pendingConcertId),
+                new EntityKey(EntityType.ARTIST, ARTIST_ID));
+
+        // when
+        Map<EntityKey, EntityCardResponse> result = entityLookupService.findCards(keys);
+
+        // then
+        assertThat(result).containsOnlyKeys(
+                new EntityKey(EntityType.CONCERT, CONCERT_ID),
+                new EntityKey(EntityType.ARTIST, ARTIST_ID));
     }
 
     @Test
