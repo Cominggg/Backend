@@ -5,9 +5,7 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
-import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
-import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.dto.EntityTagRequest;
 import com.Coming.Backend.post.dto.PostCreateRequest;
@@ -52,16 +50,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
-import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
 
 @Service
 @RequiredArgsConstructor
@@ -74,7 +68,6 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final UserRepository userRepository;
-    private final ConcertRepository concertRepository;
     private final EntityLookupService entityLookupService;
     private final UserStatusValidator userStatusValidator;
 
@@ -93,8 +86,6 @@ public class PostService {
     private static final int MAX_CONTENT_LENGTH = 50000;
 
     private static final int MIN_SEARCH_QUERY_LENGTH = 2;
-
-    private static final Set<ConcertStatus> HIDDEN_STATUSES = EnumSet.of(EXCLUDED, PENDING);
 
     @Value("${app.post.popular-board-threshold:10}")
     private long popularBoardThreshold;
@@ -162,7 +153,7 @@ public class PostService {
                 authorNickname,
                 post.getCategory(),
                 post.getTitle(),
-                removeUnavailableConcertMentions(readContent(post.getContent())),
+                removeUnavailableConcertMentions(readContent(post.getContent()), entityTags),
                 entityTags,
                 visibleCoverConcertId(post, entityTags),
                 post.getRecommendCount(),
@@ -205,17 +196,20 @@ public class PostService {
                 .filter(user -> user.getNickname() != null)
                 .collect(Collectors.toMap(User::getId, User::getNickname));
 
-        return posts.stream().map(post -> new PostSummaryResponse(
-                post.getId(),
-                nicknameByUserId.get(post.getUserId()),
-                post.getCategory(),
-                post.getTitle(),
-                tagsByPost.getOrDefault(post.getId(), List.of()),
-                visibleCoverConcertId(post, tagsByPost.getOrDefault(post.getId(), List.of())),
-                post.getRecommendCount(),
-                post.getViewCount(),
-                post.getCreatedAt()
-        )).toList();
+        return posts.stream().map(post -> {
+            List<PostEntityTagResponse> tags = tagsByPost.getOrDefault(post.getId(), List.of());
+            return new PostSummaryResponse(
+                    post.getId(),
+                    nicknameByUserId.get(post.getUserId()),
+                    post.getCategory(),
+                    post.getTitle(),
+                    tags,
+                    visibleCoverConcertId(post, tags),
+                    post.getRecommendCount(),
+                    post.getViewCount(),
+                    post.getCreatedAt()
+            );
+        }).toList();
     }
 
     /**
@@ -230,7 +224,7 @@ public class PostService {
             case "latest" -> Sort.by(Sort.Direction.DESC, "createdAt");
             default -> throw new InvalidInputException();
         };
-        if (entityType == EntityType.CONCERT && isHiddenConcert(entityId)) {
+        if (entityType == EntityType.CONCERT && entityLookupService.hasHiddenConcert(Set.of(entityId))) {
             return new PageResponse<>(List.of(), page, size, 0, 0);
         }
         Pageable pageable = PageRequest.of(page, size, sortOrder);
@@ -263,7 +257,7 @@ public class PostService {
      */
     public List<TrendingTagResponse> getTrendingTags(int days, int limit) {
         LocalDateTime since = LocalDateTime.now().minusDays(days);
-        List<EntityTagCount> counts = postEntityTagRepository.findTrendingEntityTags(since, HIDDEN_STATUSES, PageRequest.of(0, limit));
+        List<EntityTagCount> counts = postEntityTagRepository.findTrendingEntityTags(since, ConcertStatus.HIDDEN, PageRequest.of(0, limit));
         if (counts.isEmpty()) {
             return List.of();
         }
@@ -294,7 +288,7 @@ public class PostService {
         }
         Pageable pageable = PageRequest.of(page, size);
         String likeQ = "%" + escapeLikeWildcards(trimmedQ.toLowerCase(Locale.ROOT)) + "%";
-        Page<Post> result = postRepository.searchPosts(likeQ, HIDDEN_STATUSES, pageable);
+        Page<Post> result = postRepository.searchPosts(likeQ, ConcertStatus.HIDDEN, pageable);
         List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
         return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
@@ -453,12 +447,7 @@ public class PostService {
     }
 
     private void validateConcertsNotHidden(Set<Long> concertIds) {
-        if (concertIds.isEmpty()) {
-            return;
-        }
-        boolean hasHidden = concertRepository.findAllById(concertIds).stream()
-                .anyMatch(concert -> HIDDEN_STATUSES.contains(concert.getStatus()));
-        if (hasHidden) {
+        if (entityLookupService.hasHiddenConcert(concertIds)) {
             throw new PostConcertTagHiddenException();
         }
     }
@@ -472,20 +461,17 @@ public class PostService {
             return;
         }
         Set<Long> storedConcertIds = storedConcertIdsOf(postId);
-        if (requestedConcertIds != null) {
-            Set<Long> addedConcertIds = new HashSet<>(requestedConcertIds);
-            addedConcertIds.removeAll(storedConcertIds);
-            validateConcertsNotHidden(addedConcertIds);
+        Set<Long> finalConcertIds = requestedConcertIds != null ? requestedConcertIds : storedConcertIds;
+        boolean isCoverTagged = coverConcertId != null && finalConcertIds.contains(coverConcertId);
+        // 새로 추가한 공연과 대표 공연만 숨김 여부를 본다. 그 사이 숨겨진 기존 태그는 통과시킨다
+        Set<Long> concertIdsToCheck = new HashSet<>(finalConcertIds);
+        concertIdsToCheck.removeAll(storedConcertIds);
+        if (isCoverTagged) {
+            concertIdsToCheck.add(coverConcertId);
         }
-        if (coverConcertId != null) {
-            Set<Long> finalConcertIds = requestedConcertIds != null ? requestedConcertIds : storedConcertIds;
-            if (!finalConcertIds.contains(coverConcertId)) {
-                throw new PostCoverConcertNotTaggedException();
-            }
-            // 새로 추가한 태그면 위에서 이미 검사했으므로, 저장돼 있던 태그일 때만 숨김 여부를 본다
-            if (storedConcertIds.contains(coverConcertId)) {
-                validateConcertsNotHidden(Set.of(coverConcertId));
-            }
+        validateConcertsNotHidden(concertIdsToCheck);
+        if (coverConcertId != null && !isCoverTagged) {
+            throw new PostCoverConcertNotTaggedException();
         }
     }
 
@@ -511,21 +497,22 @@ public class PostService {
         return isVisible ? coverConcertId : null;
     }
 
-    private boolean isHiddenConcert(Long concertId) {
-        return concertRepository.findById(concertId)
-                .map(concert -> HIDDEN_STATUSES.contains(concert.getStatus()))
-                .orElse(false);
-    }
-
-    private Object removeUnavailableConcertMentions(Object content) {
+    /**
+     * 본문의 공연 멘션 중 숨김 상태이거나 없는 공연의 노드를 뺀다. 응답 태그(이미 공개 공연만 남은 목록)에 있는
+     * 공연은 다시 조회하지 않는다.
+     */
+    private Object removeUnavailableConcertMentions(Object content, List<PostEntityTagResponse> visibleTags) {
         Set<Long> mentionedConcertIds = TiptapConcertMentionFilter.collectConcertIds(content);
         if (mentionedConcertIds.isEmpty()) {
             return content;
         }
-        Set<Long> visibleConcertIds = concertRepository.findAllById(mentionedConcertIds).stream()
-                .filter(concert -> !HIDDEN_STATUSES.contains(concert.getStatus()))
-                .map(Concert::getId)
-                .collect(Collectors.toSet());
+        Set<Long> visibleConcertIds = visibleTags.stream()
+                .filter(tag -> tag.entityType() == EntityType.CONCERT)
+                .map(PostEntityTagResponse::entityId)
+                .collect(Collectors.toCollection(HashSet::new));
+        Set<Long> uncheckedConcertIds = new HashSet<>(mentionedConcertIds);
+        uncheckedConcertIds.removeAll(visibleConcertIds);
+        visibleConcertIds.addAll(entityLookupService.findVisibleConcertIds(uncheckedConcertIds));
         return TiptapConcertMentionFilter.removeConcertMentionsExcept(content, visibleConcertIds);
     }
 

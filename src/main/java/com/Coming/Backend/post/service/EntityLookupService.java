@@ -3,7 +3,6 @@ package com.Coming.Backend.post.service;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.concert.entity.Concert;
-import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.entity.EntityType;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,16 +22,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.Coming.Backend.concert.entity.ConcertStatus.EXCLUDED;
-import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
-
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class EntityLookupService {
-
-    // EnumSet은 contains(null)에서 예외 없이 false를 반환한다
-    private static final Set<ConcertStatus> HIDDEN_STATUSES = EnumSet.of(EXCLUDED, PENDING);
 
     private final ConcertRepository concertRepository;
     private final ArtistRepository artistRepository;
@@ -48,7 +40,7 @@ public class EntityLookupService {
         Map<EntityKey, EntityCardResponse> result = new HashMap<>();
 
         concertRepository.findAllById(idsOf(keys, EntityType.CONCERT)).stream()
-                .filter(concert -> !HIDDEN_STATUSES.contains(concert.getStatus()))
+                .filter(EntityLookupService::isVisible)
                 .forEach(concert -> result.put(new EntityKey(EntityType.CONCERT, concert.getId()), toCard(concert)));
 
         artistRepository.findAllById(idsOf(keys, EntityType.ARTIST)).forEach(artist ->
@@ -67,6 +59,34 @@ public class EntityLookupService {
                 result.put(new EntityKey(EntityType.TRACK, trackId), card));
 
         return result;
+    }
+
+    /**
+     * 주어진 공연 id 중 존재하고 숨김 상태가 아닌 공연의 id를 반환한다.
+     */
+    public Set<Long> findVisibleConcertIds(Collection<Long> concertIds) {
+        if (concertIds.isEmpty()) {
+            return Set.of();
+        }
+        return concertRepository.findAllById(concertIds).stream()
+                .filter(EntityLookupService::isVisible)
+                .map(Concert::getId)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * 주어진 공연 id 중 숨김 상태인 공연이 하나라도 있는지 확인한다. 없는 공연 id는 숨김으로 보지 않는다.
+     */
+    public boolean hasHiddenConcert(Collection<Long> concertIds) {
+        if (concertIds.isEmpty()) {
+            return false;
+        }
+        return concertRepository.findAllById(concertIds).stream()
+                .anyMatch(concert -> !isVisible(concert));
+    }
+
+    private static boolean isVisible(Concert concert) {
+        return concert.getStatus() == null || !concert.getStatus().isHidden();
     }
 
     /**
