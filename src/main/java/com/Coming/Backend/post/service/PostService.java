@@ -27,6 +27,7 @@ import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostConcertTagHiddenException;
 import com.Coming.Backend.post.exception.PostContentTooLongException;
+import com.Coming.Backend.post.exception.PostCoverConcertNotTaggedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
 import com.Coming.Backend.post.repository.CommentLikeRepository;
@@ -52,6 +53,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -102,12 +104,17 @@ public class PostService {
      * 숨김 상태(EXCLUDED·PENDING) 공연 태그는 PostConcertTagHiddenException으로 거부한다.
      * 그 밖에 entityTags가 가리키는 엔티티의 실존 여부는 검증하지 않는다 — 삭제된 참조와 동일하게
      * 조회 시점에 EntityLookupService가 조용히 제외한다.
+     * coverConcertId는 entityTags의 CONCERT 태그 중 하나여야 한다.
      */
     @Transactional
     public PostCreateResponse create(Long userId, PostCreateRequest request) {
         userStatusValidator.validateWritable(userId);
         List<EntityTagRequest> tags = request.entityTags() == null ? List.of() : request.entityTags();
-        validateConcertsNotHidden(concertIdsOf(tags));
+        Set<Long> taggedConcertIds = concertIdsOf(tags);
+        validateConcertsNotHidden(taggedConcertIds);
+        if (request.coverConcertId() != null && !taggedConcertIds.contains(request.coverConcertId())) {
+            throw new PostCoverConcertNotTaggedException();
+        }
 
         String contentText = TiptapTextExtractor.extract(request.content());
         validateContentTextLength(contentText);
@@ -123,6 +130,7 @@ public class PostService {
                 .recommendCount(0L)
                 .viewCount(0L)
                 .commentCount(0L)
+                .coverConcertId(request.coverConcertId())
                 .build();
         postRepository.save(post);
         saveEntityTags(post.getId(), tags);
@@ -156,6 +164,7 @@ public class PostService {
                 post.getTitle(),
                 removeUnavailableConcertMentions(readContent(post.getContent())),
                 entityTags,
+                visibleCoverConcertId(post, entityTags),
                 post.getRecommendCount(),
                 post.getViewCount() + 1,
                 post.getCommentCount(),
@@ -202,6 +211,7 @@ public class PostService {
                 post.getCategory(),
                 post.getTitle(),
                 tagsByPost.getOrDefault(post.getId(), List.of()),
+                visibleCoverConcertId(post, tagsByPost.getOrDefault(post.getId(), List.of())),
                 post.getRecommendCount(),
                 post.getViewCount(),
                 post.getCreatedAt()
@@ -294,6 +304,8 @@ public class PostService {
      * category·title·content는 null이면 기존값을 유지하고, entityTags는 null이면 기존 태그를 유지한다.
      * entityTags가 주어지면 기존 태그를 전체 삭제 후 재삽입한다. 새로 추가한 숨김 상태 공연 태그는 거부하고,
      * 이미 저장돼 있던 태그는 그 사이 공연이 숨겨졌어도 통과시킨다(수정 화면이 같은 태그를 다시 보내므로).
+     * coverConcertId가 주어지면 최종 태그(요청 태그, 없으면 저장된 태그)의 공개 공연이어야 한다.
+     * 주어지지 않으면 기존 대표를 유지하되, entityTags 교체로 대표 공연이 태그에서 빠지면 비운다.
      */
     @Transactional
     public void update(Long userId, Long id, PostUpdateRequest request) {
@@ -303,11 +315,8 @@ public class PostService {
             throw new PostForbiddenException();
         }
 
-        if (request.entityTags() != null) {
-            Set<Long> addedConcertIds = concertIdsOf(request.entityTags());
-            addedConcertIds.removeAll(storedConcertIdsOf(id));
-            validateConcertsNotHidden(addedConcertIds);
-        }
+        Set<Long> requestedConcertIds = request.entityTags() != null ? concertIdsOf(request.entityTags()) : null;
+        validateConcertTagChanges(id, requestedConcertIds, request.coverConcertId());
 
         String contentText = request.content() != null ? TiptapTextExtractor.extract(request.content()) : null;
         if (contentText != null) {
@@ -323,6 +332,7 @@ public class PostService {
             postEntityTagRepository.deleteByPostId(id);
             saveEntityTags(id, request.entityTags());
         }
+        applyCoverConcert(post, requestedConcertIds, request.coverConcertId());
     }
 
     /**
@@ -451,6 +461,54 @@ public class PostService {
         if (hasHidden) {
             throw new PostConcertTagHiddenException();
         }
+    }
+
+    /**
+     * 수정 요청의 공연 태그·대표 공연을 검증한다. requestedConcertIds가 null이면 태그를 바꾸지 않는 요청이다.
+     * 새로 추가한 공연만 숨김 여부를 보고, 대표 공연은 최종 태그(요청 태그, 없으면 저장된 태그)의 공개 공연이어야 한다.
+     */
+    private void validateConcertTagChanges(Long postId, Set<Long> requestedConcertIds, Long coverConcertId) {
+        if (requestedConcertIds == null && coverConcertId == null) {
+            return;
+        }
+        Set<Long> storedConcertIds = storedConcertIdsOf(postId);
+        if (requestedConcertIds != null) {
+            Set<Long> addedConcertIds = new HashSet<>(requestedConcertIds);
+            addedConcertIds.removeAll(storedConcertIds);
+            validateConcertsNotHidden(addedConcertIds);
+        }
+        if (coverConcertId != null) {
+            Set<Long> finalConcertIds = requestedConcertIds != null ? requestedConcertIds : storedConcertIds;
+            if (!finalConcertIds.contains(coverConcertId)) {
+                throw new PostCoverConcertNotTaggedException();
+            }
+            // 새로 추가한 태그면 위에서 이미 검사했으므로, 저장돼 있던 태그일 때만 숨김 여부를 본다
+            if (storedConcertIds.contains(coverConcertId)) {
+                validateConcertsNotHidden(Set.of(coverConcertId));
+            }
+        }
+    }
+
+    /**
+     * 요청한 대표 공연을 반영한다. 요청 값이 없으면 기존 대표를 유지하되, 태그 교체로 태그에서 빠졌으면 비운다.
+     */
+    private void applyCoverConcert(Post post, Set<Long> requestedConcertIds, Long coverConcertId) {
+        if (coverConcertId != null) {
+            post.changeCoverConcert(coverConcertId);
+        } else if (requestedConcertIds != null && post.getCoverConcertId() != null
+                && !requestedConcertIds.contains(post.getCoverConcertId())) {
+            post.changeCoverConcert(null);
+        }
+    }
+
+    /**
+     * 대표 공연이 응답 태그(숨김·삭제 공연이 빠진 목록)에 있을 때만 id를 반환한다. DB 값은 그대로 둔다.
+     */
+    private Long visibleCoverConcertId(Post post, List<PostEntityTagResponse> visibleTags) {
+        Long coverConcertId = post.getCoverConcertId();
+        boolean isVisible = coverConcertId != null && visibleTags.stream()
+                .anyMatch(tag -> tag.entityType() == EntityType.CONCERT && coverConcertId.equals(tag.entityId()));
+        return isVisible ? coverConcertId : null;
     }
 
     private boolean isHiddenConcert(Long concertId) {

@@ -112,7 +112,7 @@ class PostControllerTest {
     @Test
     void should_return_201_when_create_request_is_valid() throws Exception {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), null);
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), null, null);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class))).willReturn(new PostCreateResponse(POST_ID));
 
         // when & then
@@ -126,7 +126,7 @@ class PostControllerTest {
     @Test
     void should_return_400_when_service_throws_invalid_input_exception_on_create() throws Exception {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), null);
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), null, null);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class))).willThrow(new InvalidInputException());
 
         // when & then
@@ -141,7 +141,7 @@ class PostControllerTest {
     @Test
     void should_return_400_when_create_request_has_more_than_10_entity_tags() throws Exception {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), entityTags(11));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), entityTags(11), null);
 
         // when & then
         mockMvc.perform(post("/api/posts")
@@ -170,7 +170,7 @@ class PostControllerTest {
     @Test
     void should_return_201_when_create_request_has_exactly_10_entity_tags() throws Exception {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), entityTags(10));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), entityTags(10), null);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class))).willReturn(new PostCreateResponse(POST_ID));
 
         // when & then
@@ -191,7 +191,7 @@ class PostControllerTest {
         // given
         PostDetailResponse detail = new PostDetailResponse(
                 POST_ID, "IU", PostCategory.FREE, "제목", sampleContent(),
-                List.of(), 0L, 1L, 0L, null, true, LocalDateTime.now(), LocalDateTime.now()
+                List.of(), null, 0L, 1L, 0L, null, true, LocalDateTime.now(), LocalDateTime.now()
         );
         given(postService.getDetail(eq(POST_ID), eq(USER_ID))).willReturn(detail);
 
@@ -222,7 +222,7 @@ class PostControllerTest {
     void should_return_200_with_page_response_when_getting_list() throws Exception {
         // given
         PostSummaryResponse summary = new PostSummaryResponse(
-                POST_ID, "IU", PostCategory.FREE, "제목", List.of(), 0L, 0L, LocalDateTime.now());
+                POST_ID, "IU", PostCategory.FREE, "제목", List.of(), null, 0L, 0L, LocalDateTime.now());
         PageResponse<PostSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 20, 1, 1);
         given(postService.getList(isNull(), eq(0), eq(20))).willReturn(pageResponse);
 
@@ -244,7 +244,7 @@ class PostControllerTest {
     void should_return_200_with_popular_posts_when_default_params_given() throws Exception {
         // given
         PostSummaryResponse summary = new PostSummaryResponse(
-                POST_ID, "IU", PostCategory.FREE, "인기 게시글", List.of(), 10L, 0L, LocalDateTime.now());
+                POST_ID, "IU", PostCategory.FREE, "인기 게시글", List.of(), null, 10L, 0L, LocalDateTime.now());
         given(postService.getPopular(eq(7), eq(5))).willReturn(List.of(summary));
 
         // when & then
@@ -263,7 +263,7 @@ class PostControllerTest {
     void should_return_200_with_page_response_when_getting_popular_board_with_default_params() throws Exception {
         // given
         PostSummaryResponse summary = new PostSummaryResponse(
-                POST_ID, "IU", PostCategory.FREE, "인기글", List.of(), 10L, 0L, LocalDateTime.now());
+                POST_ID, "IU", PostCategory.FREE, "인기글", List.of(), null, 10L, 0L, LocalDateTime.now());
         PageResponse<PostSummaryResponse> pageResponse = new PageResponse<>(List.of(summary), 0, 20, 1, 1);
         given(postService.getPopularBoard(eq(0), eq(20))).willReturn(pageResponse);
 
@@ -304,7 +304,7 @@ class PostControllerTest {
     @Test
     void should_return_200_when_update_request_is_valid() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null, null);
         willDoNothing().given(postService).update(eq(USER_ID), eq(POST_ID), any(PostUpdateRequest.class));
 
         // when & then
@@ -317,7 +317,7 @@ class PostControllerTest {
     @Test
     void should_return_403_when_service_throws_forbidden_exception_on_update() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null, null);
         willThrow(new PostForbiddenException()).given(postService)
                 .update(eq(USER_ID), eq(POST_ID), any(PostUpdateRequest.class));
 
@@ -333,7 +333,7 @@ class PostControllerTest {
     @Test
     void should_return_400_when_update_request_has_blank_title() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, "   ", null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "   ", null, null, null);
 
         // when & then
         mockMvc.perform(patch("/api/posts/{id}", POST_ID)
@@ -346,7 +346,7 @@ class PostControllerTest {
     @Test
     void should_return_400_when_update_request_has_more_than_10_entity_tags() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, entityTags(11));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, entityTags(11), null);
 
         // when & then
         mockMvc.perform(patch("/api/posts/{id}", POST_ID)

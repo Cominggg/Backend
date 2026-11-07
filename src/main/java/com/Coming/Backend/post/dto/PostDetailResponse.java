@@ -12,6 +12,8 @@ public record PostDetailResponse(
         String title,
         Object content,
         List<PostEntityTagResponse> entityTags,
+        // 대표 공연 id. 응답 entityTags에 없는 공연(숨김·삭제)이면 null
+        Long coverConcertId,
         Long recommendCount,
         Long viewCount,
         Long commentCount,
