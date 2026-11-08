@@ -52,6 +52,10 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.id = :id")
     void incrementCommentCount(@Param("id") Long id);
 
+    @Modifying
+    @Query("UPDATE Post p SET p.commentCount = p.commentCount - 1 WHERE p.id = :id AND p.commentCount > 0")
+    void decrementCommentCount(@Param("id") Long id);
+
     /**
      * RELEASE 조회 시, 해당 릴리즈에 속한 트랙(Track.releaseGroupId)이 태그된 게시글도 함께 포함한다.
      * 트랙 앵커가 앨범 상세 페이지로 귀결되는 구조(`/releases/{releaseGroupId}#track-{id}`)이므로,

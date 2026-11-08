@@ -114,7 +114,7 @@ public class CommentService {
                 .deleted(false)
                 .build();
         commentRepository.save(comment);
-        // commentCount는 생성 시에만 증가하는 단조 카운터다. 삭제는 항상 소프트 삭제(행 유지)라 감소시키지 않는다.
+        // commentCount는 삭제되지 않은 댓글·답글 수다. 소프트 삭제 시 softDelete에서 줄인다.
         postRepository.incrementCommentCount(postId);
 
         return new CommentCreateResponse(comment.getId());
@@ -131,7 +131,7 @@ public class CommentService {
         if (!comment.isAuthoredBy(userId)) {
             throw new CommentForbiddenException();
         }
-        comment.softDelete();
+        softDelete(comment);
     }
 
     /**
@@ -140,7 +140,18 @@ public class CommentService {
     @Transactional
     public void adminDelete(Long commentId) {
         Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
+        softDelete(comment);
+    }
+
+    /**
+     * 댓글을 소프트 삭제하고 게시글의 commentCount를 줄인다. 이미 삭제된 댓글이면 아무것도 하지 않아 두 번 줄지 않는다.
+     */
+    private void softDelete(Comment comment) {
+        if (comment.isDeleted()) {
+            return;
+        }
         comment.softDelete();
+        postRepository.decrementCommentCount(comment.getPostId());
     }
 
     /**

@@ -526,6 +526,46 @@ class CommentServiceTest {
         verify(commentRepository, never()).delete(any(Comment.class));
     }
 
+    @Test
+    void should_decrement_comment_count_when_author_deletes() {
+        // given
+        Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 0L, false);
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+
+        // when
+        commentService.delete(AUTHOR_ID, COMMENT_ID);
+
+        // then
+        verify(postRepository).decrementCommentCount(POST_ID);
+    }
+
+    @Test
+    void should_not_decrement_comment_count_when_author_deletes_already_deleted_comment() {
+        // given
+        Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 0L, true);
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+
+        // when
+        commentService.delete(AUTHOR_ID, COMMENT_ID);
+
+        // then
+        assertThat(comment.isDeleted()).isTrue();
+        verify(postRepository, never()).decrementCommentCount(any());
+    }
+
+    @Test
+    void should_not_decrement_comment_count_when_deleter_is_not_author() {
+        // given
+        Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 0L, false);
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+
+        // when & then
+        assertThatThrownBy(() -> commentService.delete(OTHER_USER_ID, COMMENT_ID))
+                .isInstanceOf(CommentForbiddenException.class);
+        assertThat(comment.isDeleted()).isFalse();
+        verify(postRepository, never()).decrementCommentCount(any());
+    }
+
     // -------------------------------------------------------------------------
     // adminDelete
     // -------------------------------------------------------------------------
@@ -553,6 +593,33 @@ class CommentServiceTest {
         // then
         assertThat(comment.isDeleted()).isTrue();
         verify(commentRepository, never()).delete(any(Comment.class));
+    }
+
+    @Test
+    void should_decrement_comment_count_when_admin_deletes() {
+        // given
+        Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 0L, false);
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+
+        // when
+        commentService.adminDelete(COMMENT_ID);
+
+        // then
+        verify(postRepository).decrementCommentCount(POST_ID);
+    }
+
+    @Test
+    void should_not_decrement_comment_count_when_admin_deletes_already_deleted_comment() {
+        // given
+        Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 0L, true);
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+
+        // when
+        commentService.adminDelete(COMMENT_ID);
+
+        // then
+        assertThat(comment.isDeleted()).isTrue();
+        verify(postRepository, never()).decrementCommentCount(any());
     }
 
     // -------------------------------------------------------------------------
