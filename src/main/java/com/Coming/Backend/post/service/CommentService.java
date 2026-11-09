@@ -144,14 +144,16 @@ public class CommentService {
     }
 
     /**
-     * 댓글을 소프트 삭제하고 게시글의 commentCount를 줄인다. 이미 삭제된 댓글이면 아무것도 하지 않아 두 번 줄지 않는다.
+     * 댓글을 소프트 삭제하고 게시글의 commentCount를 줄인다. 조건부 UPDATE로 실제 삭제한 요청만 줄여,
+     * 같은 댓글을 동시에 삭제해도 두 번 줄지 않는다.
      */
     private void softDelete(Comment comment) {
         if (comment.isDeleted()) {
             return;
         }
-        comment.softDelete();
-        postRepository.decrementCommentCount(comment.getPostId());
+        if (commentRepository.softDeleteIfNotDeleted(comment.getId()) == 1) {
+            postRepository.decrementCommentCount(comment.getPostId());
+        }
     }
 
     /**

@@ -522,7 +522,7 @@ class CommentServiceTest {
         commentService.delete(AUTHOR_ID, COMMENT_ID);
 
         // then
-        assertThat(comment.isDeleted()).isTrue();
+        verify(commentRepository).softDeleteIfNotDeleted(COMMENT_ID);
         verify(commentRepository, never()).delete(any(Comment.class));
     }
 
@@ -531,12 +531,27 @@ class CommentServiceTest {
         // given
         Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 0L, false);
         given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+        given(commentRepository.softDeleteIfNotDeleted(COMMENT_ID)).willReturn(1);
 
         // when
         commentService.delete(AUTHOR_ID, COMMENT_ID);
 
         // then
         verify(postRepository).decrementCommentCount(POST_ID);
+    }
+
+    @Test
+    void should_not_decrement_comment_count_when_concurrent_request_deleted_comment_first() {
+        // given
+        Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 0L, false);
+        given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+        given(commentRepository.softDeleteIfNotDeleted(COMMENT_ID)).willReturn(0);
+
+        // when
+        commentService.delete(AUTHOR_ID, COMMENT_ID);
+
+        // then
+        verify(postRepository, never()).decrementCommentCount(any());
     }
 
     @Test
@@ -549,7 +564,7 @@ class CommentServiceTest {
         commentService.delete(AUTHOR_ID, COMMENT_ID);
 
         // then
-        assertThat(comment.isDeleted()).isTrue();
+        verify(commentRepository, never()).softDeleteIfNotDeleted(any());
         verify(postRepository, never()).decrementCommentCount(any());
     }
 
@@ -562,7 +577,7 @@ class CommentServiceTest {
         // when & then
         assertThatThrownBy(() -> commentService.delete(OTHER_USER_ID, COMMENT_ID))
                 .isInstanceOf(CommentForbiddenException.class);
-        assertThat(comment.isDeleted()).isFalse();
+        verify(commentRepository, never()).softDeleteIfNotDeleted(any());
         verify(postRepository, never()).decrementCommentCount(any());
     }
 
@@ -591,7 +606,7 @@ class CommentServiceTest {
         commentService.adminDelete(COMMENT_ID);
 
         // then
-        assertThat(comment.isDeleted()).isTrue();
+        verify(commentRepository).softDeleteIfNotDeleted(COMMENT_ID);
         verify(commentRepository, never()).delete(any(Comment.class));
     }
 
@@ -600,6 +615,7 @@ class CommentServiceTest {
         // given
         Comment comment = buildComment(COMMENT_ID, POST_ID, AUTHOR_ID, null, "댓글", 0L, false);
         given(commentRepository.findById(COMMENT_ID)).willReturn(Optional.of(comment));
+        given(commentRepository.softDeleteIfNotDeleted(COMMENT_ID)).willReturn(1);
 
         // when
         commentService.adminDelete(COMMENT_ID);
@@ -618,7 +634,7 @@ class CommentServiceTest {
         commentService.adminDelete(COMMENT_ID);
 
         // then
-        assertThat(comment.isDeleted()).isTrue();
+        verify(commentRepository, never()).softDeleteIfNotDeleted(any());
         verify(postRepository, never()).decrementCommentCount(any());
     }
 

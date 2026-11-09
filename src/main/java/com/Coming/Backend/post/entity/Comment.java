@@ -53,10 +53,6 @@ public class Comment extends BaseCreatedEntity {
         return parentCommentId != null;
     }
 
-    public void softDelete() {
-        this.deleted = true;
-    }
-
     /**
      * 소프트 삭제된 댓글은 본문 대신 플레이스홀더를 노출한다.
      */
