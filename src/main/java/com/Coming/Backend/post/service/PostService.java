@@ -326,7 +326,7 @@ public class PostService {
             postEntityTagRepository.deleteByPostId(id);
             saveEntityTags(id, request.entityTags());
         }
-        applyCoverConcert(post, requestedConcertIds, request.coverConcertId());
+        post.applyCoverConcert(requestedConcertIds, request.coverConcertId());
     }
 
     /**
@@ -472,18 +472,6 @@ public class PostService {
         validateConcertsNotHidden(concertIdsToCheck);
         if (coverConcertId != null && !isCoverTagged) {
             throw new PostCoverConcertNotTaggedException();
-        }
-    }
-
-    /**
-     * 요청한 대표 공연을 반영한다. 요청 값이 없으면 기존 대표를 유지하되, 태그 교체로 태그에서 빠졌으면 비운다.
-     */
-    private void applyCoverConcert(Post post, Set<Long> requestedConcertIds, Long coverConcertId) {
-        if (coverConcertId != null) {
-            post.changeCoverConcert(coverConcertId);
-        } else if (requestedConcertIds != null && post.getCoverConcertId() != null
-                && !requestedConcertIds.contains(post.getCoverConcertId())) {
-            post.changeCoverConcert(null);
         }
     }
 

@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.util.Set;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -75,5 +76,18 @@ public class Post extends BaseTimeEntity {
      */
     public void changeCoverConcert(Long coverConcertId) {
         this.coverConcertId = coverConcertId;
+    }
+
+    /**
+     * 수정 요청의 대표 공연을 반영한다. 요청 값이 없으면 기존 대표를 유지하되, 태그 교체로 태그에서 빠졌으면 비운다.
+     * requestedConcertIds가 null이면 태그를 바꾸지 않는 요청이다.
+     */
+    public void applyCoverConcert(Set<Long> requestedConcertIds, Long requestedCoverConcertId) {
+        if (requestedCoverConcertId != null) {
+            this.coverConcertId = requestedCoverConcertId;
+        } else if (requestedConcertIds != null && this.coverConcertId != null
+                && !requestedConcertIds.contains(this.coverConcertId)) {
+            this.coverConcertId = null;
+        }
     }
 }
