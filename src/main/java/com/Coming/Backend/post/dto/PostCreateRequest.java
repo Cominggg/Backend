@@ -20,6 +20,8 @@ public record PostCreateRequest(
         Object content,
 
         @Size(max = 10, message = "태그는 10개를 초과할 수 없습니다")
-        List<@NotNull @Valid EntityTagRequest> entityTags
+        List<@NotNull @Valid EntityTagRequest> entityTags,
+        // entityTags의 CONCERT 태그 중 대표 공연 id. 수정에서 null이면 기존 대표를 유지한다(태그에서 빠지면 비운다)
+        Long coverConcertId
 ) {
 }

@@ -1,5 +1,6 @@
 package com.Coming.Backend.post.repository;
 
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.post.entity.EntityType;
 import com.Coming.Backend.post.entity.Post;
 import com.Coming.Backend.post.entity.PostCategory;
@@ -11,7 +12,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
@@ -36,12 +39,22 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("UPDATE Post p SET p.recommendCount = p.recommendCount - 1 WHERE p.id = :id")
     void decrementRecommendCount(@Param("id") Long id);
 
+    /**
+     * 게시글 작성자 id만 조회한다. 본문(jsonb)까지 읽지 않으려고 엔티티 대신 쓴다.
+     */
+    @Query("SELECT p.userId FROM Post p WHERE p.id = :id")
+    Optional<Long> findUserIdById(@Param("id") Long id);
+
     @Query("SELECT p.recommendCount FROM Post p WHERE p.id = :id")
     Long findRecommendCountById(@Param("id") Long id);
 
     @Modifying
     @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.id = :id")
     void incrementCommentCount(@Param("id") Long id);
+
+    @Modifying
+    @Query("UPDATE Post p SET p.commentCount = p.commentCount - 1 WHERE p.id = :id AND p.commentCount > 0")
+    void decrementCommentCount(@Param("id") Long id);
 
     /**
      * RELEASE 조회 시, 해당 릴리즈에 속한 트랙(Track.releaseGroupId)이 태그된 게시글도 함께 포함한다.
@@ -68,7 +81,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
                 WHERE (t.entityType = com.Coming.Backend.post.entity.EntityType.ARTIST
                         AND t.entityId IN (SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.CONCERT
-                        AND t.entityId IN (SELECT c.id FROM Concert c WHERE LOWER(c.title) LIKE :q))
+                        AND t.entityId IN (SELECT c.id FROM Concert c WHERE LOWER(c.title) LIKE :q AND c.status NOT IN :hidden))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.RELEASE
                         AND t.entityId IN (SELECT r.id FROM ReleaseGroup r WHERE LOWER(r.title) LIKE :q))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.TRACK
@@ -76,5 +89,5 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             )
             ORDER BY p.createdAt DESC
             """)
-    Page<Post> searchPosts(@Param("q") String q, Pageable pageable);
+    Page<Post> searchPosts(@Param("q") String q, @Param("hidden") Collection<ConcertStatus> hidden, Pageable pageable);
 }

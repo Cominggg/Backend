@@ -55,7 +55,7 @@ class EntityPostControllerTest {
 
     private PostSummaryResponse buildSummary() {
         return new PostSummaryResponse(
-                10L, "IU", PostCategory.REVIEW, "제목", List.of(), 0L, 0L, LocalDateTime.now());
+                10L, "IU", PostCategory.REVIEW, "제목", List.of(), null, 0L, 0L, LocalDateTime.now());
     }
 
     @Test
