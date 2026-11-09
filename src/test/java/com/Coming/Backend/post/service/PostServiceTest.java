@@ -18,6 +18,7 @@ import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.dto.EntityTagRequest;
 import com.Coming.Backend.post.dto.PostCreateRequest;
@@ -47,6 +48,7 @@ import com.Coming.Backend.post.repository.PostRecommendRepository;
 import com.Coming.Backend.post.repository.PostRepository;
 import com.Coming.Backend.report.entity.ReportReason;
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -679,6 +681,41 @@ class PostServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void should_remove_concert_mentions_with_null_missing_or_string_id_when_getting_detail() {
+        // given: 유효한 공연 id가 하나도 없는 멘션만 있는 본문
+        String content = """
+                {"type":"doc","content":[
+                  {"type":"entityMentionCard","attrs":{"entityType":"CONCERT","entityId":null}},
+                  {"type":"entityMentionCard","attrs":{"entityType":"CONCERT"}},
+                  {"type":"entityMentionCard","attrs":{"entityType":"CONCERT","entityId":"abc"}},
+                  {"type":"paragraph","content":[{"type":"text","text":"본문"}]}
+                ]}""";
+        Post post = Post.builder()
+                .id(POST_ID)
+                .userId(AUTHOR_ID)
+                .category(PostCategory.REVIEW)
+                .title("제목")
+                .content(content)
+                .contentText("")
+                .recommendCount(0L)
+                .viewCount(0L)
+                .commentCount(0L)
+                .build();
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of());
+        given(userRepository.findById(AUTHOR_ID)).willReturn(Optional.of(buildUser(AUTHOR_ID, "IU")));
+
+        // when
+        PostDetailResponse response = postService.getDetail(POST_ID, null);
+
+        // then
+        List<Map<String, Object>> nodes = (List<Map<String, Object>>) ((Map<String, Object>) response.content()).get("content");
+        assertThat(nodes).extracting(node -> node.get("type")).containsExactly("paragraph");
+        verify(entityLookupService, never()).findVisibleConcertIds(any());
+    }
+
+    @Test
     void should_not_query_concerts_when_content_has_no_concert_mention_on_get_detail() {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
@@ -1097,7 +1134,7 @@ class PostServiceTest {
         EntityTagCount count = new EntityTagCount(EntityType.ARTIST, 1L, 3L);
         EntityLookupService.EntityKey key = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
         EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
-        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), any(), eq(pageable))).willReturn(List.of(count));
+        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(EnumSet.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING)), eq(pageable))).willReturn(List.of(count));
         given(entityLookupService.findCards(List.of(key))).willReturn(Map.of(key, card));
 
         // when
@@ -1115,7 +1152,7 @@ class PostServiceTest {
     void should_return_empty_list_when_no_trending_tags_found() {
         // given
         Pageable pageable = PageRequest.of(0, 10);
-        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), any(), eq(pageable))).willReturn(List.of());
+        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(EnumSet.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING)), eq(pageable))).willReturn(List.of());
 
         // when
         List<TrendingTagResponse> response = postService.getTrendingTags(7, 10);
@@ -1134,7 +1171,7 @@ class PostServiceTest {
         EntityLookupService.EntityKey aliveKey = new EntityLookupService.EntityKey(EntityType.ARTIST, 1L);
         EntityLookupService.EntityKey deletedKey = new EntityLookupService.EntityKey(EntityType.CONCERT, 2L);
         EntityCardResponse card = new EntityCardResponse(EntityType.ARTIST, 1L, "IU", null, "https://image.example.com/iu.jpg", null);
-        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), any(), eq(pageable)))
+        given(postEntityTagRepository.findTrendingEntityTags(any(LocalDateTime.class), eq(EnumSet.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING)), eq(pageable)))
                 .willReturn(List.of(aliveCount, deletedCount));
         given(entityLookupService.findCards(List.of(aliveKey, deletedKey))).willReturn(Map.of(aliveKey, card));
 
@@ -1156,7 +1193,7 @@ class PostServiceTest {
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "IU 콘서트 후기", 3L);
         Pageable pageable = PageRequest.of(0, 20);
         Page<Post> page = new PageImpl<>(List.of(post), pageable, 1);
-        given(postRepository.searchPosts(eq("%iu%"), any(), eq(pageable))).willReturn(page);
+        given(postRepository.searchPosts(eq("%iu%"), eq(EnumSet.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING)), eq(pageable))).willReturn(page);
         given(postEntityTagRepository.findByPostIdIn(List.of(POST_ID))).willReturn(List.of());
         given(userRepository.findAllByIdIn(Set.of(AUTHOR_ID))).willReturn(List.of(buildUser(AUTHOR_ID, "IU")));
 
@@ -1166,14 +1203,14 @@ class PostServiceTest {
         // then
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).title()).isEqualTo("IU 콘서트 후기");
-        verify(postRepository).searchPosts(eq("%iu%"), any(), eq(pageable));
+        verify(postRepository).searchPosts(eq("%iu%"), eq(EnumSet.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING)), eq(pageable));
     }
 
     @Test
     void should_return_empty_content_when_no_search_result_found() {
         // given
         Pageable pageable = PageRequest.of(0, 20);
-        given(postRepository.searchPosts(eq("%없는검색어%"), any(), eq(pageable))).willReturn(Page.empty(pageable));
+        given(postRepository.searchPosts(eq("%없는검색어%"), eq(EnumSet.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING)), eq(pageable))).willReturn(Page.empty(pageable));
 
         // when
         PageResponse<PostSummaryResponse> response = postService.search("없는검색어", 0, 20);
@@ -1187,13 +1224,13 @@ class PostServiceTest {
     void should_escape_like_wildcards_when_search_query_contains_percent_and_underscore() {
         // given
         Pageable pageable = PageRequest.of(0, 20);
-        given(postRepository.searchPosts(eq("%50\\%\\_off%"), any(), eq(pageable))).willReturn(Page.empty(pageable));
+        given(postRepository.searchPosts(eq("%50\\%\\_off%"), eq(EnumSet.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING)), eq(pageable))).willReturn(Page.empty(pageable));
 
         // when
         postService.search("50%_off", 0, 20);
 
         // then
-        verify(postRepository).searchPosts(eq("%50\\%\\_off%"), any(), eq(pageable));
+        verify(postRepository).searchPosts(eq("%50\\%\\_off%"), eq(EnumSet.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING)), eq(pageable));
     }
 
     @Test

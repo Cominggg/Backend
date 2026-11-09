@@ -206,6 +206,30 @@ class TiptapConcertMentionFilterTest {
     }
 
     @Test
+    void should_remove_concert_mention_when_entity_id_is_fractional() throws Exception {
+        // given
+        Map<String, Object> content = parse(doc(card("CONCERT", "7.5"), card("CONCERT", "7")));
+
+        // when
+        Object result = TiptapConcertMentionFilter.removeConcertMentionsExcept(content, Set.of(7L));
+
+        // then
+        assertThat(result).isEqualTo(parse(doc(card("CONCERT", "7"))));
+    }
+
+    @Test
+    void should_keep_node_without_type_when_filtering() throws Exception {
+        // given
+        Map<String, Object> content = parse(doc("{\"content\":[" + card("CONCERT", "7") + "]}"));
+
+        // when
+        Object result = TiptapConcertMentionFilter.removeConcertMentionsExcept(content, Set.of());
+
+        // then
+        assertThat(result).isEqualTo(parse(doc("{\"content\":[]}")));
+    }
+
+    @Test
     void should_keep_node_when_content_key_missing() throws Exception {
         // given
         Map<String, Object> content = parse("{\"type\":\"doc\"}");

@@ -491,16 +491,16 @@ public class PostService {
      */
     private Object removeUnavailableConcertMentions(Object content, List<PostEntityTagResponse> visibleTags) {
         Set<Long> mentionedConcertIds = TiptapConcertMentionFilter.collectConcertIds(content);
-        if (mentionedConcertIds.isEmpty()) {
-            return content;
-        }
         Set<Long> visibleConcertIds = visibleTags.stream()
                 .filter(tag -> tag.entityType() == EntityType.CONCERT)
                 .map(PostEntityTagResponse::entityId)
                 .collect(Collectors.toCollection(HashSet::new));
         Set<Long> uncheckedConcertIds = new HashSet<>(mentionedConcertIds);
         uncheckedConcertIds.removeAll(visibleConcertIds);
-        visibleConcertIds.addAll(entityLookupService.findVisibleConcertIds(uncheckedConcertIds));
+        if (!uncheckedConcertIds.isEmpty()) {
+            visibleConcertIds.addAll(entityLookupService.findVisibleConcertIds(uncheckedConcertIds));
+        }
+        // 유효한 id가 하나도 없어도 필터를 돌려야 id가 null·누락·문자열인 공연 멘션이 빠진다
         return TiptapConcertMentionFilter.removeConcertMentionsExcept(content, visibleConcertIds);
     }
 

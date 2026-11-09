@@ -75,13 +75,19 @@ public final class TiptapConcertMentionFilter {
     }
 
     private static boolean isConcertMention(Map<?, ?> node) {
-        return MENTION_NODE_TYPES.contains(node.get("type"))
+        // Set.of는 contains(null)에서 NPE를 던지므로 type이 문자열인지 먼저 본다
+        return node.get("type") instanceof String type
+                && MENTION_NODE_TYPES.contains(type)
                 && node.get("attrs") instanceof Map<?, ?> attrs
                 && CONCERT_ENTITY_TYPE.equals(attrs.get("entityType"));
     }
 
+    /**
+     * 정수(Integer·Long) entityId만 공연 id로 본다. 7.5 같은 소수는 longValue로 다른 공연과 맞춰지지 않게 null로 둔다.
+     */
     private static Long concertIdOf(Map<?, ?> node) {
         Map<?, ?> attrs = (Map<?, ?>) node.get("attrs");
-        return attrs.get("entityId") instanceof Number number ? number.longValue() : null;
+        Object entityId = attrs.get("entityId");
+        return entityId instanceof Integer || entityId instanceof Long ? ((Number) entityId).longValue() : null;
     }
 }
