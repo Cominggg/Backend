@@ -2,11 +2,13 @@ package com.Coming.Backend.post.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -20,7 +22,6 @@ import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.post.dto.EntityCardResponse;
-import com.Coming.Backend.post.dto.EntityTagRequest;
 import com.Coming.Backend.post.dto.PostCreateRequest;
 import com.Coming.Backend.post.dto.PostCreateResponse;
 import com.Coming.Backend.post.dto.PostDetailResponse;
@@ -36,6 +37,7 @@ import com.Coming.Backend.post.entity.PostRecommend;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostConcertTagHiddenException;
+import com.Coming.Backend.post.exception.PostContentInvalidFormatException;
 import com.Coming.Backend.post.exception.PostContentTooLongException;
 import com.Coming.Backend.post.exception.PostCoverConcertNotTaggedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
@@ -48,6 +50,7 @@ import com.Coming.Backend.post.repository.PostRecommendRepository;
 import com.Coming.Backend.post.repository.PostRepository;
 import com.Coming.Backend.report.entity.ReportReason;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +59,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -131,20 +135,49 @@ class PostServiceTest {
     }
 
     /**
-     * 텍스트 노드는 짧지만(contentText 검증 통과), attrs에 padding을 채워 직렬화된 JSON 문자열 자체는
+     * 텍스트 노드는 짧지만(contentText 검증 통과), 링크 href를 길게 채워 직렬화된 JSON 문자열 자체는
      * 크게 만든 Tiptap 문서. content 원본 크기 상한 검증용.
+     * 허용 밖 attrs는 저장 전에 지워지므로 허용된 속성(link.href)으로 크기를 키운다.
      */
     private Map<String, Object> contentWithLargeStructureAndShortText(int paddingLength) {
         return Map.of(
                 "type", "doc",
                 "content", List.of(
-                        Map.of("type", "paragraph",
-                                "attrs", Map.of("padding", "x".repeat(paddingLength)),
-                                "content", List.of(
-                                        Map.of("type", "text", "text", "안녕하세요")
+                        Map.of("type", "paragraph", "content", List.of(
+                                Map.of("type", "text", "text", "안녕하세요", "marks", List.of(
+                                        Map.of("type", "link", "attrs",
+                                                Map.of("href", "https://example.com/" + "x".repeat(paddingLength)))
                                 ))
+                        ))
                 )
         );
+    }
+
+    /**
+     * 본문 언급 카드 노드. 카드는 최상위 블록에만 둘 수 있다.
+     */
+    private Map<String, Object> card(EntityType entityType, Long entityId) {
+        return Map.of("type", "entityMentionCard", "attrs",
+                Map.of("entityType", entityType.name(), "entityId", entityId, "title", "카드 제목"));
+    }
+
+    /**
+     * "안녕하세요" 문단 뒤에 주어진 카드를 순서대로 둔 Tiptap 문서.
+     */
+    private Map<String, Object> contentWithCards(Map<?, ?>... cards) {
+        List<Object> nodes = new ArrayList<>();
+        nodes.add(Map.of("type", "paragraph", "content", List.of(Map.of("type", "text", "text", "안녕하세요"))));
+        nodes.addAll(List.of(cards));
+        return Map.of("type", "doc", "content", nodes);
+    }
+
+    /**
+     * 허용 목록에 없는 노드(image)를 포함한 Tiptap 문서. 서식 위반 검증용.
+     */
+    private Map<String, Object> contentWithDisallowedNode() {
+        return Map.of("type", "doc", "content", List.of(
+                Map.of("type", "image", "attrs", Map.of("src", "https://example.com/a.png"))
+        ));
     }
 
     private Post buildPost(Long id, Long userId, PostCategory category, String title, long viewCount) {
@@ -207,7 +240,7 @@ class PostServiceTest {
     @Test
     void should_create_post_when_review_category_given_without_entity_tags() {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), null, null);
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), null);
         given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
             Post saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", POST_ID);
@@ -225,7 +258,7 @@ class PostServiceTest {
     @Test
     void should_create_post_when_info_category_given_without_entity_tags() {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.INFO, "정보 제목", sampleContent(), List.of(), null);
+        PostCreateRequest request = new PostCreateRequest(PostCategory.INFO, "정보 제목", sampleContent(), null);
         given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
             Post saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", POST_ID);
@@ -243,7 +276,7 @@ class PostServiceTest {
     @Test
     void should_create_post_when_free_category_given_without_entity_tags() {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), null, null);
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), null);
         given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
             Post saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", POST_ID);
@@ -263,13 +296,10 @@ class PostServiceTest {
     }
 
     @Test
-    void should_save_entity_tags_when_review_category_given_with_entity_tags() {
+    void should_save_entity_tags_when_review_content_has_mention_cards() {
         // given
-        List<EntityTagRequest> tags = List.of(
-                new EntityTagRequest(EntityType.ARTIST, 1L),
-                new EntityTagRequest(EntityType.CONCERT, 2L)
-        );
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.ARTIST, 1L), card(EntityType.CONCERT, 2L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, null);
         given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
             Post saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", POST_ID);
@@ -285,13 +315,10 @@ class PostServiceTest {
     }
 
     @Test
-    void should_deduplicate_entity_tags_when_duplicate_tags_given_on_create() {
+    void should_deduplicate_entity_tags_when_duplicate_cards_given_on_create() {
         // given
-        List<EntityTagRequest> tags = List.of(
-                new EntityTagRequest(EntityType.ARTIST, 1L),
-                new EntityTagRequest(EntityType.ARTIST, 1L)
-        );
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.ARTIST, 1L), card(EntityType.ARTIST, 1L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, null);
         given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
             Post saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", POST_ID);
@@ -308,7 +335,7 @@ class PostServiceTest {
     @Test
     void should_create_post_when_content_text_length_is_exactly_max_length() {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목", contentWithLength(10000), null, null);
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목", contentWithLength(10000), null);
         given(postRepository.save(any(Post.class))).willAnswer(invocation -> {
             Post saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", POST_ID);
@@ -326,7 +353,7 @@ class PostServiceTest {
     @Test
     void should_throw_content_too_long_exception_when_content_text_length_exceeds_max_length_on_create() {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목", contentWithLength(10001), null, null);
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목", contentWithLength(10001), null);
 
         // when & then
         assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
@@ -339,7 +366,7 @@ class PostServiceTest {
     void should_throw_content_too_long_exception_when_raw_content_size_exceeds_limit_despite_short_text_on_create() {
         // given: contentText는 10000자 제한을 통과할 만큼 짧지만, 구조(attrs)만 방대해 직렬화된 content가 50000자를 초과한다.
         PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "제목",
-                contentWithLargeStructureAndShortText(60000), null, null);
+                contentWithLargeStructureAndShortText(60000), null);
 
         // when & then
         assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
@@ -351,11 +378,8 @@ class PostServiceTest {
     @Test
     void should_throw_concert_tag_hidden_exception_and_not_save_when_excluded_concert_tagged_on_create() {
         // given
-        List<EntityTagRequest> tags = List.of(
-                new EntityTagRequest(EntityType.CONCERT, 100L),
-                new EntityTagRequest(EntityType.CONCERT, 200L)
-        );
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L), card(EntityType.CONCERT, 200L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, null);
         given(entityLookupService.hasHiddenConcert(Set.of(100L, 200L))).willReturn(true);
 
         // when & then
@@ -369,8 +393,8 @@ class PostServiceTest {
     @Test
     void should_throw_concert_tag_hidden_exception_and_not_save_when_pending_concert_tagged_on_create() {
         // given
-        List<EntityTagRequest> tags = List.of(new EntityTagRequest(EntityType.CONCERT, 100L));
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, null);
         given(entityLookupService.hasHiddenConcert(Set.of(100L))).willReturn(true);
 
         // when & then
@@ -383,11 +407,8 @@ class PostServiceTest {
     @Test
     void should_create_post_when_only_public_concerts_tagged() {
         // given
-        List<EntityTagRequest> tags = List.of(
-                new EntityTagRequest(EntityType.CONCERT, 100L),
-                new EntityTagRequest(EntityType.CONCERT, 200L)
-        );
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L), card(EntityType.CONCERT, 200L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, null);
         given(entityLookupService.hasHiddenConcert(Set.of(100L, 200L))).willReturn(false);
         stubPostSaveAssigningId();
 
@@ -402,8 +423,8 @@ class PostServiceTest {
     @Test
     void should_create_post_when_tagged_concert_does_not_exist() {
         // given
-        List<EntityTagRequest> tags = List.of(new EntityTagRequest(EntityType.CONCERT, 999L));
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 999L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, null);
         given(entityLookupService.hasHiddenConcert(Set.of(999L))).willReturn(false);
         stubPostSaveAssigningId();
 
@@ -418,8 +439,8 @@ class PostServiceTest {
     @Test
     void should_check_hidden_concerts_with_empty_set_when_no_concert_tag_given_on_create() {
         // given
-        List<EntityTagRequest> tags = List.of(new EntityTagRequest(EntityType.ARTIST, 1L));
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.ARTIST, 1L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, null);
         stubPostSaveAssigningId();
 
         // when
@@ -432,11 +453,8 @@ class PostServiceTest {
     @Test
     void should_save_cover_concert_id_when_tagged_concert_given_as_cover_on_create() {
         // given
-        List<EntityTagRequest> tags = List.of(
-                new EntityTagRequest(EntityType.CONCERT, 100L),
-                new EntityTagRequest(EntityType.CONCERT, 200L)
-        );
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, 200L);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L), card(EntityType.CONCERT, 200L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, 200L);
         given(entityLookupService.hasHiddenConcert(Set.of(100L, 200L))).willReturn(false);
         stubPostSaveAssigningId();
 
@@ -450,10 +468,10 @@ class PostServiceTest {
     }
 
     @Test
-    void should_throw_cover_concert_not_tagged_exception_and_not_save_when_cover_concert_not_in_tags_on_create() {
+    void should_throw_cover_concert_not_tagged_exception_and_not_save_when_cover_concert_not_in_content_cards_on_create() {
         // given
-        List<EntityTagRequest> tags = List.of(new EntityTagRequest(EntityType.CONCERT, 100L));
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, 300L);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, 300L);
         given(entityLookupService.hasHiddenConcert(Set.of(100L))).willReturn(false);
 
         // when & then
@@ -465,10 +483,10 @@ class PostServiceTest {
     }
 
     @Test
-    void should_throw_cover_concert_not_tagged_exception_when_cover_id_matches_only_non_concert_tag_on_create() {
-        // given: 같은 id 300이 아티스트 태그로만 있다
-        List<EntityTagRequest> tags = List.of(new EntityTagRequest(EntityType.ARTIST, 300L));
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, 300L);
+    void should_throw_cover_concert_not_tagged_exception_when_cover_id_matches_only_non_concert_card_on_create() {
+        // given: 같은 id 300이 아티스트 카드로만 있다
+        Map<String, Object> content = contentWithCards(card(EntityType.ARTIST, 300L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, 300L);
 
         // when & then
         assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
@@ -480,8 +498,8 @@ class PostServiceTest {
     @Test
     void should_save_null_cover_concert_id_when_cover_not_given_on_create() {
         // given
-        List<EntityTagRequest> tags = List.of(new EntityTagRequest(EntityType.CONCERT, 100L));
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), tags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, null);
         given(entityLookupService.hasHiddenConcert(Set.of(100L))).willReturn(false);
         stubPostSaveAssigningId();
 
@@ -492,6 +510,62 @@ class PostServiceTest {
         ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
         verify(postRepository).save(captor.capture());
         assertThat(captor.getValue().getCoverConcertId()).isNull();
+    }
+
+    @Test
+    void should_save_entity_tags_in_card_order_when_content_has_mention_cards_on_create() {
+        // given
+        Map<String, Object> content = contentWithCards(
+                card(EntityType.CONCERT, 200L), card(EntityType.ARTIST, 1L), card(EntityType.CONCERT, 100L));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", content, null);
+        stubPostSaveAssigningId();
+
+        // when
+        postService.create(AUTHOR_ID, request);
+
+        // then
+        ArgumentCaptor<PostEntityTag> captor = ArgumentCaptor.forClass(PostEntityTag.class);
+        verify(postEntityTagRepository, times(3)).save(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(PostEntityTag::getPostId, PostEntityTag::getEntityType, PostEntityTag::getEntityId)
+                .containsExactly(
+                        tuple(POST_ID, EntityType.CONCERT, 200L),
+                        tuple(POST_ID, EntityType.ARTIST, 1L),
+                        tuple(POST_ID, EntityType.CONCERT, 100L));
+    }
+
+    @Test
+    void should_save_content_without_disallowed_attrs_when_content_has_paragraph_text_align_on_create() {
+        // given
+        Map<String, Object> content = Map.of("type", "doc", "content", List.of(
+                Map.of("type", "paragraph", "attrs", Map.of("textAlign", "center"), "content", List.of(
+                        Map.of("type", "text", "text", "안녕하세요")
+                ))
+        ));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", content, null);
+        stubPostSaveAssigningId();
+
+        // when
+        postService.create(AUTHOR_ID, request);
+
+        // then
+        ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
+        verify(postRepository).save(captor.capture());
+        assertThat(captor.getValue().getContent()).isEqualTo(
+                "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"안녕하세요\"}]}]}");
+    }
+
+    @Test
+    void should_throw_content_invalid_format_exception_and_not_save_when_content_has_disallowed_node_on_create() {
+        // given
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", contentWithDisallowedNode(), null);
+
+        // when & then
+        assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
+                .isInstanceOf(PostContentInvalidFormatException.class)
+                .hasMessage(ErrorCode.POST_CONTENT_INVALID_FORMAT.getMessage());
+        verify(postRepository, never()).save(any(Post.class));
+        verify(postEntityTagRepository, never()).save(any(PostEntityTag.class));
     }
 
     // -------------------------------------------------------------------------
@@ -1259,7 +1333,7 @@ class PostServiceTest {
     void should_throw_post_not_found_exception_when_updating_post_that_does_not_exist() {
         // given
         given(postRepository.findById(POST_ID)).willReturn(Optional.empty());
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null);
 
         // when & then
         assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
@@ -1272,7 +1346,7 @@ class PostServiceTest {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null);
 
         // when & then
         assertThatThrownBy(() -> postService.update(OTHER_USER_ID, POST_ID, request))
@@ -1285,7 +1359,7 @@ class PostServiceTest {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "기존 제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", sampleContent(), null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", sampleContent(), null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1301,7 +1375,7 @@ class PostServiceTest {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "기존 제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1312,11 +1386,11 @@ class PostServiceTest {
     }
 
     @Test
-    void should_not_touch_entity_tags_when_entity_tags_is_null_in_request() {
+    void should_not_replace_entity_tags_when_content_is_null_on_update() {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1327,15 +1401,12 @@ class PostServiceTest {
     }
 
     @Test
-    void should_replace_entity_tags_when_entity_tags_given_in_request() {
+    void should_replace_entity_tags_with_mention_cards_when_content_given_on_update() {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        List<EntityTagRequest> newTags = List.of(
-                new EntityTagRequest(EntityType.ARTIST, 1L),
-                new EntityTagRequest(EntityType.CONCERT, 2L)
-        );
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, newTags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.ARTIST, 1L), card(EntityType.CONCERT, 2L));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, content, null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1350,7 +1421,7 @@ class PostServiceTest {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(PostCategory.REVIEW, null, null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(PostCategory.REVIEW, null, null, null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1364,7 +1435,7 @@ class PostServiceTest {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "기존 제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(null, null, contentWithLength(10000), null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, null, contentWithLength(10000), null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1378,7 +1449,7 @@ class PostServiceTest {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "기존 제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", contentWithLength(10001), null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", contentWithLength(10001), null);
 
         // when & then
         assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
@@ -1396,11 +1467,8 @@ class PostServiceTest {
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
         given(entityLookupService.hasHiddenConcert(Set.of(200L))).willReturn(true);
-        List<EntityTagRequest> newTags = List.of(
-                new EntityTagRequest(EntityType.CONCERT, 100L),
-                new EntityTagRequest(EntityType.CONCERT, 200L)
-        );
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, newTags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L), card(EntityType.CONCERT, 200L));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, content, null);
 
         // when & then
         assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
@@ -1412,12 +1480,12 @@ class PostServiceTest {
 
     @Test
     void should_replace_tags_and_check_hidden_concerts_with_empty_set_when_already_stored_hidden_concert_tag_resent() {
-        // given: 100은 저장 이후 숨김 처리된 공연이지만 이미 저장된 태그라 검사 대상이 아니다
+        // given: 100은 저장 이후 숨김 처리된 공연이지만 이미 저장된 태그라 본문에 다시 와도 검사 대상이 아니다
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null,
-                List.of(new EntityTagRequest(EntityType.CONCERT, 100L)), null);
+        PostUpdateRequest request = new PostUpdateRequest(null, null,
+                contentWithCards(card(EntityType.CONCERT, 100L)), null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1435,11 +1503,8 @@ class PostServiceTest {
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
         given(entityLookupService.hasHiddenConcert(Set.of(200L))).willReturn(false);
-        List<EntityTagRequest> newTags = List.of(
-                new EntityTagRequest(EntityType.CONCERT, 100L),
-                new EntityTagRequest(EntityType.CONCERT, 200L)
-        );
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, newTags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L), card(EntityType.CONCERT, 200L));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, content, null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1451,11 +1516,11 @@ class PostServiceTest {
     }
 
     @Test
-    void should_not_validate_concert_tags_when_entity_tags_is_null_on_update() {
+    void should_not_validate_concert_tags_when_content_is_null_on_update() {
         // given
         Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1466,17 +1531,14 @@ class PostServiceTest {
     }
 
     @Test
-    void should_change_cover_concert_when_cover_is_in_requested_tags_on_update() {
-        // given: 200은 요청에서 새로 추가한 공개 공연
+    void should_change_cover_concert_when_cover_is_in_content_cards_on_update() {
+        // given: 200은 본문 카드로 새로 추가한 공개 공연
         Post post = buildPostWithCover(null);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
         given(entityLookupService.hasHiddenConcert(Set.of(200L))).willReturn(false);
-        List<EntityTagRequest> newTags = List.of(
-                new EntityTagRequest(EntityType.CONCERT, 100L),
-                new EntityTagRequest(EntityType.CONCERT, 200L)
-        );
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, newTags, 200L);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L), card(EntityType.CONCERT, 200L));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, content, 200L);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1487,13 +1549,13 @@ class PostServiceTest {
     }
 
     @Test
-    void should_change_cover_concert_when_cover_is_in_stored_tags_and_entity_tags_is_null_on_update() {
+    void should_change_cover_concert_when_cover_is_in_stored_tags_and_content_is_null_on_update() {
         // given
         Post post = buildPostWithCover(null);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
         given(entityLookupService.hasHiddenConcert(Set.of(100L))).willReturn(false);
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null, 100L);
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, 100L);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1504,13 +1566,13 @@ class PostServiceTest {
     }
 
     @Test
-    void should_throw_cover_concert_not_tagged_exception_and_not_replace_tags_when_cover_not_in_requested_tags_on_update() {
-        // given: 200은 저장된 태그에도 요청 태그에도 없다
+    void should_throw_cover_concert_not_tagged_exception_and_not_replace_tags_when_cover_not_in_content_cards_on_update() {
+        // given: 200은 저장된 태그에도 본문 카드에도 없다
         Post post = buildPostWithCover(100L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null,
-                List.of(new EntityTagRequest(EntityType.CONCERT, 100L)), 200L);
+        PostUpdateRequest request = new PostUpdateRequest(null, null,
+                contentWithCards(card(EntityType.CONCERT, 100L)), 200L);
 
         // when & then
         assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
@@ -1522,12 +1584,12 @@ class PostServiceTest {
     }
 
     @Test
-    void should_throw_cover_concert_not_tagged_exception_when_cover_not_in_stored_tags_and_entity_tags_is_null_on_update() {
+    void should_throw_cover_concert_not_tagged_exception_when_cover_not_in_stored_tags_and_content_is_null_on_update() {
         // given
         Post post = buildPostWithCover(100L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null, 200L);
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, 200L);
 
         // when & then
         assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
@@ -1543,8 +1605,8 @@ class PostServiceTest {
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
         given(entityLookupService.hasHiddenConcert(Set.of(100L))).willReturn(true);
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null,
-                List.of(new EntityTagRequest(EntityType.CONCERT, 100L)), 100L);
+        PostUpdateRequest request = new PostUpdateRequest(null, null,
+                contentWithCards(card(EntityType.CONCERT, 100L)), 100L);
 
         // when & then
         assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
@@ -1557,16 +1619,13 @@ class PostServiceTest {
 
     @Test
     void should_throw_concert_tag_hidden_exception_first_when_newly_added_hidden_concert_and_untagged_cover_given_on_update() {
-        // given: 200은 새로 추가한 숨김 공연, 대표 공연 300은 최종 태그에 없다
+        // given: 200은 본문 카드로 새로 추가한 숨김 공연, 대표 공연 300은 본문 카드에 없다
         Post post = buildPostWithCover(null);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
         given(entityLookupService.hasHiddenConcert(Set.of(200L))).willReturn(true);
-        List<EntityTagRequest> newTags = List.of(
-                new EntityTagRequest(EntityType.CONCERT, 100L),
-                new EntityTagRequest(EntityType.CONCERT, 200L)
-        );
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, newTags, 300L);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L), card(EntityType.CONCERT, 200L));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, content, 300L);
 
         // when & then
         assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
@@ -1577,14 +1636,14 @@ class PostServiceTest {
     }
 
     @Test
-    void should_clear_cover_concert_when_cover_not_given_and_removed_from_requested_tags_on_update() {
-        // given: 기존 대표 100을 빼고 200으로 태그를 교체한다
+    void should_clear_cover_concert_when_cover_not_given_and_card_removed_from_content_on_update() {
+        // given: 본문 수정으로 기존 대표 100의 카드를 빼고 200 카드만 남긴다
         Post post = buildPostWithCover(100L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
         given(entityLookupService.hasHiddenConcert(Set.of(200L))).willReturn(false);
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null,
-                List.of(new EntityTagRequest(EntityType.CONCERT, 200L)), null);
+        PostUpdateRequest request = new PostUpdateRequest(null, null,
+                contentWithCards(card(EntityType.CONCERT, 200L)), null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1594,16 +1653,13 @@ class PostServiceTest {
     }
 
     @Test
-    void should_keep_cover_concert_when_cover_not_given_and_still_in_requested_tags_on_update() {
+    void should_keep_cover_concert_when_cover_not_given_and_card_still_in_content_on_update() {
         // given
         Post post = buildPostWithCover(100L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
         given(postEntityTagRepository.findByPostId(POST_ID)).willReturn(List.of(buildConcertTag(100L)));
-        List<EntityTagRequest> newTags = List.of(
-                new EntityTagRequest(EntityType.CONCERT, 100L),
-                new EntityTagRequest(EntityType.ARTIST, 1L)
-        );
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, newTags, null);
+        Map<String, Object> content = contentWithCards(card(EntityType.CONCERT, 100L), card(EntityType.ARTIST, 1L));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, content, null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1613,11 +1669,11 @@ class PostServiceTest {
     }
 
     @Test
-    void should_keep_cover_concert_without_querying_tags_when_cover_and_entity_tags_are_null_on_update() {
+    void should_keep_cover_concert_without_querying_tags_when_cover_and_content_are_null_on_update() {
         // given
         Post post = buildPostWithCover(100L);
         given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
-        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null);
 
         // when
         postService.update(AUTHOR_ID, POST_ID, request);
@@ -1625,6 +1681,64 @@ class PostServiceTest {
         // then
         assertThat(post.getCoverConcertId()).isEqualTo(100L);
         verify(postEntityTagRepository, never()).findByPostId(any());
+    }
+
+    @Test
+    void should_delete_then_save_entity_tags_in_card_order_when_content_given_on_update() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.REVIEW, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        Map<String, Object> content = contentWithCards(card(EntityType.ARTIST, 1L), card(EntityType.CONCERT, 100L));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, content, null);
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        InOrder inOrder = inOrder(postEntityTagRepository);
+        inOrder.verify(postEntityTagRepository).deleteByPostId(POST_ID);
+        ArgumentCaptor<PostEntityTag> captor = ArgumentCaptor.forClass(PostEntityTag.class);
+        inOrder.verify(postEntityTagRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(PostEntityTag::getEntityType, PostEntityTag::getEntityId)
+                .containsExactly(tuple(EntityType.ARTIST, 1L), tuple(EntityType.CONCERT, 100L));
+    }
+
+    @Test
+    void should_update_content_without_disallowed_attrs_when_content_has_paragraph_text_align_on_update() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        Map<String, Object> content = Map.of("type", "doc", "content", List.of(
+                Map.of("type", "paragraph", "attrs", Map.of("textAlign", "center"), "content", List.of(
+                        Map.of("type", "text", "text", "안녕하세요")
+                ))
+        ));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, content, null);
+
+        // when
+        postService.update(AUTHOR_ID, POST_ID, request);
+
+        // then
+        assertThat(post.getContent()).isEqualTo(
+                "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"안녕하세요\"}]}]}");
+    }
+
+    @Test
+    void should_throw_content_invalid_format_exception_and_keep_post_and_tags_when_content_has_disallowed_node_on_update() {
+        // given
+        Post post = buildPost(POST_ID, AUTHOR_ID, PostCategory.FREE, "기존 제목", 0L);
+        given(postRepository.findById(POST_ID)).willReturn(Optional.of(post));
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", contentWithDisallowedNode(), null);
+
+        // when & then
+        assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
+                .isInstanceOf(PostContentInvalidFormatException.class)
+                .hasMessage(ErrorCode.POST_CONTENT_INVALID_FORMAT.getMessage());
+        assertThat(post.getTitle()).isEqualTo("기존 제목");
+        assertThat(post.getContent()).isEqualTo("{\"type\":\"doc\"}");
+        verify(postEntityTagRepository, never()).deleteByPostId(any());
+        verify(postEntityTagRepository, never()).save(any(PostEntityTag.class));
     }
 
     // -------------------------------------------------------------------------

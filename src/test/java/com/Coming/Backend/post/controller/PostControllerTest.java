@@ -1,7 +1,6 @@
 package com.Coming.Backend.post.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -21,7 +20,6 @@ import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
-import com.Coming.Backend.post.dto.EntityTagRequest;
 import com.Coming.Backend.post.dto.PostCreateRequest;
 import com.Coming.Backend.post.dto.PostCreateResponse;
 import com.Coming.Backend.post.dto.PostDetailResponse;
@@ -43,7 +41,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,14 +103,11 @@ class PostControllerTest {
         return Map.of("type", "doc", "content", List.of());
     }
 
-    private List<EntityTagRequest> entityTags(int count) {
-        return IntStream.rangeClosed(1, count)
-                .mapToObj(i -> new EntityTagRequest(EntityType.ARTIST, (long) i))
-                .toList();
-    }
-
-    private List<EntityTagRequest> concertTag() {
-        return List.of(new EntityTagRequest(EntityType.CONCERT, CONCERT_ID));
+    private Map<String, Object> contentWithConcertCard() {
+        return Map.of("type", "doc", "content", List.of(
+                Map.of("type", "entityMentionCard", "attrs", Map.of(
+                        "entityType", "CONCERT", "entityId", CONCERT_ID, "title", "HER"))
+        ));
     }
 
     private PostDetailResponse detailWithCoverConcertId(Long coverConcertId) {
@@ -131,7 +125,7 @@ class PostControllerTest {
     @Test
     void should_return_201_when_create_request_is_valid() throws Exception {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), null, null);
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), null);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class))).willReturn(new PostCreateResponse(POST_ID));
 
         // when & then
@@ -145,7 +139,7 @@ class PostControllerTest {
     @Test
     void should_return_400_when_service_throws_invalid_input_exception_on_create() throws Exception {
         // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), null, null);
+        PostCreateRequest request = new PostCreateRequest(PostCategory.REVIEW, "리뷰 제목", sampleContent(), null);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class))).willThrow(new InvalidInputException());
 
         // when & then
@@ -158,54 +152,10 @@ class PostControllerTest {
     }
 
     @Test
-    void should_return_400_when_create_request_has_more_than_10_entity_tags() throws Exception {
-        // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), entityTags(11), null);
-
-        // when & then
-        mockMvc.perform(post("/api/posts")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
-                .andExpect(jsonPath("$.message").value(containsString("태그는 10개를 초과할 수 없습니다")));
-    }
-
-    @Test
-    void should_return_400_when_create_request_has_null_entity_tag_element() throws Exception {
-        // given: EntityTagRequest 대신 null이 섞인 요청을 직접 JSON으로 구성한다.
-        String requestJson = """
-                {"category":"FREE","title":"자유 제목","content":{"type":"doc","content":[]},"entityTags":[null]}
-                """;
-
-        // when & then
-        mockMvc.perform(post("/api/posts")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestJson))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
-    }
-
-    @Test
-    void should_return_201_when_create_request_has_exactly_10_entity_tags() throws Exception {
-        // given
-        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", sampleContent(), entityTags(10), null);
-        given(postService.create(eq(USER_ID), any(PostCreateRequest.class))).willReturn(new PostCreateResponse(POST_ID));
-
-        // when & then
-        mockMvc.perform(post("/api/posts")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(POST_ID));
-        verify(postService).create(eq(USER_ID), any(PostCreateRequest.class));
-    }
-
-    @Test
     void should_pass_cover_concert_id_to_service_when_create_request_has_cover_concert_id() throws Exception {
         // given
         PostCreateRequest request = new PostCreateRequest(
-                PostCategory.REVIEW, "콘서트 후기", sampleContent(), concertTag(), CONCERT_ID);
+                PostCategory.REVIEW, "콘서트 후기", contentWithConcertCard(), CONCERT_ID);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class))).willReturn(new PostCreateResponse(POST_ID));
         ArgumentCaptor<PostCreateRequest> captor = ArgumentCaptor.forClass(PostCreateRequest.class);
 
@@ -224,7 +174,7 @@ class PostControllerTest {
     void should_return_400_when_service_throws_concert_tag_hidden_exception_on_create() throws Exception {
         // given
         PostCreateRequest request = new PostCreateRequest(
-                PostCategory.REVIEW, "콘서트 후기", sampleContent(), concertTag(), null);
+                PostCategory.REVIEW, "콘서트 후기", contentWithConcertCard(), null);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class)))
                 .willThrow(new PostConcertTagHiddenException());
 
@@ -241,7 +191,7 @@ class PostControllerTest {
     void should_return_400_when_service_throws_cover_concert_not_tagged_exception_on_create() throws Exception {
         // given
         PostCreateRequest request = new PostCreateRequest(
-                PostCategory.REVIEW, "콘서트 후기", sampleContent(), null, CONCERT_ID);
+                PostCategory.REVIEW, "콘서트 후기", sampleContent(), CONCERT_ID);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class)))
                 .willThrow(new PostCoverConcertNotTaggedException());
 
@@ -416,7 +366,7 @@ class PostControllerTest {
     @Test
     void should_return_200_when_update_request_is_valid() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null);
         willDoNothing().given(postService).update(eq(USER_ID), eq(POST_ID), any(PostUpdateRequest.class));
 
         // when & then
@@ -429,7 +379,7 @@ class PostControllerTest {
     @Test
     void should_return_403_when_service_throws_forbidden_exception_on_update() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "새 제목", null, null);
         willThrow(new PostForbiddenException()).given(postService)
                 .update(eq(USER_ID), eq(POST_ID), any(PostUpdateRequest.class));
 
@@ -445,7 +395,7 @@ class PostControllerTest {
     @Test
     void should_return_400_when_update_request_has_blank_title() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, "   ", null, null, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "   ", null, null);
 
         // when & then
         mockMvc.perform(patch("/api/posts/{id}", POST_ID)
@@ -456,23 +406,9 @@ class PostControllerTest {
     }
 
     @Test
-    void should_return_400_when_update_request_has_more_than_10_entity_tags() throws Exception {
-        // given
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, entityTags(11), null);
-
-        // when & then
-        mockMvc.perform(patch("/api/posts/{id}", POST_ID)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
-                .andExpect(jsonPath("$.message").value(containsString("태그는 10개를 초과할 수 없습니다")));
-    }
-
-    @Test
     void should_pass_cover_concert_id_to_service_when_update_request_has_cover_concert_id() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, concertTag(), CONCERT_ID);
+        PostUpdateRequest request = new PostUpdateRequest(null, null, contentWithConcertCard(), CONCERT_ID);
         willDoNothing().given(postService).update(eq(USER_ID), eq(POST_ID), any(PostUpdateRequest.class));
         ArgumentCaptor<PostUpdateRequest> captor = ArgumentCaptor.forClass(PostUpdateRequest.class);
 
@@ -490,7 +426,7 @@ class PostControllerTest {
     @Test
     void should_return_400_when_service_throws_concert_tag_hidden_exception_on_update() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, concertTag(), null);
+        PostUpdateRequest request = new PostUpdateRequest(null, null, contentWithConcertCard(), null);
         willThrow(new PostConcertTagHiddenException()).given(postService)
                 .update(eq(USER_ID), eq(POST_ID), any(PostUpdateRequest.class));
 
@@ -506,7 +442,7 @@ class PostControllerTest {
     @Test
     void should_return_400_when_service_throws_cover_concert_not_tagged_exception_on_update() throws Exception {
         // given
-        PostUpdateRequest request = new PostUpdateRequest(null, null, null, null, CONCERT_ID);
+        PostUpdateRequest request = new PostUpdateRequest(null, null, null, CONCERT_ID);
         willThrow(new PostCoverConcertNotTaggedException()).given(postService)
                 .update(eq(USER_ID), eq(POST_ID), any(PostUpdateRequest.class));
 

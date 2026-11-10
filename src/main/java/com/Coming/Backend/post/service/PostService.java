@@ -7,7 +7,6 @@ import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.post.dto.EntityCardResponse;
-import com.Coming.Backend.post.dto.EntityTagRequest;
 import com.Coming.Backend.post.dto.PostCreateRequest;
 import com.Coming.Backend.post.dto.PostCreateResponse;
 import com.Coming.Backend.post.dto.PostDetailResponse;
@@ -35,6 +34,9 @@ import com.Coming.Backend.post.repository.PostEntityTagRepository;
 import com.Coming.Backend.post.repository.PostRecommendRepository;
 import com.Coming.Backend.post.repository.PostRepository;
 import com.Coming.Backend.post.util.TiptapConcertMentionFilter;
+import com.Coming.Backend.post.util.TiptapContentValidator;
+import com.Coming.Backend.post.util.TiptapEntityTagExtractor;
+import com.Coming.Backend.post.util.TiptapEntityTagExtractor.EntityTag;
 import com.Coming.Backend.post.util.TiptapTextExtractor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -92,24 +94,26 @@ public class PostService {
 
     /**
      * 게시글을 생성한다.
-     * 숨김 상태(EXCLUDED·PENDING) 공연 태그는 PostConcertTagHiddenException으로 거부한다.
-     * 그 밖에 entityTags가 가리키는 엔티티의 실존 여부는 검증하지 않는다 — 삭제된 참조와 동일하게
+     * 본문은 공통 스키마로 검증하고(허용 밖 attrs는 지움), 태그는 본문 언급 카드에서 등장 순서대로 뽑아 저장한다.
+     * 숨김 상태(EXCLUDED·PENDING) 공연 카드는 PostConcertTagHiddenException으로 거부한다.
+     * 그 밖에 카드가 가리키는 엔티티의 실존 여부는 검증하지 않는다 — 삭제된 참조와 동일하게
      * 조회 시점에 EntityLookupService가 조용히 제외한다.
-     * coverConcertId는 entityTags의 CONCERT 태그 중 하나여야 한다.
+     * coverConcertId는 본문 공연 카드 중 하나여야 한다.
      */
     @Transactional
     public PostCreateResponse create(Long userId, PostCreateRequest request) {
         userStatusValidator.validateWritable(userId);
-        List<EntityTagRequest> tags = request.entityTags() == null ? List.of() : request.entityTags();
+        Map<String, Object> sanitizedContent = TiptapContentValidator.validate(request.content());
+        List<EntityTag> tags = TiptapEntityTagExtractor.extract(sanitizedContent);
         Set<Long> taggedConcertIds = concertIdsOf(tags);
         validateConcertsNotHidden(taggedConcertIds);
         if (request.coverConcertId() != null && !taggedConcertIds.contains(request.coverConcertId())) {
             throw new PostCoverConcertNotTaggedException();
         }
 
-        String contentText = TiptapTextExtractor.extract(request.content());
+        String contentText = TiptapTextExtractor.extract(sanitizedContent);
         validateContentTextLength(contentText);
-        String content = writeContent(request.content());
+        String content = writeContent(sanitizedContent);
         validateContentLength(content);
 
         Post post = Post.builder()
@@ -295,11 +299,12 @@ public class PostService {
 
     /**
      * 게시글을 수정한다. 작성자 본인만 수정할 수 있다.
-     * category·title·content는 null이면 기존값을 유지하고, entityTags는 null이면 기존 태그를 유지한다.
-     * entityTags가 주어지면 기존 태그를 전체 삭제 후 재삽입한다. 새로 추가한 숨김 상태 공연 태그는 거부하고,
-     * 이미 저장돼 있던 태그는 그 사이 공연이 숨겨졌어도 통과시킨다(수정 화면이 같은 태그를 다시 보내므로).
-     * coverConcertId가 주어지면 최종 태그(요청 태그, 없으면 저장된 태그)의 공개 공연이어야 한다.
-     * 주어지지 않으면 기존 대표를 유지하되, entityTags 교체로 대표 공연이 태그에서 빠지면 비운다.
+     * category·title·content는 null이면 기존값을 유지한다.
+     * content가 주어지면 공통 스키마로 검증하고, 본문 카드에서 태그를 다시 뽑아 기존 태그를 전체 삭제 후 재삽입한다.
+     * 새로 추가한 숨김 상태 공연 카드는 거부하고, 이미 저장돼 있던 태그는 그 사이 공연이 숨겨졌어도 통과시킨다
+     * (수정 화면이 같은 카드를 다시 보내므로).
+     * coverConcertId가 주어지면 최종 태그(본문에서 뽑은 태그, content가 없으면 저장된 태그)의 공개 공연이어야 한다.
+     * 주어지지 않으면 기존 대표를 유지하되, content 수정으로 대표 공연 카드가 빠지면 비운다.
      */
     @Transactional
     public void update(Long userId, Long id, PostUpdateRequest request) {
@@ -309,22 +314,25 @@ public class PostService {
             throw new PostForbiddenException();
         }
 
-        Set<Long> requestedConcertIds = request.entityTags() != null ? concertIdsOf(request.entityTags()) : null;
+        Map<String, Object> sanitizedContent =
+                request.content() != null ? TiptapContentValidator.validate(request.content()) : null;
+        List<EntityTag> tags = sanitizedContent != null ? TiptapEntityTagExtractor.extract(sanitizedContent) : null;
+        Set<Long> requestedConcertIds = tags != null ? concertIdsOf(tags) : null;
         validateConcertTagChanges(id, requestedConcertIds, request.coverConcertId());
 
-        String contentText = request.content() != null ? TiptapTextExtractor.extract(request.content()) : null;
-        if (contentText != null) {
+        String contentText = null;
+        String content = null;
+        if (sanitizedContent != null) {
+            contentText = TiptapTextExtractor.extract(sanitizedContent);
             validateContentTextLength(contentText);
-        }
-        String content = request.content() != null ? writeContent(request.content()) : null;
-        if (content != null) {
+            content = writeContent(sanitizedContent);
             validateContentLength(content);
         }
         post.update(request.category(), request.title(), content, contentText);
 
-        if (request.entityTags() != null) {
+        if (tags != null) {
             postEntityTagRepository.deleteByPostId(id);
-            saveEntityTags(id, request.entityTags());
+            saveEntityTags(id, tags);
         }
         post.applyCoverConcert(requestedConcertIds, request.coverConcertId());
     }
@@ -432,10 +440,10 @@ public class PostService {
         }
     }
 
-    private Set<Long> concertIdsOf(Collection<EntityTagRequest> tags) {
+    private Set<Long> concertIdsOf(Collection<EntityTag> tags) {
         return tags.stream()
                 .filter(tag -> tag.entityType() == EntityType.CONCERT)
-                .map(EntityTagRequest::entityId)
+                .map(EntityTag::entityId)
                 .collect(Collectors.toSet());
     }
 
@@ -454,7 +462,7 @@ public class PostService {
 
     /**
      * 수정 요청의 공연 태그·대표 공연을 검증한다. requestedConcertIds가 null이면 태그를 바꾸지 않는 요청이다.
-     * 새로 추가한 공연만 숨김 여부를 보고, 대표 공연은 최종 태그(요청 태그, 없으면 저장된 태그)의 공개 공연이어야 한다.
+     * 새로 추가한 공연만 숨김 여부를 보고, 대표 공연은 최종 태그(본문에서 뽑은 태그, 없으면 저장된 태그)의 공개 공연이어야 한다.
      */
     private void validateConcertTagChanges(Long postId, Set<Long> requestedConcertIds, Long coverConcertId) {
         if (requestedConcertIds == null && coverConcertId == null) {
@@ -504,8 +512,8 @@ public class PostService {
         return TiptapConcertMentionFilter.removeConcertMentionsExcept(content, visibleConcertIds);
     }
 
-    private void saveEntityTags(Long postId, List<EntityTagRequest> tags) {
-        tags.stream().distinct().forEach(tag -> postEntityTagRepository.save(PostEntityTag.builder()
+    private void saveEntityTags(Long postId, List<EntityTag> tags) {
+        tags.forEach(tag -> postEntityTagRepository.save(PostEntityTag.builder()
                 .postId(postId)
                 .entityType(tag.entityType())
                 .entityId(tag.entityId())
