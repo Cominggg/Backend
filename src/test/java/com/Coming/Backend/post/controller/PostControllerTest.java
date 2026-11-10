@@ -33,6 +33,7 @@ import com.Coming.Backend.post.entity.PostCategory;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostConcertTagHiddenException;
+import com.Coming.Backend.post.exception.PostContentInvalidFormatException;
 import com.Coming.Backend.post.exception.PostCoverConcertNotTaggedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
@@ -41,6 +42,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -108,6 +110,13 @@ class PostControllerTest {
                 Map.of("type", "entityMentionCard", "attrs", Map.of(
                         "entityType", "CONCERT", "entityId", CONCERT_ID, "title", "HER"))
         ));
+    }
+
+    private Map<String, Object> contentWithArtistCards(int count) {
+        return Map.of("type", "doc", "content", IntStream.rangeClosed(1, count)
+                .mapToObj(i -> Map.of("type", "entityMentionCard", "attrs", Map.of(
+                        "entityType", "ARTIST", "entityId", (long) i, "title", "아티스트 " + i)))
+                .toList());
     }
 
     private PostDetailResponse detailWithCoverConcertId(Long coverConcertId) {
@@ -204,6 +213,85 @@ class PostControllerTest {
                 .andExpect(jsonPath("$.message").value(ErrorCode.POST_COVER_CONCERT_NOT_TAGGED.getMessage()));
     }
 
+    @Test
+    void should_return_400_when_service_throws_content_invalid_format_exception_for_disallowed_node_on_create() throws Exception {
+        // given
+        Map<String, Object> content = Map.of("type", "doc", "content", List.of(
+                Map.of("type", "codeBlock", "content", List.of(Map.of("type", "text", "text", "System.out.println();")))
+        ));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", content, null);
+        given(postService.create(eq(USER_ID), any(PostCreateRequest.class)))
+                .willThrow(new PostContentInvalidFormatException());
+
+        // when & then
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("POST_CONTENT_INVALID_FORMAT"))
+                .andExpect(jsonPath("$.message").value("허용되지 않는 본문 형식입니다."));
+    }
+
+    @Test
+    void should_return_400_when_service_throws_content_invalid_format_exception_for_disallowed_mark_on_create() throws Exception {
+        // given
+        Map<String, Object> content = Map.of("type", "doc", "content", List.of(
+                Map.of("type", "paragraph", "content", List.of(
+                        Map.of("type", "text", "text", "기울임", "marks", List.of(Map.of("type", "italic")))
+                ))
+        ));
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", content, null);
+        given(postService.create(eq(USER_ID), any(PostCreateRequest.class)))
+                .willThrow(new PostContentInvalidFormatException());
+
+        // when & then
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("POST_CONTENT_INVALID_FORMAT"))
+                .andExpect(jsonPath("$.message").value("허용되지 않는 본문 형식입니다."));
+    }
+
+    @Test
+    void should_return_400_when_service_throws_content_invalid_format_exception_for_11_unique_cards_on_create() throws Exception {
+        // given
+        PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", contentWithArtistCards(11), null);
+        given(postService.create(eq(USER_ID), any(PostCreateRequest.class)))
+                .willThrow(new PostContentInvalidFormatException());
+
+        // when & then
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("POST_CONTENT_INVALID_FORMAT"))
+                .andExpect(jsonPath("$.message").value("허용되지 않는 본문 형식입니다."));
+    }
+
+    @Test
+    void should_return_201_and_ignore_legacy_entity_tags_field_when_create_request_has_entity_tags() throws Exception {
+        // given: 구버전 클라이언트가 보내던 entityTags 필드를 그대로 포함한 요청
+        String requestJson = """
+                {"category":"FREE","title":"자유 제목","content":{"type":"doc","content":[]},
+                 "entityTags":[{"entityType":"ARTIST","entityId":1}],"coverConcertId":null}
+                """;
+        given(postService.create(eq(USER_ID), any(PostCreateRequest.class))).willReturn(new PostCreateResponse(POST_ID));
+        ArgumentCaptor<PostCreateRequest> captor = ArgumentCaptor.forClass(PostCreateRequest.class);
+
+        // when
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(POST_ID));
+
+        // then
+        verify(postService).create(eq(USER_ID), captor.capture());
+        assertThat(captor.getValue().title()).isEqualTo("자유 제목");
+        assertThat(captor.getValue().content()).isEqualTo(Map.of("type", "doc", "content", List.of()));
+    }
+
     // -------------------------------------------------------------------------
     // GET /api/posts/{id}
     // -------------------------------------------------------------------------
@@ -246,6 +334,32 @@ class PostControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.coverConcertId").hasJsonPath())
                 .andExpect(jsonPath("$.coverConcertId").value(nullValue()));
+    }
+
+    @Test
+    void should_serialize_entity_tags_in_service_order_when_post_detail_has_multiple_tags() throws Exception {
+        // given
+        PostDetailResponse detail = new PostDetailResponse(
+                POST_ID, "IU", PostCategory.REVIEW, "콘서트 후기", sampleContent(),
+                List.of(
+                        new PostEntityTagResponse(EntityType.CONCERT, 200L, "The Golden Hour", "잠실 올림픽주경기장", null, null),
+                        new PostEntityTagResponse(EntityType.ARTIST, 1L, "IU", null, null, null),
+                        new PostEntityTagResponse(EntityType.CONCERT, 100L, "HER", "KSPO DOME", null, null)
+                ),
+                null, 0L, 1L, 0L, null, true, LocalDateTime.now(), LocalDateTime.now()
+        );
+        given(postService.getDetail(eq(POST_ID), eq(USER_ID))).willReturn(detail);
+
+        // when & then
+        mockMvc.perform(get("/api/posts/{id}", POST_ID).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entityTags.length()").value(3))
+                .andExpect(jsonPath("$.entityTags[0].entityType").value("CONCERT"))
+                .andExpect(jsonPath("$.entityTags[0].entityId").value(200L))
+                .andExpect(jsonPath("$.entityTags[1].entityType").value("ARTIST"))
+                .andExpect(jsonPath("$.entityTags[1].entityId").value(1L))
+                .andExpect(jsonPath("$.entityTags[2].entityType").value("CONCERT"))
+                .andExpect(jsonPath("$.entityTags[2].entityId").value(100L));
     }
 
     @Test
@@ -453,6 +567,27 @@ class PostControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.POST_COVER_CONCERT_NOT_TAGGED.name()))
                 .andExpect(jsonPath("$.message").value(ErrorCode.POST_COVER_CONCERT_NOT_TAGGED.getMessage()));
+    }
+
+    @Test
+    void should_return_400_when_service_throws_content_invalid_format_exception_for_disallowed_heading_level_on_update() throws Exception {
+        // given
+        Map<String, Object> content = Map.of("type", "doc", "content", List.of(
+                Map.of("type", "heading", "attrs", Map.of("level", 1), "content", List.of(
+                        Map.of("type", "text", "text", "큰 제목")
+                ))
+        ));
+        PostUpdateRequest request = new PostUpdateRequest(null, null, content, null);
+        willThrow(new PostContentInvalidFormatException()).given(postService)
+                .update(eq(USER_ID), eq(POST_ID), any(PostUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(patch("/api/posts/{id}", POST_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("POST_CONTENT_INVALID_FORMAT"))
+                .andExpect(jsonPath("$.message").value("허용되지 않는 본문 형식입니다."));
     }
 
     // -------------------------------------------------------------------------
