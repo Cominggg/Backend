@@ -16,6 +16,7 @@ import com.Coming.Backend.post.entity.PostEntityTag;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -151,5 +152,88 @@ class PostEntityTagRepositoryTest {
                 .contains(
                         tuple(EntityType.CONCERT, publicConcert.getId(), 3L),
                         tuple(EntityType.ARTIST, artist.getId(), 2L));
+    }
+
+    private Post savePost(String title) {
+        return postRepository.save(Post.builder()
+                .userId(AUTHOR_ID)
+                .category(PostCategory.FREE)
+                .title(title)
+                .content("{\"type\":\"doc\"}")
+                .contentText("내용")
+                .recommendCount(0L)
+                .viewCount(0L)
+                .commentCount(0L)
+                .build());
+    }
+
+    private PostEntityTag saveTag(Long postId, EntityType entityType, Long entityId) {
+        return postEntityTagRepository.save(PostEntityTag.builder()
+                .postId(postId)
+                .entityType(entityType)
+                .entityId(entityId)
+                .build());
+    }
+
+    @Test
+    void should_return_tags_in_saved_order_when_finding_by_post_id() {
+        // given
+        Post post = savePost("본문 카드 순서 글");
+        saveTag(post.getId(), EntityType.CONCERT, 30L);
+        saveTag(post.getId(), EntityType.ARTIST, 5L);
+        saveTag(post.getId(), EntityType.RELEASE, 12L);
+
+        // when
+        List<PostEntityTag> result = postEntityTagRepository.findByPostId(post.getId());
+
+        // then
+        assertThat(result)
+                .extracting(PostEntityTag::getEntityType, PostEntityTag::getEntityId)
+                .containsExactly(
+                        tuple(EntityType.CONCERT, 30L),
+                        tuple(EntityType.ARTIST, 5L),
+                        tuple(EntityType.RELEASE, 12L));
+    }
+
+    @Test
+    void should_return_tags_in_id_order_keeping_per_post_order_when_finding_by_post_ids() {
+        // given
+        Post postA = savePost("게시글 A");
+        Post postB = savePost("게시글 B");
+        Post otherPost = savePost("조회 대상 아닌 게시글");
+        PostEntityTag a1 = saveTag(postA.getId(), EntityType.CONCERT, 30L);
+        PostEntityTag b1 = saveTag(postB.getId(), EntityType.RELEASE, 12L);
+        saveTag(otherPost.getId(), EntityType.ARTIST, 7L);
+        PostEntityTag a2 = saveTag(postA.getId(), EntityType.ARTIST, 5L);
+        PostEntityTag b2 = saveTag(postB.getId(), EntityType.CONCERT, 3L);
+
+        // when
+        List<PostEntityTag> result = postEntityTagRepository.findByPostIdIn(List.of(postA.getId(), postB.getId()));
+
+        // then
+        assertThat(result)
+                .extracting(PostEntityTag::getId)
+                .containsExactly(a1.getId(), b1.getId(), a2.getId(), b2.getId());
+        assertThat(result)
+                .filteredOn(tag -> tag.getPostId().equals(postA.getId()))
+                .extracting(PostEntityTag::getEntityType, PostEntityTag::getEntityId)
+                .containsExactly(tuple(EntityType.CONCERT, 30L), tuple(EntityType.ARTIST, 5L));
+        assertThat(result)
+                .filteredOn(tag -> tag.getPostId().equals(postB.getId()))
+                .extracting(PostEntityTag::getEntityType, PostEntityTag::getEntityId)
+                .containsExactly(tuple(EntityType.RELEASE, 12L), tuple(EntityType.CONCERT, 3L));
+    }
+
+    @Test
+    void should_return_empty_list_when_finding_by_empty_post_ids() {
+        // given
+        Post post = savePost("태그 있는 글");
+        saveTag(post.getId(), EntityType.ARTIST, 5L);
+
+        // when
+        List<PostEntityTag> result = postEntityTagRepository.findByPostIdIn(Collections.emptyList());
+
+        // then
+        assertThat(result).isEmpty();
     }
 }
