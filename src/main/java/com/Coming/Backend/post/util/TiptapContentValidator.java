@@ -27,6 +27,8 @@ public final class TiptapContentValidator {
     private static final Set<String> SIMPLE_MARK_TYPES = Set.of("bold", "strike");
     private static final Set<String> ENTITY_TYPES =
             Arrays.stream(EntityType.values()).map(Enum::name).collect(Collectors.toUnmodifiableSet());
+    private static final List<String> CARD_ATTR_KEYS =
+            List.of("entityType", "entityId", "title", "subtitle", "thumbnailUrl", "releaseGroupId");
 
     private TiptapContentValidator() {
     }
@@ -54,7 +56,10 @@ public final class TiptapContentValidator {
             case "listItem", "blockquote" -> withContent(node(type), node, PARAGRAPH_ONLY, 1);
             case "entityMentionCard" -> entityMentionCard(node);
             case "text" -> text(node);
-            case "hardBreak" -> leaf(node, "hardBreak");
+            case "hardBreak" -> {
+                requireNoContent(node);
+                yield node("hardBreak");
+            }
             default -> throw new PostContentInvalidFormatException();
         };
     }
@@ -98,28 +103,22 @@ public final class TiptapContentValidator {
         if (!(level instanceof Integer intLevel) || !HEADING_LEVELS.contains(intLevel)) {
             throw new PostContentInvalidFormatException();
         }
-        Map<String, Object> result = node("heading");
-        result.put("attrs", Map.of("level", level));
-        return result;
+        return node("heading", Map.of("level", level));
     }
 
     private static Map<String, Object> orderedList(Map<?, ?> node) {
-        Map<?, ?> attrs = attrs(node);
-        Map<String, Object> result = node("orderedList");
-        Object start = attrs.get("start");
-        if (start != null) {
-            if (!isInteger(start)) {
-                throw new PostContentInvalidFormatException();
-            }
-            result.put("attrs", Map.of("start", start));
+        Object start = attrs(node).get("start");
+        if (start == null) {
+            return node("orderedList");
         }
-        return result;
+        if (!isInteger(start)) {
+            throw new PostContentInvalidFormatException();
+        }
+        return node("orderedList", Map.of("start", start));
     }
 
     private static Map<String, Object> entityMentionCard(Map<?, ?> node) {
-        if (node.get("content") instanceof List<?> content && !content.isEmpty()) {
-            throw new PostContentInvalidFormatException();
-        }
+        requireNoContent(node);
         Map<?, ?> attrs = attrs(node);
         Object entityType = attrs.get("entityType");
         Object releaseGroupId = attrs.get("releaseGroupId");
@@ -133,14 +132,12 @@ public final class TiptapContentValidator {
             throw new PostContentInvalidFormatException();
         }
         Map<String, Object> sanitizedAttrs = new LinkedHashMap<>();
-        for (String key : List.of("entityType", "entityId", "title", "subtitle", "thumbnailUrl", "releaseGroupId")) {
+        for (String key : CARD_ATTR_KEYS) {
             if (attrs.containsKey(key)) {
                 sanitizedAttrs.put(key, attrs.get(key));
             }
         }
-        Map<String, Object> result = node("entityMentionCard");
-        result.put("attrs", sanitizedAttrs);
-        return result;
+        return node("entityMentionCard", sanitizedAttrs);
     }
 
     private static Map<String, Object> text(Map<?, ?> node) {
@@ -166,18 +163,18 @@ public final class TiptapContentValidator {
             return node((String) type);
         }
         if ("link".equals(type) && attrs(mark).get("href") instanceof String href && isHttpUrl(href)) {
-            Map<String, Object> result = node("link");
-            result.put("attrs", Map.of("href", href));
-            return result;
+            return node("link", Map.of("href", href));
         }
         throw new PostContentInvalidFormatException();
     }
 
-    private static Map<String, Object> leaf(Map<?, ?> node, String type) {
+    /**
+     * atom·leaf 노드(entityMentionCard, hardBreak)는 자식을 가질 수 없다. 빈 content는 허용한다.
+     */
+    private static void requireNoContent(Map<?, ?> node) {
         if (node.get("content") instanceof List<?> content && !content.isEmpty()) {
             throw new PostContentInvalidFormatException();
         }
-        return node(type);
     }
 
     /**
@@ -204,6 +201,12 @@ public final class TiptapContentValidator {
         return result;
     }
 
+    private static Map<String, Object> node(String type, Map<String, Object> attrs) {
+        Map<String, Object> result = node(type);
+        result.put("attrs", attrs);
+        return result;
+    }
+
     private static boolean isInteger(Object value) {
         return value instanceof Integer || value instanceof Long;
     }
@@ -213,7 +216,6 @@ public final class TiptapContentValidator {
     }
 
     private static boolean isHttpUrl(String href) {
-        String lower = href.toLowerCase();
-        return lower.startsWith("http://") || lower.startsWith("https://");
+        return href.regionMatches(true, 0, "http://", 0, 7) || href.regionMatches(true, 0, "https://", 0, 8);
     }
 }
