@@ -5,6 +5,9 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.TiptapConcertMentionFilter;
+import com.Coming.Backend.common.util.TiptapContentCodec;
+import com.Coming.Backend.common.util.TiptapContentCodec.SanitizedContent;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.dto.PostCreateRequest;
@@ -23,7 +26,6 @@ import com.Coming.Backend.post.entity.PostRecommend;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostConcertTagHiddenException;
-import com.Coming.Backend.post.exception.PostContentTooLongException;
 import com.Coming.Backend.post.exception.PostCoverConcertNotTaggedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
@@ -33,13 +35,8 @@ import com.Coming.Backend.post.repository.EntityTagCount;
 import com.Coming.Backend.post.repository.PostEntityTagRepository;
 import com.Coming.Backend.post.repository.PostRecommendRepository;
 import com.Coming.Backend.post.repository.PostRepository;
-import com.Coming.Backend.post.util.TiptapConcertMentionFilter;
-import com.Coming.Backend.post.util.TiptapContentValidator;
 import com.Coming.Backend.post.util.TiptapEntityTagExtractor;
 import com.Coming.Backend.post.util.TiptapEntityTagExtractor.EntityTag;
-import com.Coming.Backend.post.util.TiptapTextExtractor;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -73,20 +70,6 @@ public class PostService {
     private final EntityLookupService entityLookupService;
     private final UserStatusValidator userStatusValidator;
 
-    /**
-     * content 컬럼(jsonb)의 String ↔ Object 변환 전용. Spring이 HTTP 메시지 변환에 사용하는
-     * Jackson 인스턴스(3.x)와 무관하게 항상 Jackson 2 databind로 직렬화·역직렬화한다.
-     */
-    private final ObjectMapper contentObjectMapper = new ObjectMapper();
-
-    private static final int MAX_CONTENT_TEXT_LENGTH = 10000;
-
-    /**
-     * content 원본(jsonb 직렬화 문자열) 크기 상한. contentText는 텍스트 노드만 추출한 값이라
-     * 구조만 방대한 JSON으로 MAX_CONTENT_TEXT_LENGTH 검증을 우회할 수 있어 별도로 제한한다.
-     */
-    private static final int MAX_CONTENT_LENGTH = 50000;
-
     private static final int MIN_SEARCH_QUERY_LENGTH = 2;
 
     @Value("${app.post.popular-board-threshold:10}")
@@ -103,25 +86,20 @@ public class PostService {
     @Transactional
     public PostCreateResponse create(Long userId, PostCreateRequest request) {
         userStatusValidator.validateWritable(userId);
-        Map<String, Object> sanitizedContent = TiptapContentValidator.validate(request.content());
-        List<EntityTag> tags = TiptapEntityTagExtractor.extract(sanitizedContent);
+        SanitizedContent content = TiptapContentCodec.sanitize(request.content());
+        List<EntityTag> tags = TiptapEntityTagExtractor.extract(content.tree());
         Set<Long> taggedConcertIds = concertIdsOf(tags);
         validateConcertsNotHidden(taggedConcertIds);
         if (request.coverConcertId() != null && !taggedConcertIds.contains(request.coverConcertId())) {
             throw new PostCoverConcertNotTaggedException();
         }
 
-        String contentText = TiptapTextExtractor.extract(sanitizedContent);
-        validateContentTextLength(contentText);
-        String content = writeContent(sanitizedContent);
-        validateContentLength(content);
-
         Post post = Post.builder()
                 .userId(userId)
                 .category(request.category())
                 .title(request.title())
-                .content(content)
-                .contentText(contentText)
+                .content(content.json())
+                .contentText(content.text())
                 .recommendCount(0L)
                 .viewCount(0L)
                 .commentCount(0L)
@@ -157,7 +135,7 @@ public class PostService {
                 authorNickname,
                 post.getCategory(),
                 post.getTitle(),
-                removeUnavailableConcertMentions(readContent(post.getContent()), entityTags),
+                removeUnavailableConcertMentions(TiptapContentCodec.read(post.getContent()), entityTags),
                 entityTags,
                 visibleCoverConcertId(post, entityTags),
                 post.getRecommendCount(),
@@ -314,21 +292,20 @@ public class PostService {
             throw new PostForbiddenException();
         }
 
-        Map<String, Object> sanitizedContent =
-                request.content() != null ? TiptapContentValidator.validate(request.content()) : null;
-        List<EntityTag> tags = sanitizedContent != null ? TiptapEntityTagExtractor.extract(sanitizedContent) : null;
-        Set<Long> requestedConcertIds = tags != null ? concertIdsOf(tags) : null;
+        String contentJson = null;
+        String contentText = null;
+        List<EntityTag> tags = null;
+        Set<Long> requestedConcertIds = null;
+        if (request.content() != null) {
+            SanitizedContent content = TiptapContentCodec.sanitize(request.content());
+            contentJson = content.json();
+            contentText = content.text();
+            tags = TiptapEntityTagExtractor.extract(content.tree());
+            requestedConcertIds = concertIdsOf(tags);
+        }
         validateConcertTagChanges(id, requestedConcertIds, request.coverConcertId());
 
-        String contentText = null;
-        String content = null;
-        if (sanitizedContent != null) {
-            contentText = TiptapTextExtractor.extract(sanitizedContent);
-            validateContentTextLength(contentText);
-            content = writeContent(sanitizedContent);
-            validateContentLength(content);
-        }
-        post.update(request.category(), request.title(), content, contentText);
+        post.update(request.category(), request.title(), contentJson, contentText);
 
         if (tags != null) {
             postEntityTagRepository.deleteByPostId(id);
@@ -406,38 +383,10 @@ public class PostService {
         return new RecommendCountResponse(postRepository.findRecommendCountById(id));
     }
 
-    private void validateContentTextLength(String contentText) {
-        if (contentText.length() > MAX_CONTENT_TEXT_LENGTH) {
-            throw new PostContentTooLongException();
-        }
-    }
-
-    private void validateContentLength(String content) {
-        if (content.length() > MAX_CONTENT_LENGTH) {
-            throw new PostContentTooLongException();
-        }
-    }
-
     private String escapeLikeWildcards(String q) {
         return q.replace("\\", "\\\\")
                 .replace("%", "\\%")
                 .replace("_", "\\_");
-    }
-
-    private String writeContent(Object content) {
-        try {
-            return contentObjectMapper.writeValueAsString(content);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("게시글 content 직렬화에 실패했습니다.", e);
-        }
-    }
-
-    private Object readContent(String content) {
-        try {
-            return contentObjectMapper.readValue(content, Object.class);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("저장된 게시글 content가 유효한 JSON이 아닙니다.", e);
-        }
     }
 
     private Set<Long> concertIdsOf(Collection<EntityTag> tags) {

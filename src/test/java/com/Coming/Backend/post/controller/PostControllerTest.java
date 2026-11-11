@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.Coming.Backend.common.exception.ContentInvalidFormatException;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.exception.InvalidInputException;
@@ -33,7 +34,6 @@ import com.Coming.Backend.post.entity.PostCategory;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostConcertTagHiddenException;
-import com.Coming.Backend.post.exception.PostContentInvalidFormatException;
 import com.Coming.Backend.post.exception.PostCoverConcertNotTaggedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
@@ -221,14 +221,14 @@ class PostControllerTest {
         ));
         PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", content, null);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class)))
-                .willThrow(new PostContentInvalidFormatException());
+                .willThrow(new ContentInvalidFormatException());
 
         // when & then
         mockMvc.perform(post("/api/posts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("POST_CONTENT_INVALID_FORMAT"))
+                .andExpect(jsonPath("$.code").value("CONTENT_INVALID_FORMAT"))
                 .andExpect(jsonPath("$.message").value("허용되지 않는 본문 형식입니다."));
     }
 
@@ -242,14 +242,14 @@ class PostControllerTest {
         ));
         PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", content, null);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class)))
-                .willThrow(new PostContentInvalidFormatException());
+                .willThrow(new ContentInvalidFormatException());
 
         // when & then
         mockMvc.perform(post("/api/posts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("POST_CONTENT_INVALID_FORMAT"))
+                .andExpect(jsonPath("$.code").value("CONTENT_INVALID_FORMAT"))
                 .andExpect(jsonPath("$.message").value("허용되지 않는 본문 형식입니다."));
     }
 
@@ -258,14 +258,14 @@ class PostControllerTest {
         // given
         PostCreateRequest request = new PostCreateRequest(PostCategory.FREE, "자유 제목", contentWithArtistCards(11), null);
         given(postService.create(eq(USER_ID), any(PostCreateRequest.class)))
-                .willThrow(new PostContentInvalidFormatException());
+                .willThrow(new ContentInvalidFormatException());
 
         // when & then
         mockMvc.perform(post("/api/posts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("POST_CONTENT_INVALID_FORMAT"))
+                .andExpect(jsonPath("$.code").value("CONTENT_INVALID_FORMAT"))
                 .andExpect(jsonPath("$.message").value("허용되지 않는 본문 형식입니다."));
     }
 
@@ -578,7 +578,7 @@ class PostControllerTest {
                 ))
         ));
         PostUpdateRequest request = new PostUpdateRequest(null, null, content, null);
-        willThrow(new PostContentInvalidFormatException()).given(postService)
+        willThrow(new ContentInvalidFormatException()).given(postService)
                 .update(eq(USER_ID), eq(POST_ID), any(PostUpdateRequest.class));
 
         // when & then
@@ -586,7 +586,7 @@ class PostControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("POST_CONTENT_INVALID_FORMAT"))
+                .andExpect(jsonPath("$.code").value("CONTENT_INVALID_FORMAT"))
                 .andExpect(jsonPath("$.message").value("허용되지 않는 본문 형식입니다."));
     }
 

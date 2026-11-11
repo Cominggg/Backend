@@ -1,4 +1,4 @@
-package com.Coming.Backend.post.util;
+package com.Coming.Backend.common.util;
 
 import java.util.ArrayList;
 import java.util.HashSet;

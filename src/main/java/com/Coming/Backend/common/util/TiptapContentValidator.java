@@ -1,7 +1,7 @@
-package com.Coming.Backend.post.util;
+package com.Coming.Backend.common.util;
 
+import com.Coming.Backend.common.exception.ContentInvalidFormatException;
 import com.Coming.Backend.post.entity.EntityType;
-import com.Coming.Backend.post.exception.PostContentInvalidFormatException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 /**
  * 게시글 본문(Tiptap JSON을 역직렬화한 Map/List 트리)을 웹·앱 공통 스키마(Specification spec/client/post-content.md)로 검증한다.
- * 허용 밖 노드·마크, 위치·중첩 규칙 위반, 허용 밖 heading level, http·https 외 링크는 PostContentInvalidFormatException을 던진다.
+ * 허용 밖 노드·마크, 위치·중첩 규칙 위반, 허용 밖 heading level, http·https 외 링크는 ContentInvalidFormatException을 던진다.
  * 허용 밖 attrs 키와 노드의 그 밖의 키(예: hardBreak의 marks)는 오류 없이 지운 사본을 반환한다. 원본은 바꾸지 않는다.
  */
 public final class TiptapContentValidator {
@@ -39,7 +39,7 @@ public final class TiptapContentValidator {
     public static Map<String, Object> validate(Object content) {
         Map<?, ?> doc = asNode(content);
         if (!"doc".equals(doc.get("type"))) {
-            throw new PostContentInvalidFormatException();
+            throw new ContentInvalidFormatException();
         }
         Map<String, Object> result = node("doc");
         result.put("content", children(doc, TOP_LEVEL_TYPES, 0));
@@ -60,7 +60,7 @@ public final class TiptapContentValidator {
                 requireNoContent(node);
                 yield node("hardBreak");
             }
-            default -> throw new PostContentInvalidFormatException();
+            default -> throw new ContentInvalidFormatException();
         };
     }
 
@@ -73,16 +73,16 @@ public final class TiptapContentValidator {
         List<?> rawChildren = switch (content) {
             case null -> List.of();
             case List<?> list -> list;
-            default -> throw new PostContentInvalidFormatException();
+            default -> throw new ContentInvalidFormatException();
         };
         if (rawChildren.size() < minCount) {
-            throw new PostContentInvalidFormatException();
+            throw new ContentInvalidFormatException();
         }
         List<Object> result = new ArrayList<>(rawChildren.size());
         for (Object rawChild : rawChildren) {
             Map<?, ?> child = asNode(rawChild);
             if (!allowedTypes.contains((String) child.get("type"))) {
-                throw new PostContentInvalidFormatException();
+                throw new ContentInvalidFormatException();
             }
             result.add(sanitize(child));
         }
@@ -101,7 +101,7 @@ public final class TiptapContentValidator {
     private static Map<String, Object> heading(Map<?, ?> node) {
         Object level = attrs(node).get("level");
         if (!(level instanceof Integer intLevel) || !HEADING_LEVELS.contains(intLevel)) {
-            throw new PostContentInvalidFormatException();
+            throw new ContentInvalidFormatException();
         }
         return node("heading", Map.of("level", level));
     }
@@ -112,7 +112,7 @@ public final class TiptapContentValidator {
             return node("orderedList");
         }
         if (!isInteger(start)) {
-            throw new PostContentInvalidFormatException();
+            throw new ContentInvalidFormatException();
         }
         return node("orderedList", Map.of("start", start));
     }
@@ -129,7 +129,7 @@ public final class TiptapContentValidator {
                 && isOptionalString(attrs.get("thumbnailUrl"))
                 && (releaseGroupId == null || (isInteger(releaseGroupId) && EntityType.TRACK.name().equals(entityType)));
         if (!isValid) {
-            throw new PostContentInvalidFormatException();
+            throw new ContentInvalidFormatException();
         }
         Map<String, Object> sanitizedAttrs = new LinkedHashMap<>();
         for (String key : CARD_ATTR_KEYS) {
@@ -142,14 +142,14 @@ public final class TiptapContentValidator {
 
     private static Map<String, Object> text(Map<?, ?> node) {
         if (!(node.get("text") instanceof String text)) {
-            throw new PostContentInvalidFormatException();
+            throw new ContentInvalidFormatException();
         }
         Map<String, Object> result = node("text");
         result.put("text", text);
         Object marks = node.get("marks");
         if (marks != null) {
             if (!(marks instanceof List<?> rawMarks)) {
-                throw new PostContentInvalidFormatException();
+                throw new ContentInvalidFormatException();
             }
             result.put("marks", rawMarks.stream().map(TiptapContentValidator::mark).toList());
         }
@@ -165,7 +165,7 @@ public final class TiptapContentValidator {
         if ("link".equals(type) && attrs(mark).get("href") instanceof String href && isHttpUrl(href)) {
             return node("link", Map.of("href", href));
         }
-        throw new PostContentInvalidFormatException();
+        throw new ContentInvalidFormatException();
     }
 
     /**
@@ -173,7 +173,7 @@ public final class TiptapContentValidator {
      */
     private static void requireNoContent(Map<?, ?> node) {
         if (node.get("content") instanceof List<?> content && !content.isEmpty()) {
-            throw new PostContentInvalidFormatException();
+            throw new ContentInvalidFormatException();
         }
     }
 
@@ -184,14 +184,14 @@ public final class TiptapContentValidator {
         if (value instanceof Map<?, ?> map && map.get("type") instanceof String) {
             return map;
         }
-        throw new PostContentInvalidFormatException();
+        throw new ContentInvalidFormatException();
     }
 
     private static Map<?, ?> attrs(Map<?, ?> node) {
         return switch (node.get("attrs")) {
             case null -> Map.of();
             case Map<?, ?> attrs -> attrs;
-            default -> throw new PostContentInvalidFormatException();
+            default -> throw new ContentInvalidFormatException();
         };
     }
 

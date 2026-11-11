@@ -1,6 +1,6 @@
-package com.Coming.Backend.post.util;
+package com.Coming.Backend.common.util;
 
-import com.Coming.Backend.post.exception.PostContentInvalidFormatException;
+import com.Coming.Backend.common.exception.ContentInvalidFormatException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -276,7 +276,7 @@ class TiptapContentValidatorTest {
 
         // when & then
         assertThatThrownBy(() -> TiptapContentValidator.validate(content))
-                .isInstanceOf(PostContentInvalidFormatException.class);
+                .isInstanceOf(ContentInvalidFormatException.class);
     }
 
     @Test
@@ -286,7 +286,7 @@ class TiptapContentValidatorTest {
 
         // when & then
         assertThatThrownBy(() -> TiptapContentValidator.validate(content))
-                .isInstanceOf(PostContentInvalidFormatException.class);
+                .isInstanceOf(ContentInvalidFormatException.class);
     }
 
     static Stream<Arguments> invalidDocuments() {
@@ -364,6 +364,6 @@ class TiptapContentValidatorTest {
 
         // when & then
         assertThatThrownBy(() -> TiptapContentValidator.validate(content))
-                .isInstanceOf(PostContentInvalidFormatException.class);
+                .isInstanceOf(ContentInvalidFormatException.class);
     }
 }

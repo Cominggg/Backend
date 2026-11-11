@@ -17,6 +17,8 @@ import com.Coming.Backend.auth.entity.User;
 import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.auth.service.UserStatusValidator;
+import com.Coming.Backend.common.exception.ContentInvalidFormatException;
+import com.Coming.Backend.common.exception.ContentTooLongException;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
@@ -37,8 +39,6 @@ import com.Coming.Backend.post.entity.PostRecommend;
 import com.Coming.Backend.post.exception.AlreadyRecommendedException;
 import com.Coming.Backend.post.exception.NotRecommendedException;
 import com.Coming.Backend.post.exception.PostConcertTagHiddenException;
-import com.Coming.Backend.post.exception.PostContentInvalidFormatException;
-import com.Coming.Backend.post.exception.PostContentTooLongException;
 import com.Coming.Backend.post.exception.PostCoverConcertNotTaggedException;
 import com.Coming.Backend.post.exception.PostForbiddenException;
 import com.Coming.Backend.post.exception.PostNotFoundException;
@@ -357,8 +357,8 @@ class PostServiceTest {
 
         // when & then
         assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
-                .isInstanceOf(PostContentTooLongException.class)
-                .hasMessage(ErrorCode.POST_CONTENT_TOO_LONG.getMessage());
+                .isInstanceOf(ContentTooLongException.class)
+                .hasMessage(ErrorCode.CONTENT_TOO_LONG.getMessage());
         verify(postRepository, never()).save(any(Post.class));
     }
 
@@ -370,8 +370,8 @@ class PostServiceTest {
 
         // when & then
         assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
-                .isInstanceOf(PostContentTooLongException.class)
-                .hasMessage(ErrorCode.POST_CONTENT_TOO_LONG.getMessage());
+                .isInstanceOf(ContentTooLongException.class)
+                .hasMessage(ErrorCode.CONTENT_TOO_LONG.getMessage());
         verify(postRepository, never()).save(any(Post.class));
     }
 
@@ -562,8 +562,8 @@ class PostServiceTest {
 
         // when & then
         assertThatThrownBy(() -> postService.create(AUTHOR_ID, request))
-                .isInstanceOf(PostContentInvalidFormatException.class)
-                .hasMessage(ErrorCode.POST_CONTENT_INVALID_FORMAT.getMessage());
+                .isInstanceOf(ContentInvalidFormatException.class)
+                .hasMessage(ErrorCode.CONTENT_INVALID_FORMAT.getMessage());
         verify(postRepository, never()).save(any(Post.class));
         verify(postEntityTagRepository, never()).save(any(PostEntityTag.class));
     }
@@ -1453,8 +1453,8 @@ class PostServiceTest {
 
         // when & then
         assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
-                .isInstanceOf(PostContentTooLongException.class)
-                .hasMessage(ErrorCode.POST_CONTENT_TOO_LONG.getMessage());
+                .isInstanceOf(ContentTooLongException.class)
+                .hasMessage(ErrorCode.CONTENT_TOO_LONG.getMessage());
         assertThat(post.getTitle()).isEqualTo("기존 제목");
         assertThat(post.getContent()).isEqualTo("{\"type\":\"doc\"}");
         assertThat(post.getContentText()).isEqualTo("기존 텍스트");
@@ -1733,8 +1733,8 @@ class PostServiceTest {
 
         // when & then
         assertThatThrownBy(() -> postService.update(AUTHOR_ID, POST_ID, request))
-                .isInstanceOf(PostContentInvalidFormatException.class)
-                .hasMessage(ErrorCode.POST_CONTENT_INVALID_FORMAT.getMessage());
+                .isInstanceOf(ContentInvalidFormatException.class)
+                .hasMessage(ErrorCode.CONTENT_INVALID_FORMAT.getMessage());
         assertThat(post.getTitle()).isEqualTo("기존 제목");
         assertThat(post.getContent()).isEqualTo("{\"type\":\"doc\"}");
         verify(postEntityTagRepository, never()).deleteByPostId(any());

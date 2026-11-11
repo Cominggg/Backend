@@ -1,7 +1,7 @@
 package com.Coming.Backend.post.util;
 
+import com.Coming.Backend.common.exception.ContentInvalidFormatException;
 import com.Coming.Backend.post.entity.EntityType;
-import com.Coming.Backend.post.exception.PostContentInvalidFormatException;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -27,7 +27,7 @@ public final class TiptapEntityTagExtractor {
         Set<EntityTag> tags = new LinkedHashSet<>();
         collect(content, tags);
         if (tags.size() > MAX_TAG_COUNT) {
-            throw new PostContentInvalidFormatException();
+            throw new ContentInvalidFormatException();
         }
         return new ArrayList<>(tags);
     }

@@ -1,9 +1,9 @@
 package com.Coming.Backend.post.util;
 
 import com.Coming.Backend.common.exception.BusinessException;
+import com.Coming.Backend.common.exception.ContentInvalidFormatException;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.post.entity.EntityType;
-import com.Coming.Backend.post.exception.PostContentInvalidFormatException;
 import com.Coming.Backend.post.util.TiptapEntityTagExtractor.EntityTag;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -156,9 +156,9 @@ class TiptapEntityTagExtractorTest {
 
         // when & then
         assertThatThrownBy(() -> TiptapEntityTagExtractor.extract(content))
-                .isInstanceOf(PostContentInvalidFormatException.class)
+                .isInstanceOf(ContentInvalidFormatException.class)
                 .isInstanceOf(BusinessException.class)
-                .hasMessage(ErrorCode.POST_CONTENT_INVALID_FORMAT.getMessage());
+                .hasMessage(ErrorCode.CONTENT_INVALID_FORMAT.getMessage());
     }
 
     @Test
