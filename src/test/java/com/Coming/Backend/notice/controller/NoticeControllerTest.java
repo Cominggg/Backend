@@ -16,6 +16,7 @@ import com.Coming.Backend.notice.service.NoticeService;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -78,15 +79,22 @@ class NoticeControllerTest {
     @Test
     void should_return_200_with_notice_detail_when_notice_exists() throws Exception {
         // given
+        Map<String, Object> content = Map.of("type", "doc", "content", List.of(
+                Map.of("type", "paragraph", "content", List.of(
+                        Map.of("type", "text", "text", "점검은 새벽 2시부터 진행됩니다")
+                ))
+        ));
         NoticeDetailResponse detail = new NoticeDetailResponse(
-                NOTICE_ID, "점검 안내", "점검은 새벽 2시부터 진행됩니다", LocalDateTime.now(), LocalDateTime.now());
+                NOTICE_ID, "점검 안내", content, LocalDateTime.now(), LocalDateTime.now());
         given(noticeService.getDetail(eq(NOTICE_ID))).willReturn(detail);
 
         // when & then
         mockMvc.perform(get("/api/notices/{id}", NOTICE_ID).accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(NOTICE_ID))
-                .andExpect(jsonPath("$.title").value("점검 안내"));
+                .andExpect(jsonPath("$.title").value("점검 안내"))
+                .andExpect(jsonPath("$.content.type").value("doc"))
+                .andExpect(jsonPath("$.content.content[0].content[0].text").value("점검은 새벽 2시부터 진행됩니다"));
     }
 
     @Test

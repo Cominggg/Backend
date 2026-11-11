@@ -49,6 +49,7 @@ import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.auth.entity.UserRole;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
+import com.Coming.Backend.common.exception.ContentInvalidFormatException;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
 import com.Coming.Backend.common.exception.InvalidInputException;
@@ -73,6 +74,7 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -869,8 +871,13 @@ class AdminControllerTest {
     @Test
     void should_return_200_with_notice_detail_when_valid_id_given() throws Exception {
         // given
+        Map<String, Object> content = Map.of("type", "doc", "content", List.of(
+                Map.of("type", "paragraph", "content", List.of(
+                        Map.of("type", "text", "text", "9월 20일 점검이 진행됩니다.")
+                ))
+        ));
         AdminNoticeDetailResponse detail = new AdminNoticeDetailResponse(
-                NOTICE_ID, "점검 안내", "9월 20일 점검이 진행됩니다.", true,
+                NOTICE_ID, "점검 안내", content, true,
                 LocalDateTime.of(2025, 8, 20, 0, 0), LocalDateTime.of(2025, 8, 20, 0, 0)
         );
         given(adminService.getAdminNotice(NOTICE_ID)).willReturn(detail);
@@ -880,7 +887,8 @@ class AdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(NOTICE_ID))
                 .andExpect(jsonPath("$.title").value("점검 안내"))
-                .andExpect(jsonPath("$.content").value("9월 20일 점검이 진행됩니다."))
+                .andExpect(jsonPath("$.content.type").value("doc"))
+                .andExpect(jsonPath("$.content.content[0].content[0].text").value("9월 20일 점검이 진행됩니다."))
                 .andExpect(jsonPath("$.active").value(true));
     }
 
@@ -906,7 +914,12 @@ class AdminControllerTest {
         String requestBody = """
                 {
                     "title": "점검 안내",
-                    "content": "9월 20일 점검이 진행됩니다."
+                    "content": {
+                        "type": "doc",
+                        "content": [
+                            { "type": "paragraph", "content": [ { "type": "text", "text": "9월 20일 점검이 진행됩니다." } ] }
+                        ]
+                    }
                 }
                 """;
         given(adminService.createNotice(eq(ADMIN_ID), any(AdminNoticeCreateRequest.class)))
@@ -926,7 +939,12 @@ class AdminControllerTest {
         String requestBody = """
                 {
                     "title": "",
-                    "content": "9월 20일 점검이 진행됩니다."
+                    "content": {
+                        "type": "doc",
+                        "content": [
+                            { "type": "paragraph", "content": [ { "type": "text", "text": "9월 20일 점검이 진행됩니다." } ] }
+                        ]
+                    }
                 }
                 """;
 
@@ -938,12 +956,11 @@ class AdminControllerTest {
     }
 
     @Test
-    void should_return_400_when_content_is_blank_on_notice_create() throws Exception {
+    void should_return_400_when_content_is_missing_on_notice_create() throws Exception {
         // given
         String requestBody = """
                 {
-                    "title": "점검 안내",
-                    "content": ""
+                    "title": "점검 안내"
                 }
                 """;
 
@@ -952,6 +969,30 @@ class AdminControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_return_400_with_content_invalid_format_when_service_rejects_notice_content() throws Exception {
+        // given
+        String requestBody = """
+                {
+                    "title": "점검 안내",
+                    "content": {
+                        "type": "doc",
+                        "content": [ { "type": "image", "attrs": { "src": "https://example.com/a.png" } } ]
+                    }
+                }
+                """;
+        given(adminService.createNotice(eq(ADMIN_ID), any(AdminNoticeCreateRequest.class)))
+                .willThrow(new ContentInvalidFormatException());
+
+        // when & then
+        mockMvc.perform(post("/api/admin/notices")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CONTENT_INVALID_FORMAT.name()))
+                .andExpect(jsonPath("$.message").exists());
     }
 
     // -------------------------------------------------------------------------

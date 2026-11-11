@@ -51,6 +51,7 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.auth.service.SuspensionService;
 import com.Coming.Backend.auth.service.WithdrawalService;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.TiptapContentCodec;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertArtistCandidate;
@@ -90,6 +91,9 @@ import com.Coming.Backend.report.entity.ReportTargetType;
 import com.Coming.Backend.report.exception.ReportNotFoundException;
 import com.Coming.Backend.report.exception.ReportTargetNotFoundException;
 import com.Coming.Backend.report.repository.ReportRepository;
+import com.Coming.Backend.common.exception.ContentInvalidFormatException;
+import com.Coming.Backend.common.exception.ContentTooLongException;
+import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -107,6 +111,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -233,6 +238,33 @@ class AdminServiceTest {
                 .build();
         ReflectionTestUtils.setField(notice, "createdAt", CREATED_AT);
         return notice;
+    }
+
+    /**
+     * text 텍스트 노드 하나를 가진 Tiptap 문서. 요청 바디를 역직렬화한 것과 같은 Map/List 형태다.
+     */
+    private Map<String, Object> noticeContent(String text) {
+        return Map.of("type", "doc", "content", List.of(
+                Map.of("type", "paragraph", "content", List.of(
+                        Map.of("type", "text", "text", text)
+                ))
+        ));
+    }
+
+    /**
+     * noticeContent(text)를 직렬화한 JSON 문자열. Notice 엔티티에 저장되는 값이다.
+     */
+    private String noticeContentJson(String text) {
+        return TiptapContentCodec.sanitize(noticeContent(text)).json();
+    }
+
+    /**
+     * 허용 목록에 없는 노드(image)를 포함한 Tiptap 문서. 형식 위반 검증용.
+     */
+    private Map<String, Object> contentWithDisallowedNode() {
+        return Map.of("type", "doc", "content", List.of(
+                Map.of("type", "image", "attrs", Map.of("src", "https://example.com/a.png"))
+        ));
     }
 
     private Report buildReport(ReportTargetType targetType, Long targetId, ReportStatus status) {
@@ -2028,7 +2060,7 @@ class AdminServiceTest {
     @Test
     void should_return_paginated_notices_when_notices_exist() {
         // given
-        Notice notice = buildNotice(NOTICE_ID, "점검 안내", "9월 20일 점검이 진행됩니다.", true);
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", noticeContentJson("9월 20일 점검이 진행됩니다."), true);
         Page<Notice> page = new PageImpl<>(List.of(notice), PAGEABLE, 1);
         given(noticeRepository.findAll(PAGEABLE)).willReturn(page);
 
@@ -2049,7 +2081,7 @@ class AdminServiceTest {
     @Test
     void should_return_notice_detail_when_valid_id_given() {
         // given
-        Notice notice = buildNotice(NOTICE_ID, "점검 안내", "9월 20일 점검이 진행됩니다.", true);
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", noticeContentJson("9월 20일 점검이 진행됩니다."), true);
         given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
 
         // when
@@ -2058,14 +2090,14 @@ class AdminServiceTest {
         // then
         assertThat(response.id()).isEqualTo(NOTICE_ID);
         assertThat(response.title()).isEqualTo("점검 안내");
-        assertThat(response.content()).isEqualTo("9월 20일 점검이 진행됩니다.");
+        assertThat(response.content()).isEqualTo(noticeContent("9월 20일 점검이 진행됩니다."));
         assertThat(response.active()).isTrue();
     }
 
     @Test
     void should_return_inactive_notice_when_notice_is_deactivated() {
         // given
-        Notice notice = buildNotice(NOTICE_ID, "종료된 공지", "이벤트가 종료되었습니다.", false);
+        Notice notice = buildNotice(NOTICE_ID, "종료된 공지", noticeContentJson("이벤트가 종료되었습니다."), false);
         given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
 
         // when
@@ -2092,7 +2124,7 @@ class AdminServiceTest {
     @Test
     void should_create_active_notice_when_active_is_null() {
         // given
-        AdminNoticeCreateRequest request = new AdminNoticeCreateRequest("점검 안내", "9월 20일 점검이 진행됩니다.", null);
+        AdminNoticeCreateRequest request = new AdminNoticeCreateRequest("점검 안내", noticeContent("9월 20일 점검이 진행됩니다."), null);
         given(noticeRepository.save(any(Notice.class))).willAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -2108,7 +2140,7 @@ class AdminServiceTest {
     @Test
     void should_create_inactive_notice_when_active_is_false() {
         // given
-        AdminNoticeCreateRequest request = new AdminNoticeCreateRequest("임시 저장 공지", "아직 게시하지 않습니다.", false);
+        AdminNoticeCreateRequest request = new AdminNoticeCreateRequest("임시 저장 공지", noticeContent("아직 게시하지 않습니다."), false);
         given(noticeRepository.save(any(Notice.class))).willAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -2120,6 +2152,50 @@ class AdminServiceTest {
         assertThat(captor.getValue().isActive()).isFalse();
     }
 
+    @Test
+    void should_save_content_without_disallowed_attrs_when_create_notice_content_has_paragraph_text_align() {
+        // given
+        Map<String, Object> content = Map.of("type", "doc", "content", List.of(
+                Map.of("type", "paragraph", "attrs", Map.of("textAlign", "center"), "content", List.of(
+                        Map.of("type", "text", "text", "9월 20일 점검이 진행됩니다.")
+                ))
+        ));
+        AdminNoticeCreateRequest request = new AdminNoticeCreateRequest("점검 안내", content, null);
+        given(noticeRepository.save(any(Notice.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        adminService.createNotice(ADMIN_ID, request);
+
+        // then
+        ArgumentCaptor<Notice> captor = ArgumentCaptor.forClass(Notice.class);
+        verify(noticeRepository).save(captor.capture());
+        assertThat(captor.getValue().getContent()).isEqualTo(noticeContentJson("9월 20일 점검이 진행됩니다."));
+    }
+
+    @Test
+    void should_throw_content_invalid_format_exception_and_not_save_when_create_notice_content_has_disallowed_node() {
+        // given
+        AdminNoticeCreateRequest request = new AdminNoticeCreateRequest("점검 안내", contentWithDisallowedNode(), null);
+
+        // when & then
+        assertThatThrownBy(() -> adminService.createNotice(ADMIN_ID, request))
+                .isInstanceOf(ContentInvalidFormatException.class)
+                .hasMessage(ErrorCode.CONTENT_INVALID_FORMAT.getMessage());
+        verify(noticeRepository, never()).save(any(Notice.class));
+    }
+
+    @Test
+    void should_throw_content_too_long_exception_and_not_save_when_create_notice_content_text_exceeds_10000() {
+        // given
+        AdminNoticeCreateRequest request = new AdminNoticeCreateRequest("점검 안내", noticeContent("a".repeat(10001)), null);
+
+        // when & then
+        assertThatThrownBy(() -> adminService.createNotice(ADMIN_ID, request))
+                .isInstanceOf(ContentTooLongException.class)
+                .hasMessage(ErrorCode.CONTENT_TOO_LONG.getMessage());
+        verify(noticeRepository, never()).save(any(Notice.class));
+    }
+
     // -------------------------------------------------------------------------
     // updateNotice
     // -------------------------------------------------------------------------
@@ -2127,8 +2203,9 @@ class AdminServiceTest {
     @Test
     void should_update_title_and_content_when_update_request_given() {
         // given
-        Notice notice = buildNotice(NOTICE_ID, "점검 안내", "9월 20일 점검이 진행됩니다.", true);
-        AdminNoticeUpdateRequest request = new AdminNoticeUpdateRequest("점검 안내 (수정)", "9월 21일로 연기되었습니다.", null);
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", noticeContentJson("9월 20일 점검이 진행됩니다."), true);
+        AdminNoticeUpdateRequest request =
+                new AdminNoticeUpdateRequest("점검 안내 (수정)", noticeContent("9월 21일로 연기되었습니다."), null);
         given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
 
         // when
@@ -2136,13 +2213,41 @@ class AdminServiceTest {
 
         // then
         assertThat(notice.getTitle()).isEqualTo("점검 안내 (수정)");
-        assertThat(notice.getContent()).isEqualTo("9월 21일로 연기되었습니다.");
+        assertThat(notice.getContent()).isEqualTo(noticeContentJson("9월 21일로 연기되었습니다."));
+    }
+
+    @Test
+    void should_keep_content_when_update_request_content_is_null() {
+        // given
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", noticeContentJson("9월 20일 점검이 진행됩니다."), true);
+        AdminNoticeUpdateRequest request = new AdminNoticeUpdateRequest("점검 안내 (수정)", null, null);
+        given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
+
+        // when
+        adminService.updateNotice(NOTICE_ID, request);
+
+        // then
+        assertThat(notice.getContent()).isEqualTo(noticeContentJson("9월 20일 점검이 진행됩니다."));
+    }
+
+    @Test
+    void should_throw_content_invalid_format_exception_and_keep_content_when_update_notice_content_has_disallowed_node() {
+        // given
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", noticeContentJson("9월 20일 점검이 진행됩니다."), true);
+        AdminNoticeUpdateRequest request = new AdminNoticeUpdateRequest(null, contentWithDisallowedNode(), null);
+        given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
+
+        // when & then
+        assertThatThrownBy(() -> adminService.updateNotice(NOTICE_ID, request))
+                .isInstanceOf(ContentInvalidFormatException.class)
+                .hasMessage(ErrorCode.CONTENT_INVALID_FORMAT.getMessage());
+        assertThat(notice.getContent()).isEqualTo(noticeContentJson("9월 20일 점검이 진행됩니다."));
     }
 
     @Test
     void should_activate_notice_when_active_true_given() {
         // given
-        Notice notice = buildNotice(NOTICE_ID, "점검 안내", "9월 20일 점검이 진행됩니다.", false);
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", noticeContentJson("9월 20일 점검이 진행됩니다."), false);
         AdminNoticeUpdateRequest request = new AdminNoticeUpdateRequest(null, null, true);
         given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
 
@@ -2156,7 +2261,7 @@ class AdminServiceTest {
     @Test
     void should_deactivate_notice_when_active_false_given() {
         // given
-        Notice notice = buildNotice(NOTICE_ID, "점검 안내", "9월 20일 점검이 진행됩니다.", true);
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", noticeContentJson("9월 20일 점검이 진행됩니다."), true);
         AdminNoticeUpdateRequest request = new AdminNoticeUpdateRequest(null, null, false);
         given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
 
@@ -2170,7 +2275,7 @@ class AdminServiceTest {
     @Test
     void should_not_change_active_status_when_active_is_null() {
         // given
-        Notice notice = buildNotice(NOTICE_ID, "점검 안내", "9월 20일 점검이 진행됩니다.", true);
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", noticeContentJson("9월 20일 점검이 진행됩니다."), true);
         AdminNoticeUpdateRequest request = new AdminNoticeUpdateRequest("점검 안내 (수정)", null, null);
         given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
 
@@ -2199,7 +2304,7 @@ class AdminServiceTest {
     @Test
     void should_delete_notice_when_valid_id_given() {
         // given
-        Notice notice = buildNotice(NOTICE_ID, "점검 안내", "9월 20일 점검이 진행됩니다.", true);
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", noticeContentJson("9월 20일 점검이 진행됩니다."), true);
         given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
 
         // when
@@ -2219,7 +2324,6 @@ class AdminServiceTest {
                 .isInstanceOf(NoticeNotFoundException.class);
         verify(noticeRepository, never()).delete(any());
     }
-
     // -------------------------------------------------------------------------
     // getReports
     // -------------------------------------------------------------------------

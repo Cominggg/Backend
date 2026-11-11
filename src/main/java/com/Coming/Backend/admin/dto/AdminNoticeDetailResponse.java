@@ -1,5 +1,6 @@
 package com.Coming.Backend.admin.dto;
 
+import com.Coming.Backend.common.util.TiptapContentCodec;
 import com.Coming.Backend.notice.entity.Notice;
 
 import java.time.LocalDateTime;
@@ -7,7 +8,7 @@ import java.time.LocalDateTime;
 public record AdminNoticeDetailResponse(
         Long id,
         String title,
-        String content,
+        Object content,
         boolean active,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
@@ -16,7 +17,7 @@ public record AdminNoticeDetailResponse(
         return new AdminNoticeDetailResponse(
                 notice.getId(),
                 notice.getTitle(),
-                notice.getContent(),
+                TiptapContentCodec.read(notice.getContent()),
                 notice.isActive(),
                 notice.getCreatedAt(),
                 notice.getUpdatedAt()

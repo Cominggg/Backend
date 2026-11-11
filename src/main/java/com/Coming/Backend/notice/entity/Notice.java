@@ -12,6 +12,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "notice")
@@ -31,7 +33,8 @@ public class Notice extends BaseTimeEntity {
     @Column(name = "title", nullable = false, length = 255)
     private String title;
 
-    @Column(name = "content", nullable = false, columnDefinition = "text")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "content", nullable = false, columnDefinition = "jsonb")
     private String content;
 
     @Column(name = "active", nullable = false)
