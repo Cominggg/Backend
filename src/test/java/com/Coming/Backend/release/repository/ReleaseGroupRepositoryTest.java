@@ -2,6 +2,7 @@ package com.Coming.Backend.release.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.release.entity.ReleaseGroup;
 
 import java.util.Locale;
@@ -84,5 +85,19 @@ class ReleaseGroupRepositoryTest {
 
         // then
         assertThat(result.getContent()).extracting(ReleaseGroup::getId).containsExactly(release.getId());
+    }
+
+    @Test
+    void should_match_wildcards_literally_when_search_releases_with_escaped_query() {
+        // given
+        ReleaseGroup literal = releaseGroupRepository.save(buildReleaseGroup("ZQ142 100%_A"));
+        releaseGroupRepository.save(buildReleaseGroup("ZQ142 1000XA"));
+
+        // when
+        Page<ReleaseGroup> result = releaseGroupRepository.searchReleases(
+                null, null, null, LikeEscapeUtils.containsPattern("zq142 100%_a"), PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(ReleaseGroup::getId).containsExactly(literal.getId());
     }
 }
