@@ -128,14 +128,14 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             ))
             AND (:ticketOpenPending = false OR (c.ticketOpenAt IS NOT NULL AND c.ticketOpenAt > :now))
             AND (
-                LOWER(c.title) LIKE :q
+                LOWER(c.title) LIKE :q ESCAPE '\\'
                 OR c.id IN (
                     SELECT ca2.concertId FROM ConcertArtist ca2
                     WHERE ca2.artistId IN (
-                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q ESCAPE '\\' OR LOWER(a.sortName) LIKE :q ESCAPE '\\'
                     )
                     OR ca2.artistId IN (
-                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q ESCAPE '\\'
                     )
                 )
             )
@@ -152,14 +152,14 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             ))
             AND (:ticketOpenPending = false OR (c.ticketOpenAt IS NOT NULL AND c.ticketOpenAt > :now))
             AND (
-                LOWER(c.title) LIKE :q
+                LOWER(c.title) LIKE :q ESCAPE '\\'
                 OR c.id IN (
                     SELECT ca2.concertId FROM ConcertArtist ca2
                     WHERE ca2.artistId IN (
-                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q ESCAPE '\\' OR LOWER(a.sortName) LIKE :q ESCAPE '\\'
                     )
                     OR ca2.artistId IN (
-                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q ESCAPE '\\'
                     )
                 )
             )

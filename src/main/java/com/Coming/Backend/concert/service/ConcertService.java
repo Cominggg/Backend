@@ -9,6 +9,7 @@ import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.calendar.entity.UserConcertCalendar;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
 import com.Coming.Backend.concert.dto.ConcertStatsResponse;
@@ -165,7 +166,7 @@ public class ConcertService {
         Pageable stablePageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort().and(Sort.by("id")));
         boolean hasQuery = q != null && !q.isBlank();
         Page<Concert> page = hasQuery
-                ? concertRepository.searchConcerts(HIDDEN_STATUSES, statusFilter, calendarUserId, followedArtistIds, pending, now, "%" + q.toLowerCase() + "%", stablePageable)
+                ? concertRepository.searchConcerts(HIDDEN_STATUSES, statusFilter, calendarUserId, followedArtistIds, pending, now, LikeEscapeUtils.containsPattern(q), stablePageable)
                 : concertRepository.findConcerts(HIDDEN_STATUSES, statusFilter, calendarUserId, followedArtistIds, pending, now, stablePageable);
 
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);

@@ -211,4 +211,19 @@ class ConcertRepositoryTest {
         assertThat(result.getContent()).extracting(Concert::getId)
                 .containsExactly(literal.getId());
     }
+
+    @Test
+    void should_match_wildcards_literally_when_search_query_is_escaped() {
+        // given
+        Concert literal = saveConcertTitled(uniqueTitle + " 100%_A");
+        saveConcertTitled(uniqueTitle + " 1000XA");
+
+        // when
+        Page<Concert> result = concertRepository.searchConcerts(HIDDEN, null, null, null, false, LocalDateTime.now(),
+                LikeEscapeUtils.containsPattern(uniqueTitle + " 100%_a"), PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Concert::getId).containsExactly(literal.getId());
+        assertThat(result.getTotalElements()).isEqualTo(1);
+    }
 }

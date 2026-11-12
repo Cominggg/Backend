@@ -338,6 +338,19 @@ class ConcertServiceTest {
     }
 
     @Test
+    void should_escape_like_wildcards_when_q_contains_percent_and_underscore() {
+        // given
+        given(concertRepository.searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%50\\%\\_off%"), eq(STABLE_PAGEABLE)))
+                .willReturn(Page.empty(PAGEABLE));
+
+        // when
+        concertService.getConcerts("50%_OFF", null, null, null, null, PAGEABLE, null);
+
+        // then
+        verify(concertRepository).searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%50\\%\\_off%"), eq(STABLE_PAGEABLE));
+    }
+
+    @Test
     void should_call_search_concerts_with_lowercased_wrapped_query_when_q_is_given() {
         // given
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
