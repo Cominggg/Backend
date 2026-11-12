@@ -112,11 +112,18 @@ public class DataPipelineClient {
 
     /**
      * Data 파이프라인에 특정 아티스트의 릴리즈 수집을 트리거한다.
+     *
+     * @throws PipelineNotFoundException Data 파이프라인에 해당 아티스트가 없는 경우
+     * @throws PipelineConflictException 동일 아티스트에 대한 수집이 이미 처리 중인 경우
+     * @throws PipelineTimeoutException  Data 파이프라인 응답이 설정된 시간 내에 오지 않은 경우
      */
     public void triggerArtistReleases(Long artistId) {
         webClient.post()
                 .uri("/collect/artist/{id}/releases", artistId)
                 .retrieve()
+                .onStatus(status -> status.value() == 404, r -> Mono.error(new PipelineNotFoundException()))
+                .onStatus(status -> status.value() == 409, r -> Mono.error(new PipelineConflictException()))
+                .onStatus(status -> status.is5xxServerError(), r -> Mono.error(new PipelineServerException()))
                 .toBodilessEntity()
                 .doOnSuccess(r -> log.info("Data pipeline artist releases triggered: artistId={}", artistId))
                 .doOnError(e -> log.warn("Data pipeline artist releases failed: artistId={}, error={}", artistId, e.getMessage()))
