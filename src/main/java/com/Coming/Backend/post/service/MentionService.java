@@ -3,6 +3,7 @@ package com.Coming.Backend.post.service;
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -21,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -55,7 +55,7 @@ public class MentionService {
     }
 
     private PageResponse<EntityCardResponse> searchConcerts(String q, Pageable pageable) {
-        String likeQ = toLikePattern(q);
+        String likeQ = LikeEscapeUtils.containsPattern(q);
         Page<Concert> concerts = concertRepository.searchByTitleForMention(HIDDEN_STATUSES, likeQ, pageable);
         return PageResponse.from(concerts.map(entityLookupService::toCard));
     }
@@ -67,7 +67,7 @@ public class MentionService {
 
     private PageResponse<EntityCardResponse> searchReleases(String q, Pageable pageable) {
         Page<ReleaseGroup> releases = releaseGroupRepository
-                .searchByTitleForMention(toLikePattern(q), pageable);
+                .searchByTitleForMention(LikeEscapeUtils.containsPattern(q), pageable);
         Map<Long, String> artistNames = artistRepository.findAllById(
                 releases.getContent().stream().map(ReleaseGroup::getArtistId).collect(Collectors.toSet())
         ).stream().collect(Collectors.toMap(Artist::getId, Artist::getName));
@@ -77,18 +77,8 @@ public class MentionService {
     }
 
     private PageResponse<EntityCardResponse> searchTracks(String q, Pageable pageable) {
-        Page<Track> tracks = trackRepository.searchByTitleForMention(toLikePattern(q), pageable);
+        Page<Track> tracks = trackRepository.searchByTitleForMention(LikeEscapeUtils.containsPattern(q), pageable);
         Map<Long, EntityCardResponse> cardsByTrackId = entityLookupService.toTrackCardsById(tracks.getContent());
         return PageResponse.from(tracks.map(track -> cardsByTrackId.get(track.getId())));
-    }
-
-    private String toLikePattern(String q) {
-        return "%" + escapeLikeWildcards(q.toLowerCase(Locale.ROOT)) + "%";
-    }
-
-    private String escapeLikeWildcards(String q) {
-        return q.replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
     }
 }

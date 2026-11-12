@@ -5,6 +5,7 @@ import com.Coming.Backend.auth.repository.UserRepository;
 import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.common.util.TiptapConcertMentionFilter;
 import com.Coming.Backend.common.util.TiptapContentCodec;
 import com.Coming.Backend.common.util.TiptapContentCodec.SanitizedContent;
@@ -51,7 +52,6 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -269,7 +269,7 @@ public class PostService {
             throw new InvalidInputException();
         }
         Pageable pageable = PageRequest.of(page, size);
-        String likeQ = "%" + escapeLikeWildcards(trimmedQ.toLowerCase(Locale.ROOT)) + "%";
+        String likeQ = LikeEscapeUtils.containsPattern(trimmedQ);
         Page<Post> result = postRepository.searchPosts(likeQ, ConcertStatus.HIDDEN, pageable);
         List<PostSummaryResponse> content = toSummaryResponses(result.getContent());
         return new PageResponse<>(content, result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
@@ -381,12 +381,6 @@ public class PostService {
         }
         postRepository.decrementRecommendCount(id);
         return new RecommendCountResponse(postRepository.findRecommendCountById(id));
-    }
-
-    private String escapeLikeWildcards(String q) {
-        return q.replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
     }
 
     private Set<Long> concertIdsOf(Collection<EntityTag> tags) {

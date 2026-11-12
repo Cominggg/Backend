@@ -75,17 +75,17 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     @Query("""
             SELECT p FROM Post p
-            WHERE LOWER(p.title) LIKE :q OR LOWER(p.contentText) LIKE :q
+            WHERE LOWER(p.title) LIKE :q ESCAPE '\\' OR LOWER(p.contentText) LIKE :q ESCAPE '\\'
             OR p.id IN (
                 SELECT t.postId FROM PostEntityTag t
                 WHERE (t.entityType = com.Coming.Backend.post.entity.EntityType.ARTIST
-                        AND t.entityId IN (SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q))
+                        AND t.entityId IN (SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q ESCAPE '\\'))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.CONCERT
-                        AND t.entityId IN (SELECT c.id FROM Concert c WHERE LOWER(c.title) LIKE :q AND c.status NOT IN :hidden))
+                        AND t.entityId IN (SELECT c.id FROM Concert c WHERE LOWER(c.title) LIKE :q ESCAPE '\\' AND c.status NOT IN :hidden))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.RELEASE
-                        AND t.entityId IN (SELECT r.id FROM ReleaseGroup r WHERE LOWER(r.title) LIKE :q))
+                        AND t.entityId IN (SELECT r.id FROM ReleaseGroup r WHERE LOWER(r.title) LIKE :q ESCAPE '\\'))
                    OR (t.entityType = com.Coming.Backend.post.entity.EntityType.TRACK
-                        AND t.entityId IN (SELECT tr.id FROM Track tr WHERE LOWER(tr.title) LIKE :q))
+                        AND t.entityId IN (SELECT tr.id FROM Track tr WHERE LOWER(tr.title) LIKE :q ESCAPE '\\'))
             )
             ORDER BY p.createdAt DESC
             """)

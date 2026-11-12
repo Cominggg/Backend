@@ -2,6 +2,7 @@ package com.Coming.Backend.concert.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 
@@ -48,6 +49,18 @@ class ConcertRepositoryTest {
                 .endDate(startDate)
                 .venueName("올림픽공원 KSPO DOME")
                 .status(status)
+                .viewCount(0L)
+                .kopisUpdateDate(LocalDate.of(2026, 10, 1))
+                .build());
+    }
+
+    private Concert saveConcertTitled(String title) {
+        return concertRepository.save(Concert.builder()
+                .title(title)
+                .startDate(FAR_FUTURE)
+                .endDate(FAR_FUTURE)
+                .venueName("올림픽공원 KSPO DOME")
+                .status(ConcertStatus.UPCOMING)
                 .viewCount(0L)
                 .kopisUpdateDate(LocalDate.of(2026, 10, 1))
                 .build());
@@ -166,5 +179,36 @@ class ConcertRepositoryTest {
 
         // then
         assertThat(pagedIds).containsExactlyElementsOf(savedIds.stream().sorted().toList());
+    }
+
+    @Test
+    void should_match_percent_literally_when_mention_search_query_is_escaped() {
+        // given
+        Concert literal = saveConcertTitled(uniqueTitle + " 100% LIVE");
+        Concert wildcard = saveConcertTitled(uniqueTitle + " 1000 LIVE");
+
+        // when
+        Page<Concert> result = concertRepository.searchByTitleForMention(
+                HIDDEN, LikeEscapeUtils.containsPattern(uniqueTitle + " 100%"), PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Concert::getId)
+                .containsExactly(literal.getId());
+        assertThat(result.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void should_match_underscore_literally_when_mention_search_query_is_escaped() {
+        // given
+        Concert literal = saveConcertTitled(uniqueTitle + " A_B TOUR");
+        Concert wildcard = saveConcertTitled(uniqueTitle + " AXB TOUR");
+
+        // when
+        Page<Concert> result = concertRepository.searchByTitleForMention(
+                HIDDEN, LikeEscapeUtils.containsPattern(uniqueTitle + " a_b"), PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Concert::getId)
+                .containsExactly(literal.getId());
     }
 }

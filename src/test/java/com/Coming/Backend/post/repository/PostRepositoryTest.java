@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -232,6 +233,36 @@ class PostRepositoryTest {
 
         // then
         assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void should_match_percent_literally_when_search_query_is_escaped() {
+        // given
+        Post literal = postRepository.save(buildPost("zq142 100% 후기", "내용"));
+        Post wildcard = postRepository.save(buildPost("zq142 1000 후기", "내용"));
+
+        // when
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("zq142 100%"), HIDDEN, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId)
+                .contains(literal.getId())
+                .doesNotContain(wildcard.getId());
+    }
+
+    @Test
+    void should_match_underscore_literally_when_search_query_is_escaped() {
+        // given
+        Post literal = postRepository.save(buildPost("공연 후기", "zq142_a 본문"));
+        Post wildcard = postRepository.save(buildPost("공연 후기", "zq142xa 본문"));
+
+        // when
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("zq142_a"), HIDDEN, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId)
+                .contains(literal.getId())
+                .doesNotContain(wildcard.getId());
     }
 
     @Test
