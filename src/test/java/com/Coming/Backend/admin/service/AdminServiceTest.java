@@ -1256,6 +1256,60 @@ class AdminServiceTest {
     }
 
     @Test
+    void should_set_is_coming_false_when_only_active_concert_is_cancelled() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("AKASAKI").isComing(true).build();
+        AdminConcertStateUpdateRequest request = new AdminConcertStateUpdateRequest(ConcertStatus.CANCELLED, "공연 취소");
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(
+                ConcertArtist.builder().concertId(CONCERT_ID).artistId(ARTIST_ID).build()));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertRepository.existsActiveByArtistId(ARTIST_ID, List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING)))
+                .willReturn(false);
+
+        // when
+        adminService.forceChangeConcertState(CONCERT_ID, request);
+
+        // then
+        assertThat(artist.isComing()).isFalse();
+    }
+
+    @Test
+    void should_keep_is_coming_true_when_cancelled_artist_has_other_active_concert() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.ONGOING);
+        Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("AKASAKI").isComing(true).build();
+        AdminConcertStateUpdateRequest request = new AdminConcertStateUpdateRequest(ConcertStatus.CANCELLED, "공연 취소");
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+        given(concertArtistRepository.findByConcertId(CONCERT_ID)).willReturn(List.of(
+                ConcertArtist.builder().concertId(CONCERT_ID).artistId(ARTIST_ID).build()));
+        given(artistRepository.findAllById(List.of(ARTIST_ID))).willReturn(List.of(artist));
+        given(concertRepository.existsActiveByArtistId(ARTIST_ID, List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING)))
+                .willReturn(true);
+
+        // when
+        adminService.forceChangeConcertState(CONCERT_ID, request);
+
+        // then
+        assertThat(artist.isComing()).isTrue();
+    }
+
+    @Test
+    void should_not_recalculate_is_coming_when_neither_previous_nor_new_status_is_active() {
+        // given
+        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.ENDED);
+        AdminConcertStateUpdateRequest request = new AdminConcertStateUpdateRequest(ConcertStatus.CANCELLED, "공연 취소");
+        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
+
+        // when
+        adminService.forceChangeConcertState(CONCERT_ID, request);
+
+        // then
+        verify(concertArtistRepository, never()).findByConcertId(any());
+    }
+
+    @Test
     void should_throw_concert_not_found_when_state_change_target_does_not_exist() {
         // given
         AdminConcertStateUpdateRequest request = new AdminConcertStateUpdateRequest(
@@ -1940,22 +1994,6 @@ class AdminServiceTest {
         assertThat(concert.getStatus()).isEqualTo(ConcertStatus.ONGOING);
         assertThat(artist.isComing()).isTrue();
         verify(concertArtistRepository).findByConcertId(CONCERT_ID);
-    }
-
-    @Test
-    void should_not_query_concert_artist_when_status_changed_to_inactive_state() {
-        // given
-        Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
-        AdminConcertStateUpdateRequest request = new AdminConcertStateUpdateRequest(ConcertStatus.CANCELLED, null);
-
-        given(concertRepository.findById(CONCERT_ID)).willReturn(Optional.of(concert));
-
-        // when
-        adminService.forceChangeConcertState(CONCERT_ID, request);
-
-        // then
-        assertThat(concert.getStatus()).isEqualTo(ConcertStatus.CANCELLED);
-        verify(concertArtistRepository, never()).findByConcertId(any());
     }
 
     // -------------------------------------------------------------------------
