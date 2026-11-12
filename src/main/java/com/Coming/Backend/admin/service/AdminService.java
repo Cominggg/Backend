@@ -43,6 +43,7 @@ import com.Coming.Backend.artist.entity.ArtistUrl;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.service.SuspensionService;
 import com.Coming.Backend.auth.service.WithdrawalService;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.common.util.TiptapContentCodec;
 import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
@@ -411,14 +412,8 @@ public class AdminService {
         List<UserStatus> notWithdrawn = List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED);
         Page<User> page = keyword == null || keyword.isBlank()
                 ? userRepository.findByStatusIn(notWithdrawn, pageable)
-                : userRepository.searchByEmailOrNickname(escapeLikeWildcards(keyword.strip()), notWithdrawn, pageable);
+                : userRepository.searchByEmailOrNickname(LikeEscapeUtils.escape(keyword.strip()), notWithdrawn, pageable);
         return PageResponse.from(page.map(AdminUserListItemResponse::from));
-    }
-
-    private String escapeLikeWildcards(String keyword) {
-        return keyword.replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
     }
 
     /**
@@ -841,7 +836,7 @@ public class AdminService {
      */
     public PageResponse<AdminArtistSearchResult> searchLocalArtists(String name, Pageable pageable) {
         return PageResponse.from(
-                artistRepository.findByNameOrAliasContainingIgnoreCase(name, pageable)
+                artistRepository.findByNameOrAliasContainingIgnoreCase(LikeEscapeUtils.escape(name), pageable)
                         .map(artist -> new AdminArtistSearchResult(artist.getId(), artist.getName()))
         );
     }

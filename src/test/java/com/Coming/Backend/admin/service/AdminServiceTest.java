@@ -2023,6 +2023,18 @@ class AdminServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
+    void should_escape_like_wildcards_when_searching_local_artists_with_wildcards() {
+        // given
+        given(artistRepository.findByNameOrAliasContainingIgnoreCase("50\\%\\_a", PAGEABLE)).willReturn(Page.empty());
+
+        // when
+        adminService.searchLocalArtists("50%_a", PAGEABLE);
+
+        // then
+        verify(artistRepository).findByNameOrAliasContainingIgnoreCase("50\\%\\_a", PAGEABLE);
+    }
+
+    @Test
     void should_return_artist_id_and_name_when_matching_artists_found() {
         // given
         Artist artist = Artist.builder().id(ARTIST_ID).mbid("mbid-1").name("IU").isComing(true).build();

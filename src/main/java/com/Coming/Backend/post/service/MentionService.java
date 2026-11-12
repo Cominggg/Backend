@@ -61,7 +61,7 @@ public class MentionService {
     }
 
     private PageResponse<EntityCardResponse> searchArtists(String q, Pageable pageable) {
-        Page<Artist> artists = artistRepository.findByNameOrAliasContainingIgnoreCase(q, pageable);
+        Page<Artist> artists = artistRepository.findByNameOrAliasContainingIgnoreCase(LikeEscapeUtils.escape(q), pageable);
         return PageResponse.from(artists.map(entityLookupService::toCard));
     }
 

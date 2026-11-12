@@ -87,6 +87,19 @@ class MentionServiceTest {
     }
 
     @Test
+    void should_escape_like_wildcards_when_type_is_ARTIST_and_query_contains_wildcards() {
+        // given
+        given(artistRepository.findByNameOrAliasContainingIgnoreCase(eq("50\\%\\_a"), any(Pageable.class)))
+                .willReturn(Page.empty());
+
+        // when
+        mentionService.search(EntityType.ARTIST, "50%_a", PAGE, SIZE);
+
+        // then
+        verify(artistRepository).findByNameOrAliasContainingIgnoreCase(eq("50\\%\\_a"), any(Pageable.class));
+    }
+
+    @Test
     void should_call_artist_repository_with_raw_query_when_type_is_ARTIST() {
         // given
         String q = "아이유";
