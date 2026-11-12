@@ -111,6 +111,31 @@ class ReportControllerTest {
     }
 
     @Test
+    void should_return_400_when_reason_is_not_allowed_enum_value() throws Exception {
+        // given
+        String requestJson = """
+                {"targetType":"POST","targetId":10,"reason":"UNKNOWN","detail":null}
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/reports")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
+    }
+
+    @Test
+    void should_return_400_when_request_body_is_malformed_json() throws Exception {
+        // when & then
+        mockMvc.perform(post("/api/reports")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetType\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
+    }
+
+    @Test
     void should_return_400_when_target_id_is_null() throws Exception {
         // given
         String requestJson = """
