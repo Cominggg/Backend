@@ -5,6 +5,8 @@ import com.Coming.Backend.calendar.service.CalendarService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,10 +30,11 @@ public class CalendarController {
     private final CalendarService calendarService;
 
     @Operation(summary = "월별 공연 캘린더 조회")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT — month가 1~12 범위 밖")
     @GetMapping
     public ResponseEntity<List<CalendarEntryResponse>> getCalendar(
             @RequestParam int year,
-            @RequestParam int month,
+            @RequestParam @Min(1) @Max(12) int month,
             @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(calendarService.getCalendar(year, month, userId));
     }
