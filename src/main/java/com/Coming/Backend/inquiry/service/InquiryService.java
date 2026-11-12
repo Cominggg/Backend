@@ -2,6 +2,7 @@ package com.Coming.Backend.inquiry.service;
 
 import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.inquiry.event.InquiryCreatedEvent;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -35,7 +36,7 @@ public class InquiryService {
     private final UserStatusValidator userStatusValidator;
 
     /**
-     * 문의를 등록한다. CONCERT·ARTIST·SETLIST 타입은 동일 targetId·type으로 PENDING 문의가 존재하면 예외를 던진다.
+     * 문의를 등록한다. CONCERT·ARTIST·SETLIST 타입은 targetId가 없으면 INVALID_INPUT, 동일 targetId·type으로 PENDING 문의가 존재하면 예외를 던진다.
      * DATA_REQUEST·FEEDBACK 타입은 대상 컨텐츠가 없으므로 targetId 검증 및 중복 체크를 수행하지 않는다.
      */
     @Transactional
@@ -103,6 +104,9 @@ public class InquiryService {
     }
 
     private void validateTargetExists(InquiryType type, Long targetId) {
+        if (targetId == null) {
+            throw new InvalidInputException();
+        }
         boolean exists = switch (type) {
             case CONCERT, SETLIST -> concertRepository.existsById(targetId);
             case ARTIST -> artistRepository.existsById(targetId);

@@ -26,6 +26,7 @@ public class InquiryController {
     private final InquiryService inquiryService;
 
     @Operation(summary = "문의 등록")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT — CONCERT·ARTIST·SETLIST인데 targetId 누락")
     @ApiResponse(responseCode = "409", description = "INQUIRY_ALREADY_PENDING")
     @ApiResponse(responseCode = "404", description = "TARGET_NOT_FOUND")
     @PostMapping
