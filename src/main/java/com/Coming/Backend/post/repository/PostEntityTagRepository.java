@@ -13,9 +13,17 @@ import java.util.List;
 
 public interface PostEntityTagRepository extends JpaRepository<PostEntityTag, Long> {
 
-    List<PostEntityTag> findByPostId(Long postId);
+    /**
+     * 저장 순서(id)대로 반환한다. 태그는 본문 카드 등장 순서대로 저장되므로 응답 entityTags 순서가 본문 순서가 된다.
+     */
+    @Query("SELECT t FROM PostEntityTag t WHERE t.postId = :postId ORDER BY t.id")
+    List<PostEntityTag> findByPostId(@Param("postId") Long postId);
 
-    List<PostEntityTag> findByPostIdIn(Collection<Long> postIds);
+    /**
+     * 저장 순서(id)대로 반환한다. 게시글별로 묶어도 각 게시글 안의 순서가 본문 순서로 유지된다.
+     */
+    @Query("SELECT t FROM PostEntityTag t WHERE t.postId IN :postIds ORDER BY t.id")
+    List<PostEntityTag> findByPostIdIn(@Param("postIds") Collection<Long> postIds);
 
     void deleteByPostId(Long postId);
 

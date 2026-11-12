@@ -10,9 +10,12 @@ import com.Coming.Backend.notice.dto.NoticeSummaryResponse;
 import com.Coming.Backend.notice.entity.Notice;
 import com.Coming.Backend.notice.exception.NoticeNotFoundException;
 import com.Coming.Backend.notice.repository.NoticeRepository;
+import com.Coming.Backend.post.service.EntityLookupService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +34,11 @@ class NoticeServiceTest {
     @Mock
     private NoticeRepository noticeRepository;
 
+    @Mock
+    private EntityLookupService entityLookupService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     private static final Long AUTHOR_ID = 1L;
     private static final Long NOTICE_ID = 10L;
 
@@ -43,6 +51,19 @@ class NoticeServiceTest {
                 .build();
         ReflectionTestUtils.setField(notice, "id", id);
         return notice;
+    }
+
+    private static String card(String entityType, long entityId) {
+        return "{\"type\":\"entityMentionCard\",\"attrs\":{\"entityType\":\"" + entityType
+                + "\",\"entityId\":" + entityId + ",\"title\":\"카드 제목\"}}";
+    }
+
+    private static String paragraph(String text) {
+        return "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"" + text + "\"}]}";
+    }
+
+    private static String doc(String... blocks) {
+        return "{\"type\":\"doc\",\"content\":[" + String.join(",", blocks) + "]}";
     }
 
     // -------------------------------------------------------------------------
@@ -92,10 +113,12 @@ class NoticeServiceTest {
     }
 
     @Test
-    void should_return_notice_detail_when_active_notice_found() {
+    void should_return_notice_detail_when_active_notice_found() throws Exception {
         // given
-        Notice notice = buildNotice(NOTICE_ID, "점검 안내", "점검은 새벽 2시부터 진행됩니다", true);
+        String content = doc(paragraph("점검은 새벽 2시부터 진행됩니다"));
+        Notice notice = buildNotice(NOTICE_ID, "점검 안내", content, true);
         given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
+        given(entityLookupService.findVisibleConcertIds(Set.of())).willReturn(Set.of());
 
         // when
         NoticeDetailResponse response = noticeService.getDetail(NOTICE_ID);
@@ -103,7 +126,30 @@ class NoticeServiceTest {
         // then
         assertThat(response.id()).isEqualTo(NOTICE_ID);
         assertThat(response.title()).isEqualTo("점검 안내");
-        assertThat(response.content()).isEqualTo("점검은 새벽 2시부터 진행됩니다");
+        assertThat(response.content()).isEqualTo(objectMapper.readValue(content, Object.class));
+    }
+
+    @Test
+    void should_remove_hidden_and_missing_concert_cards_when_notice_content_has_concert_mentions() throws Exception {
+        // given
+        Notice notice = buildNotice(NOTICE_ID, "공연 소개", doc(
+                paragraph("이번 주 공연"),
+                card("CONCERT", 7L),
+                card("CONCERT", 8L),
+                card("CONCERT", 9L),
+                card("ARTIST", 3L)
+        ), true);
+        given(noticeRepository.findById(NOTICE_ID)).willReturn(Optional.of(notice));
+        // 8은 숨김 공연, 9는 없는 공연이라 공개 공연으로 7만 돌아온다
+        given(entityLookupService.findVisibleConcertIds(Set.of(7L, 8L, 9L))).willReturn(Set.of(7L));
+
+        // when
+        NoticeDetailResponse response = noticeService.getDetail(NOTICE_ID);
+
+        // then
+        Object expected = objectMapper.readValue(
+                doc(paragraph("이번 주 공연"), card("CONCERT", 7L), card("ARTIST", 3L)), Object.class);
+        assertThat(response.content()).isEqualTo(expected);
     }
 
     @Test

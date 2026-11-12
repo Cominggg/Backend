@@ -1,4 +1,4 @@
-package com.Coming.Backend.post.util;
+package com.Coming.Backend.common.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

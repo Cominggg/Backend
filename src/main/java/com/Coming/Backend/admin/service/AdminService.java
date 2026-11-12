@@ -43,6 +43,7 @@ import com.Coming.Backend.artist.entity.ArtistUrl;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.service.SuspensionService;
 import com.Coming.Backend.auth.service.WithdrawalService;
+import com.Coming.Backend.common.util.TiptapContentCodec;
 import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
@@ -291,13 +292,14 @@ public class AdminService {
 
     /**
      * 공지사항을 작성한다. active를 지정하지 않으면 기본 활성 상태로 등록한다.
+     * 본문은 게시글과 같은 공통 스키마·길이 제한으로 검증하고 허용 밖 attrs는 지워 저장한다.
      */
     @Transactional
     public AdminNoticeCreateResponse createNotice(Long adminId, AdminNoticeCreateRequest request) {
         Notice notice = Notice.builder()
                 .userId(adminId)
                 .title(request.title())
-                .content(request.content())
+                .content(TiptapContentCodec.sanitize(request.content()).json())
                 .active(request.active() == null || request.active())
                 .build();
         noticeRepository.save(notice);
@@ -306,12 +308,14 @@ public class AdminService {
 
     /**
      * 공지사항을 수정한다. title·content·active 중 null인 항목은 변경하지 않는다.
+     * content가 주어지면 작성과 같은 방식으로 검증한다.
      * 존재하지 않는 ID이면 NoticeNotFoundException을 던진다.
      */
     @Transactional
     public void updateNotice(Long id, AdminNoticeUpdateRequest request) {
         Notice notice = noticeRepository.findById(id).orElseThrow(NoticeNotFoundException::new);
-        notice.update(request.title(), request.content());
+        String content = request.content() != null ? TiptapContentCodec.sanitize(request.content()).json() : null;
+        notice.update(request.title(), content);
         if (request.active() != null) {
             if (request.active()) {
                 notice.activate();

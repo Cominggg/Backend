@@ -1,4 +1,4 @@
-package com.Coming.Backend.post.util;
+package com.Coming.Backend.common.util;
 
 import java.util.List;
 import java.util.Map;
