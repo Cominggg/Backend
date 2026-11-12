@@ -34,7 +34,7 @@ class ArtistRepositoryTest {
     void should_match_wildcards_literally_when_name_search_keyword_is_escaped() {
         // given
         Artist literal = saveArtist("ZQ142 100%_A");
-        Artist wildcard = saveArtist("ZQ142 1000XA");
+        saveArtist("ZQ142 1000XA");
 
         // when
         Page<Artist> result = artistRepository.findByNameOrAliasContainingIgnoreCase(
@@ -42,8 +42,7 @@ class ArtistRepositoryTest {
 
         // then
         assertThat(result.getContent()).extracting(Artist::getId)
-                .containsExactly(literal.getId())
-                .doesNotContain(wildcard.getId());
+                .containsExactly(literal.getId());
         assertThat(result.getTotalElements()).isEqualTo(1);
     }
 

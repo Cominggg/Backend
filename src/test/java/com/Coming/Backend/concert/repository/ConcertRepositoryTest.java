@@ -10,7 +10,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -43,24 +42,20 @@ class ConcertRepositoryTest {
     }
 
     private Concert saveConcert(ConcertStatus status, LocalDate startDate) {
+        return saveConcert(uniqueTitle + " " + status.name(), status, startDate);
+    }
+
+    private Concert saveConcertTitled(String title) {
+        return saveConcert(title, ConcertStatus.UPCOMING, FAR_FUTURE);
+    }
+
+    private Concert saveConcert(String title, ConcertStatus status, LocalDate startDate) {
         return concertRepository.save(Concert.builder()
-                .title(uniqueTitle + " " + status.name())
+                .title(title)
                 .startDate(startDate)
                 .endDate(startDate)
                 .venueName("올림픽공원 KSPO DOME")
                 .status(status)
-                .viewCount(0L)
-                .kopisUpdateDate(LocalDate.of(2026, 10, 1))
-                .build());
-    }
-
-    private Concert saveConcertTitled(String title) {
-        return concertRepository.save(Concert.builder()
-                .title(title)
-                .startDate(FAR_FUTURE)
-                .endDate(FAR_FUTURE)
-                .venueName("올림픽공원 KSPO DOME")
-                .status(ConcertStatus.UPCOMING)
                 .viewCount(0L)
                 .kopisUpdateDate(LocalDate.of(2026, 10, 1))
                 .build());
@@ -71,7 +66,7 @@ class ConcertRepositoryTest {
     }
 
     private String likeQuery() {
-        return "%" + uniqueTitle.toLowerCase(Locale.ROOT) + "%";
+        return LikeEscapeUtils.containsPattern(uniqueTitle);
     }
 
     @Test
@@ -185,7 +180,7 @@ class ConcertRepositoryTest {
     void should_match_percent_literally_when_mention_search_query_is_escaped() {
         // given
         Concert literal = saveConcertTitled(uniqueTitle + " 100% LIVE");
-        Concert wildcard = saveConcertTitled(uniqueTitle + " 1000 LIVE");
+        saveConcertTitled(uniqueTitle + " 1000 LIVE");
 
         // when
         Page<Concert> result = concertRepository.searchByTitleForMention(
@@ -201,7 +196,7 @@ class ConcertRepositoryTest {
     void should_match_underscore_literally_when_mention_search_query_is_escaped() {
         // given
         Concert literal = saveConcertTitled(uniqueTitle + " A_B TOUR");
-        Concert wildcard = saveConcertTitled(uniqueTitle + " AXB TOUR");
+        saveConcertTitled(uniqueTitle + " AXB TOUR");
 
         // when
         Page<Concert> result = concertRepository.searchByTitleForMention(

@@ -100,7 +100,7 @@ class MentionServiceTest {
     }
 
     @Test
-    void should_call_artist_repository_with_raw_query_when_type_is_ARTIST() {
+    void should_return_artist_cards_when_type_is_ARTIST() {
         // given
         String q = "아이유";
         Artist artist = Artist.builder().id(ARTIST_ID).name("아이유").build();

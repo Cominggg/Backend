@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.release.entity.ReleaseGroup;
 
-import java.util.Locale;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,10 +22,6 @@ class ReleaseGroupRepositoryTest {
 
     private static final Long ARTIST_ID = 1L;
 
-    private String likeQuery(String q) {
-        return "%" + q.toLowerCase(Locale.ROOT) + "%";
-    }
-
     private ReleaseGroup buildReleaseGroup(String title) {
         return ReleaseGroup.builder()
                 .artistId(ARTIST_ID)
@@ -40,7 +35,7 @@ class ReleaseGroupRepositoryTest {
         ReleaseGroup release = releaseGroupRepository.save(buildReleaseGroup("LILAC"));
 
         // when
-        Page<ReleaseGroup> result = releaseGroupRepository.searchByTitleForMention(likeQuery("lil"), PageRequest.of(0, 20));
+        Page<ReleaseGroup> result = releaseGroupRepository.searchByTitleForMention(LikeEscapeUtils.containsPattern("lil"), PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(ReleaseGroup::getId).contains(release.getId());
@@ -53,7 +48,7 @@ class ReleaseGroupRepositoryTest {
         ReleaseGroup notMatching = releaseGroupRepository.save(buildReleaseGroup("Palette"));
 
         // when
-        Page<ReleaseGroup> result = releaseGroupRepository.searchByTitleForMention(likeQuery("lil"), PageRequest.of(0, 20));
+        Page<ReleaseGroup> result = releaseGroupRepository.searchByTitleForMention(LikeEscapeUtils.containsPattern("lil"), PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(ReleaseGroup::getId)
@@ -67,7 +62,7 @@ class ReleaseGroupRepositoryTest {
         releaseGroupRepository.save(buildReleaseGroup("LILAC"));
 
         // when
-        Page<ReleaseGroup> result = releaseGroupRepository.searchByTitleForMention(likeQuery("존재하지않는검색어"), PageRequest.of(0, 20));
+        Page<ReleaseGroup> result = releaseGroupRepository.searchByTitleForMention(LikeEscapeUtils.containsPattern("존재하지않는검색어"), PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).isEmpty();
@@ -78,7 +73,7 @@ class ReleaseGroupRepositoryTest {
         // given
         ReleaseGroup release = releaseGroupRepository.save(buildReleaseGroup("100% Ready"));
         releaseGroupRepository.save(buildReleaseGroup("100 Ready"));
-        String escapedQuery = "%" + "100\\% ready".toLowerCase(Locale.ROOT) + "%";
+        String escapedQuery = LikeEscapeUtils.containsPattern("100% ready");
 
         // when
         Page<ReleaseGroup> result = releaseGroupRepository.searchByTitleForMention(escapedQuery, PageRequest.of(0, 20));
