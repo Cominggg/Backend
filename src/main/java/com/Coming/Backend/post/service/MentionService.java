@@ -37,6 +37,9 @@ import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
 public class MentionService {
 
     private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
+    // 여러 종류를 섞을 때 접두 일치 순위가 같으면 이 순서로 놓는다 (App·웹 멘션 후보 순서와 같음)
+    private static final List<EntityType> MERGED_TYPE_ORDER =
+            List.of(EntityType.CONCERT, EntityType.ARTIST, EntityType.RELEASE, EntityType.TRACK);
 
     private final ConcertRepository concertRepository;
     private final ArtistRepository artistRepository;
@@ -55,7 +58,7 @@ public class MentionService {
     public PageResponse<EntityCardResponse> search(List<EntityType> types, String q, int page, int size) {
         List<EntityType> requested = types == null || types.isEmpty()
                 ? List.of(EntityType.values())
-                : types.stream().distinct().sorted().toList();
+                : types.stream().distinct().toList();
         if (requested.size() == 1) {
             return searchByType(requested.getFirst(), q, page, size);
         }
@@ -65,7 +68,8 @@ public class MentionService {
         String lowerQ = q.toLowerCase(Locale.ROOT);
         List<EntityCardResponse> merged = requested.stream()
                 .flatMap(type -> searchByType(type, q, 0, size).content().stream())
-                .sorted(Comparator.comparing(card -> !startsWithIgnoreCase(card.title(), lowerQ)))
+                .sorted(Comparator.<EntityCardResponse, Boolean>comparing(card -> !startsWithIgnoreCase(card.title(), lowerQ))
+                        .thenComparing(card -> MERGED_TYPE_ORDER.indexOf(card.type())))
                 .limit(size)
                 .toList();
         return new PageResponse<>(merged, 0, size, merged.size(), merged.isEmpty() ? 0 : 1);
