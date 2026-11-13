@@ -20,6 +20,8 @@ public interface UserFollowArtistRepository extends JpaRepository<UserFollowArti
 
     long countByArtistId(Long artistId);
 
+    long countByUserId(Long userId);
+
     @Query("SELECT ufa.artistId AS artistId, COUNT(ufa) AS followerCount FROM UserFollowArtist ufa WHERE ufa.artistId IN :artistIds GROUP BY ufa.artistId")
     List<ArtistFollowerCount> countByArtistIdIn(@Param("artistIds") List<Long> artistIds);
 
