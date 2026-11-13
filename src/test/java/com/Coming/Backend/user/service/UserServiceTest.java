@@ -5,17 +5,24 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
+import com.Coming.Backend.calendar.dto.CalendarEntryResponse;
+import com.Coming.Backend.calendar.service.CalendarService;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
+import com.Coming.Backend.inquiry.entity.InquiryStatus;
+import com.Coming.Backend.inquiry.repository.InquiryRepository;
 import com.Coming.Backend.user.dto.ConcertHistoryResponse;
+import com.Coming.Backend.user.dto.MySummaryResponse;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -29,6 +36,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -47,6 +55,15 @@ class UserServiceTest {
 
     @Mock
     private ArtistAliasRepository artistAliasRepository;
+
+    @Mock
+    private UserFollowArtistRepository userFollowArtistRepository;
+
+    @Mock
+    private InquiryRepository inquiryRepository;
+
+    @Mock
+    private CalendarService calendarService;
 
     private static final Long CONCERT_ID = 1L;
     private static final Long ARTIST_ID = 10L;
@@ -153,5 +170,71 @@ class UserServiceTest {
         // then
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0).artists()).isEmpty();
+    }
+
+    // -------------------------------------------------------------------------
+    // getSummary
+    // -------------------------------------------------------------------------
+
+    private static final Pageable FIRST_UPCOMING = PageRequest.of(0, 1, Sort.by(Sort.Direction.ASC, "startDate"));
+    private static final Pageable FIRST_ONLY = PageRequest.of(0, 1);
+
+    private CalendarEntryResponse buildCalendarEntry(Long concertId) {
+        return new CalendarEntryResponse(
+                concertId, "CONCERT", List.of(), "공연 " + concertId,
+                LocalDate.now().plusDays(5), LocalDate.now().plusDays(6),
+                "UPCOMING", "https://example.com/poster.jpg", "KSPO DOME, 서울", true, null);
+    }
+
+    private void givenSummarySources(PageResponse<CalendarEntryResponse> upcoming, long historyTotal) {
+        given(calendarService.getMyCalendar(eq(USER_ID), any(Pageable.class))).willReturn(upcoming);
+        given(concertRepository.findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), anyList(), any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(buildPastConcert(CONCERT_ID)), FIRST_ONLY, historyTotal));
+        given(userFollowArtistRepository.countByUserId(USER_ID)).willReturn(7L);
+        given(inquiryRepository.countByUserIdAndStatus(eq(USER_ID), any(InquiryStatus.class))).willReturn(2L);
+    }
+
+    @Test
+    void should_return_counts_and_next_concert_when_user_has_data() {
+        // given
+        CalendarEntryResponse next = buildCalendarEntry(CONCERT_ID);
+        givenSummarySources(new PageResponse<>(List.of(next), 0, 1, 3L, 3), 5L);
+
+        // when
+        MySummaryResponse result = userService.getSummary(USER_ID);
+
+        // then
+        assertThat(result.followingCount()).isEqualTo(7L);
+        assertThat(result.upcomingCount()).isEqualTo(3L);
+        assertThat(result.nextConcert()).isEqualTo(next);
+        assertThat(result.historyCount()).isEqualTo(5L);
+        assertThat(result.inProgressInquiryCount()).isEqualTo(2L);
+    }
+
+    @Test
+    void should_return_null_next_concert_when_no_upcoming_concert() {
+        // given
+        givenSummarySources(new PageResponse<>(List.of(), 0, 1, 0L, 0), 5L);
+
+        // when
+        MySummaryResponse result = userService.getSummary(USER_ID);
+
+        // then
+        assertThat(result.nextConcert()).isNull();
+        assertThat(result.upcomingCount()).isZero();
+    }
+
+    @Test
+    void should_query_with_first_page_and_in_progress_status_when_get_summary() {
+        // given
+        givenSummarySources(new PageResponse<>(List.of(), 0, 1, 0L, 0), 0L);
+
+        // when
+        userService.getSummary(USER_ID);
+
+        // then
+        verify(calendarService).getMyCalendar(USER_ID, FIRST_UPCOMING);
+        verify(concertRepository).findPastByUserCalendar(eq(USER_ID), any(LocalDate.class), anyList(), eq(FIRST_ONLY));
+        verify(inquiryRepository).countByUserIdAndStatus(USER_ID, InquiryStatus.IN_PROGRESS);
     }
 }
