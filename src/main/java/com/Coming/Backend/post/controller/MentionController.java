@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Tag(name = "Post")
 @Validated
 @RestController
@@ -35,6 +37,6 @@ public class MentionController {
             @RequestParam @NotBlank String q,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(20) int limit) {
-        return ResponseEntity.ok(mentionService.search(type, q, page, limit));
+        return ResponseEntity.ok(mentionService.search(List.of(type), q, page, limit));
     }
 }

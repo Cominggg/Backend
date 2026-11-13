@@ -56,7 +56,7 @@ class MentionControllerTest {
         // given
         EntityCardResponse card = new EntityCardResponse(
                 EntityType.CONCERT, CONCERT_ID, "아이유 콘서트", "2025-10-01 · 올림픽공원", null, null);
-        given(mentionService.search(eq(EntityType.CONCERT), eq("아이유"), eq(0), eq(20)))
+        given(mentionService.search(eq(List.of(EntityType.CONCERT)), eq("아이유"), eq(0), eq(20)))
                 .willReturn(PageResponse.from(new PageImpl<>(List.of(card))));
 
         // when & then
@@ -98,7 +98,7 @@ class MentionControllerTest {
     @Test
     void should_return_200_with_empty_array_when_no_search_result_found() throws Exception {
         // given
-        given(mentionService.search(eq(EntityType.ARTIST), eq("없는아티스트"), eq(0), eq(20)))
+        given(mentionService.search(eq(List.of(EntityType.ARTIST)), eq("없는아티스트"), eq(0), eq(20)))
                 .willReturn(PageResponse.from(new PageImpl<>(List.of())));
 
         // when & then
