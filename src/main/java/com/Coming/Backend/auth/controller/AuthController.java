@@ -125,7 +125,8 @@ public class AuthController {
     }
 
     @Operation(summary = "내 프로필 수정")
-    @ApiResponse(responseCode = "400", description = "닉네임 20자 초과")
+    @ApiResponse(responseCode = "400", description = "NICKNAME_REQUIRED, NICKNAME_TOO_LONG")
+    @ApiResponse(responseCode = "409", description = "NICKNAME_DUPLICATE")
     @PutMapping("/me")
     public ResponseEntity<MeResponse> updateMe(
             @AuthenticationPrincipal Long userId,

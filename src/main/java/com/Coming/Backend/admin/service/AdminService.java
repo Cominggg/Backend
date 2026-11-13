@@ -43,6 +43,7 @@ import com.Coming.Backend.artist.entity.ArtistUrl;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.service.SuspensionService;
 import com.Coming.Backend.auth.service.WithdrawalService;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.common.util.TiptapContentCodec;
 import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
@@ -411,14 +412,8 @@ public class AdminService {
         List<UserStatus> notWithdrawn = List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED);
         Page<User> page = keyword == null || keyword.isBlank()
                 ? userRepository.findByStatusIn(notWithdrawn, pageable)
-                : userRepository.searchByEmailOrNickname(escapeLikeWildcards(keyword.strip()), notWithdrawn, pageable);
+                : userRepository.searchByEmailOrNickname(LikeEscapeUtils.escape(keyword.strip()), notWithdrawn, pageable);
         return PageResponse.from(page.map(AdminUserListItemResponse::from));
-    }
-
-    private String escapeLikeWildcards(String keyword) {
-        return keyword.replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
     }
 
     /**
@@ -555,7 +550,7 @@ public class AdminService {
     }
 
     /**
-     * 공연 상태를 강제 변경한다. 새 상태가 UPCOMING 또는 ONGOING이면 연결된 아티스트의 is_coming을 갱신한다.
+     * 공연 상태를 강제 변경한다. 이전 또는 새 상태가 UPCOMING·ONGOING이면 연결된 아티스트의 is_coming을 재계산한다.
      *
      * @throws ConcertNotFoundException 존재하지 않는 공연 ID
      */
@@ -563,10 +558,10 @@ public class AdminService {
     public void forceChangeConcertState(Long id, AdminConcertStateUpdateRequest request) {
         Concert concert = concertRepository.findById(id)
                 .orElseThrow(ConcertNotFoundException::new);
-        concert.forceChangeStatus(request.status());
+        ConcertStatus previousStatus = concert.forceChangeStatus(request.status());
 
         List<ConcertStatus> activeStatuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
-        if (activeStatuses.contains(request.status())) {
+        if (activeStatuses.contains(previousStatus) || activeStatuses.contains(request.status())) {
             List<Long> artistIds = concertArtistRepository.findByConcertId(id).stream()
                     .map(ConcertArtist::getArtistId)
                     .distinct()
@@ -841,7 +836,7 @@ public class AdminService {
      */
     public PageResponse<AdminArtistSearchResult> searchLocalArtists(String name, Pageable pageable) {
         return PageResponse.from(
-                artistRepository.findByNameOrAliasContainingIgnoreCase(name, pageable)
+                artistRepository.findByNameOrAliasContainingIgnoreCase(LikeEscapeUtils.escape(name), pageable)
                         .map(artist -> new AdminArtistSearchResult(artist.getId(), artist.getName()))
         );
     }

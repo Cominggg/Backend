@@ -240,6 +240,21 @@ class ReleaseServiceTest {
     }
 
     @Test
+    void should_escape_like_wildcards_when_q_contains_percent_and_underscore() {
+        // given
+        given(releaseGroupRepository.searchReleases(
+                isNull(), isNull(), isNull(), eq("%50\\%\\_off%"), any(Pageable.class)))
+                .willReturn(Page.empty(PAGEABLE));
+
+        // when
+        releaseService.getReleases("50%_OFF", null, null, null, false, PAGEABLE);
+
+        // then
+        verify(releaseGroupRepository).searchReleases(
+                isNull(), isNull(), isNull(), eq("%50\\%\\_off%"), any(Pageable.class));
+    }
+
+    @Test
     void should_pass_locale_independent_lowercased_query_when_default_locale_is_turkish() {
         // given
         Locale defaultLocale = Locale.getDefault();

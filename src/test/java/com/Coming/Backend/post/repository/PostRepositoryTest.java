@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -19,7 +20,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -61,10 +61,6 @@ class PostRepositoryTest {
 
     private static final Long AUTHOR_ID = 1L;
     private static final List<ConcertStatus> HIDDEN = List.of(ConcertStatus.EXCLUDED, ConcertStatus.PENDING);
-
-    private String likeQuery(String q) {
-        return "%" + q.toLowerCase(Locale.ROOT) + "%";
-    }
 
     private Post buildPost(String title, String contentText) {
         return Post.builder()
@@ -121,7 +117,7 @@ class PostRepositoryTest {
         Post post = postRepository.save(buildPost("아이유 단독 콘서트 후기", "정말 좋았다"));
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), HIDDEN, PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("아이유"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
@@ -133,7 +129,7 @@ class PostRepositoryTest {
         Post post = postRepository.save(buildPost("공연 후기", "정말 재밌는 아이유 콘서트였다"));
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), HIDDEN, PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("아이유"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
@@ -155,7 +151,7 @@ class PostRepositoryTest {
                 .build());
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), HIDDEN, PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("아이유"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
@@ -177,7 +173,7 @@ class PostRepositoryTest {
                 .build());
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("LILAC"), HIDDEN, PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("LILAC"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
@@ -190,7 +186,7 @@ class PostRepositoryTest {
         Post post = saveConcertTaggedPost(concert);
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("HER 월드투어"), HIDDEN, PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("HER 월드투어"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).contains(post.getId());
@@ -203,7 +199,7 @@ class PostRepositoryTest {
         Post post = saveConcertTaggedPost(concert);
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("HER 월드투어"), HIDDEN, PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("HER 월드투어"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).doesNotContain(post.getId());
@@ -216,7 +212,7 @@ class PostRepositoryTest {
         Post post = saveConcertTaggedPost(concert);
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("HER 월드투어"), HIDDEN, PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("HER 월드투어"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).extracting(Post::getId).doesNotContain(post.getId());
@@ -228,10 +224,40 @@ class PostRepositoryTest {
         postRepository.save(buildPost("다른 제목", "다른 내용"));
 
         // when
-        Page<Post> result = postRepository.searchPosts(likeQuery("존재하지않는검색어"), HIDDEN, PageRequest.of(0, 20));
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("존재하지않는검색어"), HIDDEN, PageRequest.of(0, 20));
 
         // then
         assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void should_match_percent_literally_when_search_query_is_escaped() {
+        // given
+        Post literal = postRepository.save(buildPost("zq142 100% 후기", "내용"));
+        Post wildcard = postRepository.save(buildPost("zq142 1000 후기", "내용"));
+
+        // when
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("zq142 100%"), HIDDEN, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId)
+                .contains(literal.getId())
+                .doesNotContain(wildcard.getId());
+    }
+
+    @Test
+    void should_match_underscore_literally_when_search_query_is_escaped() {
+        // given
+        Post literal = postRepository.save(buildPost("공연 후기", "zq142_a 본문"));
+        Post wildcard = postRepository.save(buildPost("공연 후기", "zq142xa 본문"));
+
+        // when
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("zq142_a"), HIDDEN, PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Post::getId)
+                .contains(literal.getId())
+                .doesNotContain(wildcard.getId());
     }
 
     @Test
@@ -334,7 +360,7 @@ class PostRepositoryTest {
 
         // when
         Pageable pageable = PageRequest.of(0, 20);
-        Page<Post> result = postRepository.searchPosts(likeQuery("아이유"), HIDDEN, pageable);
+        Page<Post> result = postRepository.searchPosts(LikeEscapeUtils.containsPattern("아이유"), HIDDEN, pageable);
 
         // then
         assertThat(result.getContent()).extracting(Post::getId)

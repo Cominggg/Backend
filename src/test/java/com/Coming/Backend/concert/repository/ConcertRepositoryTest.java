@@ -2,6 +2,7 @@ package com.Coming.Backend.concert.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 
@@ -9,7 +10,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -42,8 +42,16 @@ class ConcertRepositoryTest {
     }
 
     private Concert saveConcert(ConcertStatus status, LocalDate startDate) {
+        return saveConcert(uniqueTitle + " " + status.name(), status, startDate);
+    }
+
+    private Concert saveConcertTitled(String title) {
+        return saveConcert(title, ConcertStatus.UPCOMING, FAR_FUTURE);
+    }
+
+    private Concert saveConcert(String title, ConcertStatus status, LocalDate startDate) {
         return concertRepository.save(Concert.builder()
-                .title(uniqueTitle + " " + status.name())
+                .title(title)
                 .startDate(startDate)
                 .endDate(startDate)
                 .venueName("올림픽공원 KSPO DOME")
@@ -58,7 +66,7 @@ class ConcertRepositoryTest {
     }
 
     private String likeQuery() {
-        return "%" + uniqueTitle.toLowerCase(Locale.ROOT) + "%";
+        return LikeEscapeUtils.containsPattern(uniqueTitle);
     }
 
     @Test
@@ -166,5 +174,51 @@ class ConcertRepositoryTest {
 
         // then
         assertThat(pagedIds).containsExactlyElementsOf(savedIds.stream().sorted().toList());
+    }
+
+    @Test
+    void should_match_percent_literally_when_mention_search_query_is_escaped() {
+        // given
+        Concert literal = saveConcertTitled(uniqueTitle + " 100% LIVE");
+        saveConcertTitled(uniqueTitle + " 1000 LIVE");
+
+        // when
+        Page<Concert> result = concertRepository.searchByTitleForMention(
+                HIDDEN, LikeEscapeUtils.containsPattern(uniqueTitle + " 100%"), PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Concert::getId)
+                .containsExactly(literal.getId());
+        assertThat(result.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void should_match_underscore_literally_when_mention_search_query_is_escaped() {
+        // given
+        Concert literal = saveConcertTitled(uniqueTitle + " A_B TOUR");
+        saveConcertTitled(uniqueTitle + " AXB TOUR");
+
+        // when
+        Page<Concert> result = concertRepository.searchByTitleForMention(
+                HIDDEN, LikeEscapeUtils.containsPattern(uniqueTitle + " a_b"), PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Concert::getId)
+                .containsExactly(literal.getId());
+    }
+
+    @Test
+    void should_match_wildcards_literally_when_search_query_is_escaped() {
+        // given
+        Concert literal = saveConcertTitled(uniqueTitle + " 100%_A");
+        saveConcertTitled(uniqueTitle + " 1000XA");
+
+        // when
+        Page<Concert> result = concertRepository.searchConcerts(HIDDEN, null, null, null, false, LocalDateTime.now(),
+                LikeEscapeUtils.containsPattern(uniqueTitle + " 100%_a"), PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Concert::getId).containsExactly(literal.getId());
+        assertThat(result.getTotalElements()).isEqualTo(1);
     }
 }

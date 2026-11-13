@@ -9,6 +9,7 @@ import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.rating.dto.RatingSummary;
 import com.Coming.Backend.rating.entity.RatingTargetType;
 import com.Coming.Backend.rating.service.RatingService;
@@ -31,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -97,7 +97,7 @@ public class ReleaseService {
         Long effectiveArtistId = following ? null : artistId;
         List<Long> followedArtistIds = followedResolution.orElse(null);
 
-        String qLike = (q == null || q.isBlank()) ? null : "%" + q.toLowerCase(Locale.ROOT) + "%";
+        String qLike = (q == null || q.isBlank()) ? null : LikeEscapeUtils.containsPattern(q);
         Pageable sorted = releasesSorted(pageable);
 
         Page<ReleaseGroup> page = releaseGroupRepository.searchReleases(effectiveArtistId, followedArtistIds, type, qLike, sorted);
