@@ -27,6 +27,7 @@ import com.Coming.Backend.user.dto.MySummaryResponse;
 import com.Coming.Backend.user.service.UserService;
 import java.time.LocalDate;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +37,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -58,13 +63,25 @@ class UserControllerTest {
 
     private static final Long CONCERT_ID = 1L;
     private static final Long INQUIRY_ID = 2L;
+    private static final Long USER_ID = 100L;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(userController)
                 .setControllerAdvice(new GlobalExceptionHandler(new com.Coming.Backend.common.discord.NoOpDiscordNotifier()))
-                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .setCustomArgumentResolvers(
+                        new PageableHandlerMethodArgumentResolver(), new AuthenticationPrincipalArgumentResolver())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void authenticate(Long userId) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
     }
 
     // -------------------------------------------------------------------------
@@ -79,7 +96,8 @@ class UserControllerTest {
                 LocalDate.of(2025, 8, 15), LocalDate.of(2025, 8, 15),
                 "UPCOMING", "https://example.com/poster.jpg", "올림픽홀", true, null
         );
-        given(userService.getSummary(isNull())).willReturn(new MySummaryResponse(5L, 2L, nextConcert, 7L, 1L));
+        authenticate(USER_ID);
+        given(userService.getSummary(eq(USER_ID))).willReturn(new MySummaryResponse(5L, 2L, nextConcert, 7L, 1L));
 
         // when & then
         mockMvc.perform(get("/api/me/summary").accept(MediaType.APPLICATION_JSON))
@@ -95,7 +113,8 @@ class UserControllerTest {
     @Test
     void should_return_null_next_concert_when_no_upcoming_concert() throws Exception {
         // given
-        given(userService.getSummary(isNull())).willReturn(new MySummaryResponse(5L, 0L, null, 7L, 0L));
+        authenticate(USER_ID);
+        given(userService.getSummary(eq(USER_ID))).willReturn(new MySummaryResponse(5L, 0L, null, 7L, 0L));
 
         // when & then
         mockMvc.perform(get("/api/me/summary").accept(MediaType.APPLICATION_JSON))
