@@ -1,6 +1,7 @@
 package com.Coming.Backend.post.controller;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.Coming.Backend.common.discord.NoOpDiscordNotifier;
 import com.Coming.Backend.common.exception.ErrorCode;
 import com.Coming.Backend.common.exception.GlobalExceptionHandler;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.entity.EntityType;
@@ -73,14 +75,63 @@ class MentionControllerTest {
     }
 
     @Test
-    void should_return_400_when_type_is_missing() throws Exception {
+    void should_return_200_and_pass_null_type_when_type_is_omitted() throws Exception {
+        // given
+        given(mentionService.search(isNull(), eq("아이유"), eq(0), eq(20)))
+                .willReturn(PageResponse.from(new PageImpl<>(List.of())));
+
         // when & then
         mockMvc.perform(get("/api/mentions/search")
                         .param("q", "아이유")
                         .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void should_return_200_and_pass_type_list_when_comma_separated_types_given() throws Exception {
+        // given
+        given(mentionService.search(eq(List.of(EntityType.CONCERT, EntityType.ARTIST)), eq("아이유"), eq(0), eq(20)))
+                .willReturn(PageResponse.from(new PageImpl<>(List.of())));
+
+        // when & then
+        mockMvc.perform(get("/api/mentions/search")
+                        .param("type", "CONCERT,ARTIST")
+                        .param("q", "아이유")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void should_return_200_and_pass_type_list_when_repeated_type_params_given() throws Exception {
+        // given
+        given(mentionService.search(eq(List.of(EntityType.CONCERT, EntityType.ARTIST)), eq("아이유"), eq(0), eq(20)))
+                .willReturn(PageResponse.from(new PageImpl<>(List.of())));
+
+        // when & then
+        mockMvc.perform(get("/api/mentions/search")
+                        .param("type", "CONCERT", "ARTIST")
+                        .param("q", "아이유")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void should_return_400_when_multiple_types_with_nonzero_page_given() throws Exception {
+        // given
+        given(mentionService.search(eq(List.of(EntityType.CONCERT, EntityType.ARTIST)), eq("아이유"), eq(1), eq(20)))
+                .willThrow(new InvalidInputException());
+
+        // when & then
+        mockMvc.perform(get("/api/mentions/search")
+                        .param("type", "CONCERT", "ARTIST")
+                        .param("q", "아이유")
+                        .param("page", "1")
+                        .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()))
-                .andExpect(jsonPath("$.message").exists());
+                .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT.name()));
     }
 
     @Test

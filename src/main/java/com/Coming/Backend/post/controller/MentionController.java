@@ -29,14 +29,14 @@ public class MentionController {
 
     private final MentionService mentionService;
 
-    @Operation(summary = "엔티티 검색 (게시글 본문 멘션 자동완성, 무한 스크롤)")
-    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (q 공백, page 음수 또는 limit 범위 초과)")
+    @Operation(summary = "엔티티 검색 (게시글 본문 멘션 자동완성, 단일 type은 무한 스크롤, 여러 type·생략은 섞어서 상위 limit개)")
+    @ApiResponse(responseCode = "400", description = "INVALID_INPUT (q 공백, page 음수, limit 범위 초과 또는 여러 type 검색에서 page가 0이 아님)")
     @GetMapping("/search")
     public ResponseEntity<PageResponse<EntityCardResponse>> search(
-            @RequestParam EntityType type,
+            @RequestParam(required = false) List<EntityType> type,
             @RequestParam @NotBlank String q,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(20) int limit) {
-        return ResponseEntity.ok(mentionService.search(List.of(type), q, page, limit));
+        return ResponseEntity.ok(mentionService.search(type, q, page, limit));
     }
 }
