@@ -98,7 +98,7 @@ class UserControllerTest {
         ConcertHistoryResponse history = new ConcertHistoryResponse(
                 CONCERT_ID, List.of(), "YOASOBI LIVE",
                 LocalDate.of(2024, 5, 1), LocalDate.of(2024, 5, 1),
-                "올림픽홀", "ENDED"
+                "올림픽홀", "https://example.com/poster.jpg", "ENDED"
         );
         PageResponse<ConcertHistoryResponse> pageResponse = new PageResponse<>(List.of(history), 0, 10, 1, 1);
         given(userService.getHistory(isNull(), any(Pageable.class))).willReturn(pageResponse);
@@ -109,6 +109,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].id").value(CONCERT_ID))
+                .andExpect(jsonPath("$.content[0].posterUrl").value("https://example.com/poster.jpg"))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 

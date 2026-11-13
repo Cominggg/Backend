@@ -69,6 +69,7 @@ public class UserService {
                     concert.getStartDate(),
                     concert.getEndDate(),
                     concert.getVenueName(),
+                    concert.getPosterUrl(),
                     concert.getStatus().name()
             );
         }).toList();

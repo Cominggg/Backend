@@ -113,6 +113,7 @@ class UserServiceTest {
         assertThat(result.content().get(0).artists().get(0).name()).isEqualTo("YOASOBI");
         assertThat(result.content().get(0).title()).isEqualTo("공연 1");
         assertThat(result.content().get(0).venue()).isEqualTo("KSPO DOME, 서울");
+        assertThat(result.content().get(0).posterUrl()).isEqualTo("https://example.com/poster.jpg");
         assertThat(result.content().get(0).status()).isEqualTo("ENDED");
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.page()).isZero();

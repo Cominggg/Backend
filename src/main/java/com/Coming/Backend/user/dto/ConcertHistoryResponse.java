@@ -12,6 +12,7 @@ public record ConcertHistoryResponse(
         LocalDate startDate,
         LocalDate endDate,
         String venue,
+        String posterUrl,
         String status
 ) {
 }
