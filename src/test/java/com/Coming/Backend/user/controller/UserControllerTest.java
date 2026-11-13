@@ -1,5 +1,7 @@
 package com.Coming.Backend.user.controller;
 
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -21,6 +23,7 @@ import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.Coming.Backend.inquiry.service.InquiryService;
 import com.Coming.Backend.user.dto.ConcertHistoryResponse;
+import com.Coming.Backend.user.dto.MySummaryResponse;
 import com.Coming.Backend.user.service.UserService;
 import java.time.LocalDate;
 import java.util.List;
@@ -62,6 +65,44 @@ class UserControllerTest {
                 .setControllerAdvice(new GlobalExceptionHandler(new com.Coming.Backend.common.discord.NoOpDiscordNotifier()))
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/me/summary
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_summary_counts_and_next_concert() throws Exception {
+        // given
+        CalendarEntryResponse nextConcert = new CalendarEntryResponse(
+                CONCERT_ID, "CONCERT", List.of(), "YOASOBI LIVE",
+                LocalDate.of(2025, 8, 15), LocalDate.of(2025, 8, 15),
+                "UPCOMING", "https://example.com/poster.jpg", "올림픽홀", true, null
+        );
+        given(userService.getSummary(isNull())).willReturn(new MySummaryResponse(5L, 2L, nextConcert, 7L, 1L));
+
+        // when & then
+        mockMvc.perform(get("/api/me/summary").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.followingCount").value(5))
+                .andExpect(jsonPath("$.upcomingCount").value(2))
+                .andExpect(jsonPath("$.historyCount").value(7))
+                .andExpect(jsonPath("$.inProgressInquiryCount").value(1))
+                .andExpect(jsonPath("$.nextConcert.concertId").value(CONCERT_ID))
+                .andExpect(jsonPath("$.nextConcert.posterUrl").value("https://example.com/poster.jpg"));
+    }
+
+    @Test
+    void should_return_null_next_concert_when_no_upcoming_concert() throws Exception {
+        // given
+        given(userService.getSummary(isNull())).willReturn(new MySummaryResponse(5L, 0L, null, 7L, 0L));
+
+        // when & then
+        mockMvc.perform(get("/api/me/summary").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.upcomingCount").value(0))
+                .andExpect(jsonPath("$", hasKey("nextConcert")))
+                .andExpect(jsonPath("$.nextConcert").value(nullValue()));
     }
 
     // -------------------------------------------------------------------------

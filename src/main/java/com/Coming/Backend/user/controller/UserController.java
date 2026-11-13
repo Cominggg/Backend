@@ -10,6 +10,7 @@ import com.Coming.Backend.inquiry.entity.InquiryStatus;
 import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.service.InquiryService;
 import com.Coming.Backend.user.dto.ConcertHistoryResponse;
+import com.Coming.Backend.user.dto.MySummaryResponse;
 import com.Coming.Backend.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -37,6 +38,12 @@ public class UserController {
     private final CalendarService calendarService;
     private final UserService userService;
     private final InquiryService inquiryService;
+
+    @Operation(summary = "MY 요약 조회 (팔로잉·예정·다녀온 공연·처리 중 문의 수와 다음 공연)")
+    @GetMapping("/summary")
+    public ResponseEntity<MySummaryResponse> getSummary(@AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(userService.getSummary(userId));
+    }
 
     @Operation(summary = "예정·진행 중 공연 목록 조회")
     @GetMapping("/concerts/upcoming")
