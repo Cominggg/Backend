@@ -1,5 +1,7 @@
 package com.Coming.Backend.user.controller;
 
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -21,9 +23,11 @@ import com.Coming.Backend.inquiry.entity.InquiryType;
 import com.Coming.Backend.inquiry.exception.InquiryNotFoundException;
 import com.Coming.Backend.inquiry.service.InquiryService;
 import com.Coming.Backend.user.dto.ConcertHistoryResponse;
+import com.Coming.Backend.user.dto.MySummaryResponse;
 import com.Coming.Backend.user.service.UserService;
 import java.time.LocalDate;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +37,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -55,13 +63,65 @@ class UserControllerTest {
 
     private static final Long CONCERT_ID = 1L;
     private static final Long INQUIRY_ID = 2L;
+    private static final Long USER_ID = 100L;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(userController)
                 .setControllerAdvice(new GlobalExceptionHandler(new com.Coming.Backend.common.discord.NoOpDiscordNotifier()))
-                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .setCustomArgumentResolvers(
+                        new PageableHandlerMethodArgumentResolver(), new AuthenticationPrincipalArgumentResolver())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void authenticate(Long userId) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/me/summary
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_200_with_summary_counts_and_next_concert() throws Exception {
+        // given
+        CalendarEntryResponse nextConcert = new CalendarEntryResponse(
+                CONCERT_ID, "CONCERT", List.of(), "YOASOBI LIVE",
+                LocalDate.of(2025, 8, 15), LocalDate.of(2025, 8, 15),
+                "UPCOMING", "https://example.com/poster.jpg", "올림픽홀", true, null
+        );
+        authenticate(USER_ID);
+        given(userService.getSummary(eq(USER_ID))).willReturn(new MySummaryResponse(5L, 2L, nextConcert, 7L, 1L));
+
+        // when & then
+        mockMvc.perform(get("/api/me/summary").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.followingCount").value(5))
+                .andExpect(jsonPath("$.upcomingCount").value(2))
+                .andExpect(jsonPath("$.historyCount").value(7))
+                .andExpect(jsonPath("$.inProgressInquiryCount").value(1))
+                .andExpect(jsonPath("$.nextConcert.concertId").value(CONCERT_ID))
+                .andExpect(jsonPath("$.nextConcert.posterUrl").value("https://example.com/poster.jpg"));
+    }
+
+    @Test
+    void should_return_null_next_concert_when_no_upcoming_concert() throws Exception {
+        // given
+        authenticate(USER_ID);
+        given(userService.getSummary(eq(USER_ID))).willReturn(new MySummaryResponse(5L, 0L, null, 7L, 0L));
+
+        // when & then
+        mockMvc.perform(get("/api/me/summary").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.upcomingCount").value(0))
+                .andExpect(jsonPath("$", hasKey("nextConcert")))
+                .andExpect(jsonPath("$.nextConcert").value(nullValue()));
     }
 
     // -------------------------------------------------------------------------
@@ -98,7 +158,7 @@ class UserControllerTest {
         ConcertHistoryResponse history = new ConcertHistoryResponse(
                 CONCERT_ID, List.of(), "YOASOBI LIVE",
                 LocalDate.of(2024, 5, 1), LocalDate.of(2024, 5, 1),
-                "올림픽홀", "ENDED"
+                "올림픽홀", "https://example.com/poster.jpg", "ENDED"
         );
         PageResponse<ConcertHistoryResponse> pageResponse = new PageResponse<>(List.of(history), 0, 10, 1, 1);
         given(userService.getHistory(isNull(), any(Pageable.class))).willReturn(pageResponse);
@@ -109,6 +169,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].id").value(CONCERT_ID))
+                .andExpect(jsonPath("$.content[0].posterUrl").value("https://example.com/poster.jpg"))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
