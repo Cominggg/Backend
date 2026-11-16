@@ -103,6 +103,7 @@ public class ConcertController {
 
     @Operation(summary = "셋리스트 조회")
     @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @ApiResponse(responseCode = "503", description = "SETLIST_TEMPORARILY_UNAVAILABLE")
     @GetMapping("/{id}/setlist")
     public ResponseEntity<SetlistResponse> getSetlist(@PathVariable Long id) {
         return ResponseEntity.ok(concertService.getSetlist(id));
