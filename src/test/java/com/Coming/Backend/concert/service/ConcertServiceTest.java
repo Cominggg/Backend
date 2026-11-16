@@ -11,6 +11,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
@@ -27,9 +28,11 @@ import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.dto.SetlistResponse;
 import com.Coming.Backend.concert.entity.Setlist;
-import com.Coming.Backend.concert.entity.SetlistTrack;
 import com.Coming.Backend.concert.repository.SetlistRepository;
-import com.Coming.Backend.concert.repository.SetlistTrackRepository;
+import com.Coming.Backend.concert.repository.SetlistCacheRepository;
+import com.Coming.Backend.concert.client.SetlistFmClient;
+import com.Coming.Backend.concert.dto.SetlistTrackDto;
+import com.Coming.Backend.concert.exception.SetlistUnavailableException;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
@@ -95,7 +98,10 @@ class ConcertServiceTest {
     private SetlistRepository setlistRepository;
 
     @Mock
-    private SetlistTrackRepository setlistTrackRepository;
+    private SetlistCacheRepository setlistCacheRepository;
+
+    @Mock
+    private SetlistFmClient setlistFmClient;
 
     @Mock
     private RatingService ratingService;
@@ -815,83 +821,42 @@ class ConcertServiceTest {
     // getSetlist
     // -------------------------------------------------------------------------
 
-    @Test
-    void should_return_tracks_when_setlist_exists_for_concert() {
-        // given
-        Setlist setlist = Setlist.builder()
-                .id(1L)
+    private static final String SETLIST_FM_ID = "63de4613";
+    private static final SetlistResponse FETCHED_SETLIST = new SetlistResponse(
+            List.of(new SetlistTrackDto(1, "Pale Blue"), new SetlistTrackDto(2, "KICK BACK")),
+            "https://www.setlist.fm/setlist/kenshi-yonezu/2025/kspo-dome-63de4613.html");
+
+    private Setlist buildSetlist(Long id, String setlistFmId, LocalDateTime collectedAt) {
+        return Setlist.builder()
+                .id(id)
                 .concertId(CONCERT_ID)
-                .setlistFmId("setlist-fm-001")
-                .collectedAt(java.time.LocalDateTime.now())
+                .setlistFmId(setlistFmId)
+                .collectedAt(collectedAt)
                 .build();
-        SetlistTrack track1 = SetlistTrack.builder()
-                .id(1L).setlistId(1L).position(1).songName("Pale Blue").build();
-        SetlistTrack track2 = SetlistTrack.builder()
-                .id(2L).setlistId(1L).position(2).songName("KICK BACK").build();
+    }
 
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
-        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of(track1, track2));
-
-        // when
-        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
-
-        // then
-        assertThat(result.tracks()).hasSize(2);
-        assertThat(result.tracks().get(0).order()).isEqualTo(1);
-        assertThat(result.tracks().get(0).title()).isEqualTo("Pale Blue");
-        assertThat(result.tracks().get(1).title()).isEqualTo("KICK BACK");
+    private void givenMatchedSetlist() {
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID))
+                .willReturn(Optional.of(buildSetlist(1L, SETLIST_FM_ID, LocalDateTime.of(2025, 6, 4, 0, 0))));
     }
 
     @Test
-    void should_return_source_url_when_setlist_has_attribution_url() {
+    void should_throw_concert_not_found_when_concert_does_not_exist_for_setlist() {
         // given
-        String attributionUrl = "https://www.setlist.fm/setlist/yoasobi/2025/kspo-dome-1a2b3c4d.html";
-        Setlist setlist = Setlist.builder()
-                .id(1L)
-                .concertId(CONCERT_ID)
-                .setlistFmId("setlist-fm-001")
-                .collectedAt(LocalDateTime.now())
-                .attributionUrl(attributionUrl)
-                .build();
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(Optional.empty());
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(false);
 
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
-        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of());
-
-        // when
-        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
-
-        // then
-        assertThat(result.sourceUrl()).isEqualTo(attributionUrl);
+        // when & then
+        assertThatThrownBy(() -> concertService.getSetlist(CONCERT_ID))
+                .isInstanceOf(ConcertNotFoundException.class)
+                .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
     }
 
     @Test
-    void should_return_null_source_url_when_setlist_has_no_attribution_url() {
+    void should_return_empty_tracks_and_null_source_url_when_no_setlist_matched_to_concert() {
         // given
-        Setlist setlist = Setlist.builder()
-                .id(1L)
-                .concertId(CONCERT_ID)
-                .setlistFmId("setlist-fm-001")
-                .collectedAt(LocalDateTime.now())
-                .build();
-
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(Optional.empty());
         given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
-        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of());
-
-        // when
-        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
-
-        // then
-        assertThat(result.sourceUrl()).isNull();
-    }
-
-    @Test
-    void should_return_empty_tracks_when_no_setlist_exists_for_concert() {
-        // given
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of());
 
         // when
         SetlistResponse result = concertService.getSetlist(CONCERT_ID);
@@ -902,14 +867,88 @@ class ConcertServiceTest {
     }
 
     @Test
-    void should_throw_concert_not_found_when_concert_does_not_exist_for_setlist() {
+    void should_not_call_cache_or_setlist_fm_when_no_setlist_matched_to_concert() {
         // given
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(false);
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(Optional.empty());
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+
+        // when
+        concertService.getSetlist(CONCERT_ID);
+
+        // then
+        verifyNoInteractions(setlistCacheRepository, setlistFmClient);
+    }
+
+    @Test
+    void should_skip_concert_existence_check_when_setlist_matched() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.of(FETCHED_SETLIST));
+
+        // when
+        concertService.getSetlist(CONCERT_ID);
+
+        // then
+        verify(concertRepository, never()).existsById(any());
+    }
+
+    @Test
+    void should_return_cached_setlist_without_calling_setlist_fm_when_cache_hit() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.of(FETCHED_SETLIST));
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result).isEqualTo(FETCHED_SETLIST);
+        verifyNoInteractions(setlistFmClient);
+    }
+
+    @Test
+    void should_return_fetched_setlist_and_save_to_cache_when_cache_miss() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.empty());
+        given(setlistFmClient.getSetlist(SETLIST_FM_ID)).willReturn(Optional.of(FETCHED_SETLIST));
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result).isEqualTo(FETCHED_SETLIST);
+        verify(setlistCacheRepository).save(SETLIST_FM_ID, FETCHED_SETLIST);
+    }
+
+    @Test
+    void should_return_and_cache_empty_setlist_when_setlist_deleted_on_setlist_fm() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.empty());
+        given(setlistFmClient.getSetlist(SETLIST_FM_ID)).willReturn(Optional.empty());
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result.tracks()).isEmpty();
+        assertThat(result.sourceUrl()).isNull();
+        verify(setlistCacheRepository).save(SETLIST_FM_ID, result);
+    }
+
+    @Test
+    void should_propagate_setlist_unavailable_without_caching_when_setlist_fm_fails() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.empty());
+        given(setlistFmClient.getSetlist(SETLIST_FM_ID)).willThrow(new SetlistUnavailableException());
 
         // when & then
         assertThatThrownBy(() -> concertService.getSetlist(CONCERT_ID))
-                .isInstanceOf(ConcertNotFoundException.class)
-                .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
+                .isInstanceOf(SetlistUnavailableException.class)
+                .hasMessage(ErrorCode.SETLIST_TEMPORARILY_UNAVAILABLE.getMessage());
+        verify(setlistCacheRepository, never()).save(any(), any());
     }
 
     // -------------------------------------------------------------------------

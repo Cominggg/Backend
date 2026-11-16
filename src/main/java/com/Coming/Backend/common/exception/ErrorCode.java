@@ -42,6 +42,7 @@ public enum ErrorCode {
     NOT_IN_CALENDAR(HttpStatus.BAD_REQUEST, "캘린더에 없는 공연입니다."),
     CONCERT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 공연입니다."),
     CONCERT_NOT_ENDED(HttpStatus.BAD_REQUEST, "공연 종료 후 별점을 등록할 수 있습니다."),
+    SETLIST_TEMPORARILY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "셋리스트를 일시적으로 불러올 수 없습니다. 잠시 후 다시 시도해주세요."),
 
     // Release
     RELEASE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 릴리즈입니다."),
