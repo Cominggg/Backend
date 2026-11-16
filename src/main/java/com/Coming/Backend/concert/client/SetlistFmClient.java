@@ -84,7 +84,7 @@ public class SetlistFmClient {
         return new SetlistResponse(tracks, setlist.url());
     }
 
-    record SetlistFmSetlist(String id, String url, Sets sets) {
+    record SetlistFmSetlist(String url, Sets sets) {
         record Sets(List<Set> set) {
         }
 

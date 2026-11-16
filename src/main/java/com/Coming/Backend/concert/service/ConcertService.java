@@ -112,6 +112,7 @@ public class ConcertService {
     /**
      * 공연에 매칭된 setlist.fm 셋리스트를 캐시 또는 setlist.fm에서 조회해 반환한다.
      * 매칭이 없거나 setlist.fm에서 삭제된 셋리스트이면 빈 tracks를 반환한다.
+     * 삭제된 셋리스트의 빈 결과도 캐시해 TTL 동안 setlist.fm을 다시 호출하지 않는다.
      *
      * @throws ConcertNotFoundException    공연 ID가 존재하지 않는 경우
      * @throws SetlistUnavailableException 캐시가 없고 setlist.fm 조회에 실패한 경우
@@ -119,21 +120,21 @@ public class ConcertService {
     // setlist.fm 호출(최대 3초) 동안 DB 커넥션을 잡고 있지 않도록 트랜잭션 밖에서 실행한다.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public SetlistResponse getSetlist(Long concertId) {
-        if (!concertRepository.existsById(concertId)) {
-            throw new ConcertNotFoundException();
-        }
-        List<Setlist> setlists = setlistRepository.findByConcertIdOrderByCollectedAtDesc(concertId);
-        if (setlists.isEmpty()) {
+        Optional<Setlist> matched = setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(concertId);
+        if (matched.isEmpty()) {
+            if (!concertRepository.existsById(concertId)) {
+                throw new ConcertNotFoundException();
+            }
             return EMPTY_SETLIST;
         }
-        String setlistFmId = setlists.getFirst().getSetlistFmId();
+        String setlistFmId = matched.get().getSetlistFmId();
         Optional<SetlistResponse> cached = setlistCacheRepository.find(setlistFmId);
         if (cached.isPresent()) {
             return cached.get();
         }
-        Optional<SetlistResponse> fetched = setlistFmClient.getSetlist(setlistFmId);
-        fetched.ifPresent(setlist -> setlistCacheRepository.save(setlistFmId, setlist));
-        return fetched.orElse(EMPTY_SETLIST);
+        SetlistResponse fetched = setlistFmClient.getSetlist(setlistFmId).orElse(EMPTY_SETLIST);
+        setlistCacheRepository.save(setlistFmId, fetched);
+        return fetched;
     }
 
     /**

@@ -836,14 +836,14 @@ class ConcertServiceTest {
     }
 
     private void givenMatchedSetlist() {
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID))
-                .willReturn(List.of(buildSetlist(1L, SETLIST_FM_ID, LocalDateTime.of(2025, 6, 4, 0, 0))));
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID))
+                .willReturn(Optional.of(buildSetlist(1L, SETLIST_FM_ID, LocalDateTime.of(2025, 6, 4, 0, 0))));
     }
 
     @Test
     void should_throw_concert_not_found_when_concert_does_not_exist_for_setlist() {
         // given
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(Optional.empty());
         given(concertRepository.existsById(CONCERT_ID)).willReturn(false);
 
         // when & then
@@ -855,8 +855,8 @@ class ConcertServiceTest {
     @Test
     void should_return_empty_tracks_and_null_source_url_when_no_setlist_matched_to_concert() {
         // given
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(Optional.empty());
         given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of());
 
         // when
         SetlistResponse result = concertService.getSetlist(CONCERT_ID);
@@ -869,8 +869,8 @@ class ConcertServiceTest {
     @Test
     void should_not_call_cache_or_setlist_fm_when_no_setlist_matched_to_concert() {
         // given
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(Optional.empty());
         given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of());
 
         // when
         concertService.getSetlist(CONCERT_ID);
@@ -880,20 +880,16 @@ class ConcertServiceTest {
     }
 
     @Test
-    void should_use_latest_setlist_fm_id_when_multiple_setlists_matched() {
+    void should_skip_concert_existence_check_when_setlist_matched() {
         // given
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(
-                buildSetlist(2L, "latest-fm-id", LocalDateTime.of(2025, 6, 5, 0, 0)),
-                buildSetlist(1L, "older-fm-id", LocalDateTime.of(2025, 6, 4, 0, 0))));
-        given(setlistCacheRepository.find("latest-fm-id")).willReturn(Optional.of(FETCHED_SETLIST));
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.of(FETCHED_SETLIST));
 
         // when
-        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+        concertService.getSetlist(CONCERT_ID);
 
         // then
-        assertThat(result).isEqualTo(FETCHED_SETLIST);
-        verify(setlistCacheRepository, never()).find("older-fm-id");
+        verify(concertRepository, never()).existsById(any());
     }
 
     @Test
@@ -926,7 +922,7 @@ class ConcertServiceTest {
     }
 
     @Test
-    void should_return_empty_setlist_without_caching_when_setlist_deleted_on_setlist_fm() {
+    void should_return_and_cache_empty_setlist_when_setlist_deleted_on_setlist_fm() {
         // given
         givenMatchedSetlist();
         given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.empty());
@@ -938,7 +934,7 @@ class ConcertServiceTest {
         // then
         assertThat(result.tracks()).isEmpty();
         assertThat(result.sourceUrl()).isNull();
-        verify(setlistCacheRepository, never()).save(any(), any());
+        verify(setlistCacheRepository).save(SETLIST_FM_ID, result);
     }
 
     @Test
