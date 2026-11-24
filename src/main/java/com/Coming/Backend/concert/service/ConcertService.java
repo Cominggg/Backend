@@ -15,20 +15,21 @@ import com.Coming.Backend.concert.dto.ConcertDetailResponse;
 import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.dto.SetlistResponse;
-import com.Coming.Backend.concert.dto.SetlistTrackDto;
 import com.Coming.Backend.concert.dto.TicketLinkDto;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.Setlist;
+import com.Coming.Backend.concert.client.SetlistFmClient;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
+import com.Coming.Backend.concert.exception.SetlistUnavailableException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.entity.ConcertImage;
 import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.concert.repository.SetlistRepository;
-import com.Coming.Backend.concert.repository.SetlistTrackRepository;
+import com.Coming.Backend.concert.repository.SetlistCacheRepository;
 import com.Coming.Backend.rating.dto.RatingSummary;
 import com.Coming.Backend.rating.entity.RatingTargetType;
 import com.Coming.Backend.rating.service.RatingService;
@@ -38,6 +39,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -58,6 +60,7 @@ import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
 public class ConcertService {
 
     private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
+    private static final SetlistResponse EMPTY_SETLIST = new SetlistResponse(List.of(), null);
 
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -68,7 +71,8 @@ public class ConcertService {
     private final UserConcertCalendarRepository userConcertCalendarRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
     private final SetlistRepository setlistRepository;
-    private final SetlistTrackRepository setlistTrackRepository;
+    private final SetlistCacheRepository setlistCacheRepository;
+    private final SetlistFmClient setlistFmClient;
     private final RatingService ratingService;
 
     /**
@@ -106,24 +110,31 @@ public class ConcertService {
     }
 
     /**
-     * 공연의 셋리스트를 반환한다. 데이터 미존재 시 빈 tracks를 반환한다.
+     * 공연에 매칭된 setlist.fm 셋리스트를 캐시 또는 setlist.fm에서 조회해 반환한다.
+     * 매칭이 없거나 setlist.fm에서 삭제된 셋리스트이면 빈 tracks를 반환한다.
+     * 삭제된 셋리스트의 빈 결과도 캐시해 TTL 동안 setlist.fm을 다시 호출하지 않는다.
      *
-     * @throws ConcertNotFoundException 공연 ID가 존재하지 않는 경우
+     * @throws ConcertNotFoundException    공연 ID가 존재하지 않는 경우
+     * @throws SetlistUnavailableException 캐시가 없고 setlist.fm 조회에 실패한 경우
      */
+    // setlist.fm 호출(최대 3초) 동안 DB 커넥션을 잡고 있지 않도록 트랜잭션 밖에서 실행한다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public SetlistResponse getSetlist(Long concertId) {
-        if (!concertRepository.existsById(concertId)) {
-            throw new ConcertNotFoundException();
+        Optional<Setlist> matched = setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(concertId);
+        if (matched.isEmpty()) {
+            if (!concertRepository.existsById(concertId)) {
+                throw new ConcertNotFoundException();
+            }
+            return EMPTY_SETLIST;
         }
-        List<Setlist> setlists = setlistRepository.findByConcertIdOrderByCollectedAtDesc(concertId);
-        if (setlists.isEmpty()) {
-            return new SetlistResponse(List.of(), null);
+        String setlistFmId = matched.get().getSetlistFmId();
+        Optional<SetlistResponse> cached = setlistCacheRepository.find(setlistFmId);
+        if (cached.isPresent()) {
+            return cached.get();
         }
-        Setlist setlist = setlists.getFirst();
-        List<SetlistTrackDto> tracks = setlistTrackRepository
-                .findBySetlistIdOrderByPosition(setlist.getId()).stream()
-                .map(t -> new SetlistTrackDto(t.getPosition(), t.getSongName()))
-                .toList();
-        return new SetlistResponse(tracks, setlist.getAttributionUrl());
+        SetlistResponse fetched = setlistFmClient.getSetlist(setlistFmId).orElse(EMPTY_SETLIST);
+        setlistCacheRepository.save(setlistFmId, fetched);
+        return fetched;
     }
 
     /**

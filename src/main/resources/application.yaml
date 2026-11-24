@@ -110,6 +110,9 @@ data-pipeline:
   base-url: ${DATA_PIPELINE_BASE_URL:http://localhost:8000}
   secret: ${DATA_PIPELINE_SECRET:}
 
+setlist-fm:
+  api-key: ${SETLISTFM_API_KEY:}
+
 rate-limit:
   capacity: 20
   refill-tokens: 10
