@@ -199,6 +199,17 @@ class SetlistFmClientTest {
     }
 
     @Test
+    void should_throw_setlist_unavailable_when_setlist_fm_returns_empty_ok_body() {
+        // given
+        SetlistFmClient client = client(request -> json(HttpStatus.OK, ""));
+
+        // when & then
+        assertThatThrownBy(() -> client.getSetlist(SETLIST_FM_ID))
+                .isInstanceOf(SetlistUnavailableException.class)
+                .hasMessage(ErrorCode.SETLIST_TEMPORARILY_UNAVAILABLE.getMessage());
+    }
+
+    @Test
     void should_throw_setlist_unavailable_when_connection_to_setlist_fm_fails() {
         // given
         SetlistFmClient client = exchangingClient(request -> Mono.error(

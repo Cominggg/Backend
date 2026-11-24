@@ -56,6 +56,8 @@ public class SetlistFmClient {
                     .retrieve()
                     .bodyToMono(SetlistFmSetlist.class)
                     .timeout(TIMEOUT)
+                    // 빈 200 응답을 404(빈 결과)와 구분해 "셋리스트 없음"으로 캐시되지 않게 한다.
+                    .switchIfEmpty(Mono.error(new IllegalStateException("setlist.fm 응답 본문이 비어 있음")))
                     .onErrorResume(e -> isNotFound(e), e -> Mono.empty())
                     .block();
             return Optional.ofNullable(setlist).map(SetlistFmClient::toResponse);
