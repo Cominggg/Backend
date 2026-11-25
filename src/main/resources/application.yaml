@@ -89,6 +89,9 @@ jwt:
 
 app:
   web-base-url: ${WEB_BASE_URL:https://www.comingg.com}
+  min-version-code:
+    android: ${APP_MIN_VERSION_CODE_ANDROID:10000}
+    ios: ${APP_MIN_VERSION_CODE_IOS:0}
   post:
     popular-board-threshold: 10
   cors:
