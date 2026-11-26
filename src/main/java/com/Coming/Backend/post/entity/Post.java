@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.util.Set;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -55,6 +56,10 @@ public class Post extends BaseTimeEntity {
     @Column(name = "comment_count", nullable = false)
     private Long commentCount;
 
+    // 공연 태그 중 대표 공연 id. 공연 행을 참조하지만 태그와 같이 FK 없이 둔다.
+    @Column(name = "cover_concert_id")
+    private Long coverConcertId;
+
     public boolean isAuthoredBy(Long userId) {
         return userId != null && this.userId.equals(userId);
     }
@@ -64,5 +69,25 @@ public class Post extends BaseTimeEntity {
         if (title != null) this.title = title;
         if (content != null) this.content = content;
         if (contentText != null) this.contentText = contentText;
+    }
+
+    /**
+     * 대표 공연을 바꾼다. update와 달리 null이면 대표 공연을 비운다.
+     */
+    public void changeCoverConcert(Long coverConcertId) {
+        this.coverConcertId = coverConcertId;
+    }
+
+    /**
+     * 수정 요청의 대표 공연을 반영한다. 요청 값이 없으면 기존 대표를 유지하되, 태그 교체로 태그에서 빠졌으면 비운다.
+     * requestedConcertIds가 null이면 태그를 바꾸지 않는 요청이다.
+     */
+    public void applyCoverConcert(Set<Long> requestedConcertIds, Long requestedCoverConcertId) {
+        if (requestedCoverConcertId != null) {
+            this.coverConcertId = requestedCoverConcertId;
+        } else if (requestedConcertIds != null && this.coverConcertId != null
+                && !requestedConcertIds.contains(this.coverConcertId)) {
+            this.coverConcertId = null;
+        }
     }
 }

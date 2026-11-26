@@ -55,7 +55,7 @@ public class ConcertController {
     @GetMapping
     public ResponseEntity<PageResponse<ConcertSummaryResponse>> getConcerts(
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) ConcertStatus status,
+            @RequestParam(required = false) List<ConcertStatus> status,
             @RequestParam(required = false) Boolean inCalendar,
             @RequestParam(required = false) Boolean followedOnly,
             @RequestParam(required = false) Boolean ticketOpenPending,
@@ -103,6 +103,7 @@ public class ConcertController {
 
     @Operation(summary = "셋리스트 조회")
     @ApiResponse(responseCode = "404", description = "CONCERT_NOT_FOUND")
+    @ApiResponse(responseCode = "503", description = "SETLIST_TEMPORARILY_UNAVAILABLE")
     @GetMapping("/{id}/setlist")
     public ResponseEntity<SetlistResponse> getSetlist(@PathVariable Long id) {
         return ResponseEntity.ok(concertService.getSetlist(id));

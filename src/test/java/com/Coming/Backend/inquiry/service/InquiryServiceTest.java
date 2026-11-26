@@ -5,12 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.auth.exception.UserSuspendedException;
 import com.Coming.Backend.auth.service.UserStatusValidator;
 import com.Coming.Backend.common.exception.ErrorCode;
+import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.inquiry.event.InquiryCreatedEvent;
 import com.Coming.Backend.common.response.PageResponse;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -31,6 +33,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -150,6 +154,20 @@ class InquiryServiceTest {
         assertThatThrownBy(() -> inquiryService.createInquiry(USER_ID, request))
                 .isInstanceOf(TargetNotFoundException.class)
                 .hasMessage(ErrorCode.TARGET_NOT_FOUND.getMessage());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = InquiryType.class, names = {"CONCERT", "ARTIST", "SETLIST"})
+    void should_throw_invalid_input_without_target_lookup_when_targeted_type_has_no_target_id(InquiryType type) {
+        // given
+        InquiryCreateRequest request = new InquiryCreateRequest(type, null, "정보 오류 신고", "내용");
+
+        // when & then
+        assertThatThrownBy(() -> inquiryService.createInquiry(USER_ID, request))
+                .isInstanceOf(InvalidInputException.class);
+        verify(concertRepository, never()).existsById(any());
+        verify(artistRepository, never()).existsById(any());
+        verify(inquiryRepository, never()).save(any());
     }
 
     @Test

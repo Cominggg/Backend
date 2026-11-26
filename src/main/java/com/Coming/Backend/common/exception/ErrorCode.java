@@ -42,6 +42,7 @@ public enum ErrorCode {
     NOT_IN_CALENDAR(HttpStatus.BAD_REQUEST, "캘린더에 없는 공연입니다."),
     CONCERT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 공연입니다."),
     CONCERT_NOT_ENDED(HttpStatus.BAD_REQUEST, "공연 종료 후 별점을 등록할 수 있습니다."),
+    SETLIST_TEMPORARILY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "셋리스트를 일시적으로 불러올 수 없습니다. 잠시 후 다시 시도해주세요."),
 
     // Release
     RELEASE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 릴리즈입니다."),
@@ -52,11 +53,16 @@ public enum ErrorCode {
     INVALID_INQUIRY_STATUS(HttpStatus.BAD_REQUEST, "변경 불가능한 문의 상태입니다."),
     TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 대상입니다."),
 
+    // Content (게시글·공지사항 본문)
+    CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "본문은 10000자를 초과할 수 없습니다."),
+    CONTENT_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "허용되지 않는 본문 형식입니다."),
+
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."),
     ALREADY_RECOMMENDED(HttpStatus.CONFLICT, "이미 추천한 게시글입니다."),
     NOT_RECOMMENDED(HttpStatus.BAD_REQUEST, "추천하지 않은 게시글입니다."),
-    POST_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "본문은 10000자를 초과할 수 없습니다."),
+    POST_CONCERT_TAG_HIDDEN(HttpStatus.BAD_REQUEST, "공개되지 않은 공연은 태그할 수 없습니다."),
+    POST_COVER_CONCERT_NOT_TAGGED(HttpStatus.BAD_REQUEST, "대표 공연은 게시글에 태그한 공연 중에서 선택해야 합니다."),
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 댓글입니다."),

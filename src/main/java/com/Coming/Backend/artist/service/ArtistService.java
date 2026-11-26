@@ -19,6 +19,7 @@ import com.Coming.Backend.artist.repository.ArtistUrlRepository;
 import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.common.exception.InvalidInputException;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
@@ -85,7 +86,8 @@ public class ArtistService {
         }
 
         boolean hasName = name != null && !name.isBlank();
-        Page<Artist> page = fetchArtistsSorted(hasName, isComing, filterIds, name, pageable);
+        String escapedName = hasName ? LikeEscapeUtils.escape(name) : name;
+        Page<Artist> page = fetchArtistsSorted(hasName, isComing, filterIds, escapedName, pageable);
 
         List<Long> artistIds = page.getContent().stream().map(Artist::getId).toList();
         Map<Long, String> spotifyUrlMap = artistUrlRepository.findByArtistIdInAndTypeIgnoreCase(artistIds, "spotify")

@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 public record NoticeDetailResponse(
         Long id,
         String title,
-        String content,
+        Object content,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

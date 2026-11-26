@@ -30,15 +30,15 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
             AND (:followedArtistIds IS NULL OR r.artistId IN :followedArtistIds)
             AND (:type IS NULL OR r.type = :type)
             AND (:q IS NULL OR
-                LOWER(r.title) LIKE :q
+                LOWER(r.title) LIKE :q ESCAPE '\\'
                 OR r.id IN (
-                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
+                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q ESCAPE '\\'
                 )
                 OR r.artistId IN (
-                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q ESCAPE '\\' OR LOWER(a.sortName) LIKE :q ESCAPE '\\'
                 )
                 OR r.artistId IN (
-                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q ESCAPE '\\'
                 )
             )
             """,
@@ -48,15 +48,15 @@ public interface ReleaseGroupRepository extends JpaRepository<ReleaseGroup, Long
             AND (:followedArtistIds IS NULL OR r.artistId IN :followedArtistIds)
             AND (:type IS NULL OR r.type = :type)
             AND (:q IS NULL OR
-                LOWER(r.title) LIKE :q
+                LOWER(r.title) LIKE :q ESCAPE '\\'
                 OR r.id IN (
-                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q
+                    SELECT t.releaseGroupId FROM Track t WHERE LOWER(t.title) LIKE :q ESCAPE '\\'
                 )
                 OR r.artistId IN (
-                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
+                    SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q ESCAPE '\\' OR LOWER(a.sortName) LIKE :q ESCAPE '\\'
                 )
                 OR r.artistId IN (
-                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                    SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q ESCAPE '\\'
                 )
             )
             """)

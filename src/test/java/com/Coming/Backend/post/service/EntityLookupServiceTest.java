@@ -3,10 +3,13 @@ package com.Coming.Backend.post.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.repository.ArtistRepository;
 import com.Coming.Backend.concert.entity.Concert;
+import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.post.dto.EntityCardResponse;
 import com.Coming.Backend.post.entity.EntityType;
@@ -58,6 +61,17 @@ class EntityLookupServiceTest {
                 .startDate(LocalDate.of(2025, 10, 1))
                 .venueName("올림픽공원 케이스포돔")
                 .posterUrl("https://example.com/concert-poster.jpg")
+                .build();
+    }
+
+    private Concert buildConcert(Long id, ConcertStatus status) {
+        return Concert.builder()
+                .id(id)
+                .title("IU Concert : HEREH WORLD TOUR")
+                .startDate(LocalDate.of(2025, 10, 1))
+                .venueName("올림픽공원 케이스포돔")
+                .posterUrl("https://example.com/concert-poster.jpg")
+                .status(status)
                 .build();
     }
 
@@ -221,6 +235,79 @@ class EntityLookupServiceTest {
     }
 
     @Test
+    void should_exclude_concert_key_from_result_when_concert_status_is_excluded() {
+        // given
+        given(concertRepository.findAllById(any()))
+                .willReturn(List.of(buildConcert(CONCERT_ID, ConcertStatus.EXCLUDED)));
+
+        // when
+        Map<EntityKey, EntityCardResponse> result =
+                entityLookupService.findCards(List.of(new EntityKey(EntityType.CONCERT, CONCERT_ID)));
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_exclude_concert_key_from_result_when_concert_status_is_pending() {
+        // given
+        given(concertRepository.findAllById(any()))
+                .willReturn(List.of(buildConcert(CONCERT_ID, ConcertStatus.PENDING)));
+
+        // when
+        Map<EntityKey, EntityCardResponse> result =
+                entityLookupService.findCards(List.of(new EntityKey(EntityType.CONCERT, CONCERT_ID)));
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void should_include_concert_keys_when_concert_status_is_ended_or_cancelled() {
+        // given
+        Long cancelledConcertId = 2L;
+        given(concertRepository.findAllById(any())).willReturn(List.of(
+                buildConcert(CONCERT_ID, ConcertStatus.ENDED),
+                buildConcert(cancelledConcertId, ConcertStatus.CANCELLED)));
+
+        // when
+        Map<EntityKey, EntityCardResponse> result = entityLookupService.findCards(List.of(
+                new EntityKey(EntityType.CONCERT, CONCERT_ID),
+                new EntityKey(EntityType.CONCERT, cancelledConcertId)));
+
+        // then
+        assertThat(result).containsOnlyKeys(
+                new EntityKey(EntityType.CONCERT, CONCERT_ID),
+                new EntityKey(EntityType.CONCERT, cancelledConcertId));
+    }
+
+    @Test
+    void should_exclude_only_hidden_concerts_when_hidden_and_public_concerts_and_other_types_mixed() {
+        // given
+        Long excludedConcertId = 2L;
+        Long pendingConcertId = 3L;
+        given(concertRepository.findAllById(any())).willReturn(List.of(
+                buildConcert(CONCERT_ID, ConcertStatus.UPCOMING),
+                buildConcert(excludedConcertId, ConcertStatus.EXCLUDED),
+                buildConcert(pendingConcertId, ConcertStatus.PENDING)));
+        given(artistRepository.findAllById(any())).willReturn(List.of(buildArtist(ARTIST_ID, "IU")));
+
+        List<EntityKey> keys = List.of(
+                new EntityKey(EntityType.CONCERT, CONCERT_ID),
+                new EntityKey(EntityType.CONCERT, excludedConcertId),
+                new EntityKey(EntityType.CONCERT, pendingConcertId),
+                new EntityKey(EntityType.ARTIST, ARTIST_ID));
+
+        // when
+        Map<EntityKey, EntityCardResponse> result = entityLookupService.findCards(keys);
+
+        // then
+        assertThat(result).containsOnlyKeys(
+                new EntityKey(EntityType.CONCERT, CONCERT_ID),
+                new EntityKey(EntityType.ARTIST, ARTIST_ID));
+    }
+
+    @Test
     void should_return_empty_map_when_keys_is_empty() {
         // given
         List<EntityKey> keys = List.of();
@@ -230,5 +317,101 @@ class EntityLookupServiceTest {
 
         // then
         assertThat(result).isEmpty();
+    }
+
+    // -------------------------------------------------------------------------
+    // findVisibleConcertIds
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_only_existing_public_concert_ids_when_public_hidden_and_missing_ids_mixed() {
+        // given: 1은 공개, 2는 EXCLUDED, 3은 PENDING, 4는 존재하지 않는 공연
+        Set<Long> concertIds = Set.of(1L, 2L, 3L, 4L);
+        given(concertRepository.findAllById(concertIds)).willReturn(List.of(
+                buildConcert(1L, ConcertStatus.UPCOMING),
+                buildConcert(2L, ConcertStatus.EXCLUDED),
+                buildConcert(3L, ConcertStatus.PENDING)));
+
+        // when
+        Set<Long> result = entityLookupService.findVisibleConcertIds(concertIds);
+
+        // then
+        assertThat(result).containsExactly(1L);
+    }
+
+    @Test
+    void should_include_concert_id_when_concert_status_is_null_on_find_visible_concert_ids() {
+        // given
+        given(concertRepository.findAllById(Set.of(CONCERT_ID))).willReturn(List.of(buildConcert(CONCERT_ID, null)));
+
+        // when
+        Set<Long> result = entityLookupService.findVisibleConcertIds(Set.of(CONCERT_ID));
+
+        // then
+        assertThat(result).containsExactly(CONCERT_ID);
+    }
+
+    @Test
+    void should_return_empty_set_without_querying_when_concert_ids_is_empty_on_find_visible_concert_ids() {
+        // when
+        Set<Long> result = entityLookupService.findVisibleConcertIds(Set.of());
+
+        // then
+        assertThat(result).isEmpty();
+        verify(concertRepository, never()).findAllById(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // hasHiddenConcert
+    // -------------------------------------------------------------------------
+
+    @Test
+    void should_return_true_when_hidden_concert_exists_among_public_and_missing_ids() {
+        // given: 1은 공개, 2는 PENDING, 4는 존재하지 않는 공연
+        Set<Long> concertIds = Set.of(1L, 2L, 4L);
+        given(concertRepository.findAllById(concertIds)).willReturn(List.of(
+                buildConcert(1L, ConcertStatus.UPCOMING),
+                buildConcert(2L, ConcertStatus.PENDING)));
+
+        // when
+        boolean result = entityLookupService.hasHiddenConcert(concertIds);
+
+        // then
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void should_return_false_when_only_public_and_missing_concert_ids_given() {
+        // given: 1은 공개, 4는 존재하지 않는 공연
+        Set<Long> concertIds = Set.of(1L, 4L);
+        given(concertRepository.findAllById(concertIds)).willReturn(List.of(buildConcert(1L, ConcertStatus.ENDED)));
+
+        // when
+        boolean result = entityLookupService.hasHiddenConcert(concertIds);
+
+        // then
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void should_return_false_when_concert_status_is_null_on_has_hidden_concert() {
+        // given
+        given(concertRepository.findAllById(Set.of(CONCERT_ID))).willReturn(List.of(buildConcert(CONCERT_ID, null)));
+
+        // when
+        boolean result = entityLookupService.hasHiddenConcert(Set.of(CONCERT_ID));
+
+        // then
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void should_return_false_without_querying_when_concert_ids_is_empty_on_has_hidden_concert() {
+        // when
+        boolean result = entityLookupService.hasHiddenConcert(Set.of());
+
+        // then
+        assertThat(result).isFalse();
+        verify(concertRepository, never()).findAllById(any());
     }
 }

@@ -34,13 +34,14 @@ public class EntityLookupService {
 
     /**
      * entityType·entityId 키 목록에 대응하는 엔티티 카드 정보를 일괄 조회한다.
-     * 참조 대상이 삭제된 경우 결과 Map에서 해당 키가 제외된다.
+     * 참조 대상이 삭제됐거나 숨김 상태(EXCLUDED·PENDING)인 공연이면 결과 Map에서 해당 키가 제외된다.
      */
     public Map<EntityKey, EntityCardResponse> findCards(Collection<EntityKey> keys) {
         Map<EntityKey, EntityCardResponse> result = new HashMap<>();
 
-        concertRepository.findAllById(idsOf(keys, EntityType.CONCERT)).forEach(concert ->
-                result.put(new EntityKey(EntityType.CONCERT, concert.getId()), toCard(concert)));
+        concertRepository.findAllById(idsOf(keys, EntityType.CONCERT)).stream()
+                .filter(EntityLookupService::isVisible)
+                .forEach(concert -> result.put(new EntityKey(EntityType.CONCERT, concert.getId()), toCard(concert)));
 
         artistRepository.findAllById(idsOf(keys, EntityType.ARTIST)).forEach(artist ->
                 result.put(new EntityKey(EntityType.ARTIST, artist.getId()), toCard(artist)));
@@ -58,6 +59,34 @@ public class EntityLookupService {
                 result.put(new EntityKey(EntityType.TRACK, trackId), card));
 
         return result;
+    }
+
+    /**
+     * 주어진 공연 id 중 존재하고 숨김 상태가 아닌 공연의 id를 반환한다.
+     */
+    public Set<Long> findVisibleConcertIds(Collection<Long> concertIds) {
+        if (concertIds.isEmpty()) {
+            return Set.of();
+        }
+        return concertRepository.findAllById(concertIds).stream()
+                .filter(EntityLookupService::isVisible)
+                .map(Concert::getId)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * 주어진 공연 id 중 숨김 상태인 공연이 하나라도 있는지 확인한다. 없는 공연 id는 숨김으로 보지 않는다.
+     */
+    public boolean hasHiddenConcert(Collection<Long> concertIds) {
+        if (concertIds.isEmpty()) {
+            return false;
+        }
+        return concertRepository.findAllById(concertIds).stream()
+                .anyMatch(concert -> !isVisible(concert));
+    }
+
+    private static boolean isVisible(Concert concert) {
+        return concert.getStatus() == null || !concert.getStatus().isHidden();
     }
 
     /**

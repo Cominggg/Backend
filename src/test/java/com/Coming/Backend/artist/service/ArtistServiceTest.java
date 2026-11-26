@@ -157,6 +157,18 @@ class ArtistServiceTest {
     }
 
     @Test
+    void should_escape_like_wildcards_when_name_contains_percent_and_underscore() {
+        // given
+        given(artistRepository.findByNameOrAliasContainingIgnoreCase("50\\%\\_a", SORTED_PAGEABLE)).willReturn(Page.empty());
+
+        // when
+        artistService.getArtists("50%_a", null, null, PAGEABLE, null);
+
+        // then
+        verify(artistRepository).findByNameOrAliasContainingIgnoreCase("50\\%\\_a", SORTED_PAGEABLE);
+    }
+
+    @Test
     void should_return_artist_matched_by_alias_when_name_keyword_matches_alias() {
         // given
         Artist artist = buildArtist(ARTIST_ID, "아이유");

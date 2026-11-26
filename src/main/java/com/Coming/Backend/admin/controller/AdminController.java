@@ -367,7 +367,8 @@ public class AdminController {
     }
 
     @Operation(summary = "Data 파이프라인 아티스트 릴리즈 수집 트리거")
-    @ApiResponse(responseCode = "404", description = "ARTIST_NOT_FOUND (Data 파이프라인 측)")
+    @ApiResponse(responseCode = "404", description = "PIPELINE_NOT_FOUND")
+    @ApiResponse(responseCode = "409", description = "PIPELINE_CONFLICT")
     @ApiResponse(responseCode = "504", description = "PIPELINE_TIMEOUT")
     @PostMapping("/data/collect/artists/{id}/releases")
     public ResponseEntity<Void> triggerArtistReleases(@PathVariable Long id) {

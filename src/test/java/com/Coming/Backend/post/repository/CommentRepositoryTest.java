@@ -115,6 +115,34 @@ class CommentRepositoryTest {
     }
 
     @Test
+    void should_soft_delete_and_return_one_when_comment_is_not_deleted() {
+        // given
+        Comment comment = commentRepository.save(buildComment(POST_ID, null, "댓글"));
+
+        // when
+        int updatedCount = commentRepository.softDeleteIfNotDeleted(comment.getId());
+        entityManager.clear();
+        Comment updated = commentRepository.findById(comment.getId()).orElseThrow();
+
+        // then
+        assertThat(updatedCount).isEqualTo(1);
+        assertThat(updated.isDeleted()).isTrue();
+    }
+
+    @Test
+    void should_return_zero_when_soft_deleting_already_deleted_comment() {
+        // given
+        Comment comment = commentRepository.save(buildComment(POST_ID, null, "댓글"));
+        commentRepository.softDeleteIfNotDeleted(comment.getId());
+
+        // when
+        int updatedCount = commentRepository.softDeleteIfNotDeleted(comment.getId());
+
+        // then
+        assertThat(updatedCount).isZero();
+    }
+
+    @Test
     void should_decrement_like_count_when_decrementing() {
         // given
         Comment comment = commentRepository.save(buildComment(POST_ID, null, "댓글", 1L));

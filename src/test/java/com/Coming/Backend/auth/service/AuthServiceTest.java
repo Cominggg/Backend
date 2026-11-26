@@ -24,6 +24,7 @@ import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.exception.ExpiredTokenException;
 import com.Coming.Backend.auth.exception.InvalidTokenException;
 import com.Coming.Backend.auth.exception.NicknameDuplicateException;
+import com.Coming.Backend.auth.exception.NicknameRequiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenExpiredException;
 import com.Coming.Backend.auth.exception.RefreshTokenInvalidException;
 import com.Coming.Backend.auth.exception.UserNotFoundException;
@@ -529,6 +530,45 @@ class AuthServiceTest {
         assertThat(response.nickname()).isEqualTo("새닉네임");
         assertThat(response.id()).isEqualTo(USER_ID);
         assertThat(response.role()).isEqualTo(UserRole.USER.name());
+    }
+
+    @Test
+    void should_throw_NicknameDuplicateException_when_updating_to_nickname_used_by_other_user() {
+        // given
+        User user = buildUser();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(userRepository.existsByNickname("중복닉")).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> authService.updateMe(USER_ID, "중복닉"))
+                .isInstanceOf(NicknameDuplicateException.class);
+        assertThat(user.getNickname()).isEqualTo("테스터");
+    }
+
+    @Test
+    void should_keep_nickname_without_duplicate_check_when_updating_to_same_nickname() {
+        // given
+        User user = buildUser();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when
+        MeResponse response = authService.updateMe(USER_ID, "테스터");
+
+        // then
+        assertThat(response.nickname()).isEqualTo("테스터");
+        verify(userRepository, never()).existsByNickname(any());
+    }
+
+    @Test
+    void should_throw_NicknameRequiredException_when_nickname_is_blank() {
+        // given
+        User user = buildUser();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> authService.updateMe(USER_ID, "  "))
+                .isInstanceOf(NicknameRequiredException.class);
+        assertThat(user.getNickname()).isEqualTo("테스터");
     }
 
     @Test

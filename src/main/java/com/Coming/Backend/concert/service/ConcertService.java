@@ -9,25 +9,27 @@ import com.Coming.Backend.artist.repository.UserFollowArtistRepository;
 import com.Coming.Backend.calendar.entity.UserConcertCalendar;
 import com.Coming.Backend.calendar.repository.UserConcertCalendarRepository;
 import com.Coming.Backend.common.response.PageResponse;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
 import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.concert.dto.ConcertDetailResponse;
 import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.dto.SetlistResponse;
-import com.Coming.Backend.concert.dto.SetlistTrackDto;
 import com.Coming.Backend.concert.dto.TicketLinkDto;
 import com.Coming.Backend.concert.entity.ConcertStatus;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.Setlist;
+import com.Coming.Backend.concert.client.SetlistFmClient;
 import com.Coming.Backend.concert.exception.ConcertNotFoundException;
+import com.Coming.Backend.concert.exception.SetlistUnavailableException;
 import com.Coming.Backend.concert.repository.ConcertArtistRepository;
 import com.Coming.Backend.concert.repository.ConcertBookingLinkRepository;
 import com.Coming.Backend.concert.entity.ConcertImage;
 import com.Coming.Backend.concert.repository.ConcertImageRepository;
 import com.Coming.Backend.concert.repository.ConcertRepository;
 import com.Coming.Backend.concert.repository.SetlistRepository;
-import com.Coming.Backend.concert.repository.SetlistTrackRepository;
+import com.Coming.Backend.concert.repository.SetlistCacheRepository;
 import com.Coming.Backend.rating.dto.RatingSummary;
 import com.Coming.Backend.rating.entity.RatingTargetType;
 import com.Coming.Backend.rating.service.RatingService;
@@ -35,7 +37,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -56,6 +60,7 @@ import static com.Coming.Backend.concert.entity.ConcertStatus.PENDING;
 public class ConcertService {
 
     private static final List<ConcertStatus> HIDDEN_STATUSES = List.of(EXCLUDED, PENDING);
+    private static final SetlistResponse EMPTY_SETLIST = new SetlistResponse(List.of(), null);
 
     private final ConcertRepository concertRepository;
     private final ConcertArtistRepository concertArtistRepository;
@@ -66,7 +71,8 @@ public class ConcertService {
     private final UserConcertCalendarRepository userConcertCalendarRepository;
     private final UserFollowArtistRepository userFollowArtistRepository;
     private final SetlistRepository setlistRepository;
-    private final SetlistTrackRepository setlistTrackRepository;
+    private final SetlistCacheRepository setlistCacheRepository;
+    private final SetlistFmClient setlistFmClient;
     private final RatingService ratingService;
 
     /**
@@ -104,24 +110,31 @@ public class ConcertService {
     }
 
     /**
-     * 공연의 셋리스트를 반환한다. 데이터 미존재 시 빈 tracks를 반환한다.
+     * 공연에 매칭된 setlist.fm 셋리스트를 캐시 또는 setlist.fm에서 조회해 반환한다.
+     * 매칭이 없거나 setlist.fm에서 삭제된 셋리스트이면 빈 tracks를 반환한다.
+     * 삭제된 셋리스트의 빈 결과도 캐시해 TTL 동안 setlist.fm을 다시 호출하지 않는다.
      *
-     * @throws ConcertNotFoundException 공연 ID가 존재하지 않는 경우
+     * @throws ConcertNotFoundException    공연 ID가 존재하지 않는 경우
+     * @throws SetlistUnavailableException 캐시가 없고 setlist.fm 조회에 실패한 경우
      */
+    // setlist.fm 호출(최대 3초) 동안 DB 커넥션을 잡고 있지 않도록 트랜잭션 밖에서 실행한다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public SetlistResponse getSetlist(Long concertId) {
-        if (!concertRepository.existsById(concertId)) {
-            throw new ConcertNotFoundException();
+        Optional<Setlist> matched = setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(concertId);
+        if (matched.isEmpty()) {
+            if (!concertRepository.existsById(concertId)) {
+                throw new ConcertNotFoundException();
+            }
+            return EMPTY_SETLIST;
         }
-        List<Setlist> setlists = setlistRepository.findByConcertIdOrderByCollectedAtDesc(concertId);
-        if (setlists.isEmpty()) {
-            return new SetlistResponse(List.of(), null);
+        String setlistFmId = matched.get().getSetlistFmId();
+        Optional<SetlistResponse> cached = setlistCacheRepository.find(setlistFmId);
+        if (cached.isPresent()) {
+            return cached.get();
         }
-        Setlist setlist = setlists.getFirst();
-        List<SetlistTrackDto> tracks = setlistTrackRepository
-                .findBySetlistIdOrderByPosition(setlist.getId()).stream()
-                .map(t -> new SetlistTrackDto(t.getPosition(), t.getSongName()))
-                .toList();
-        return new SetlistResponse(tracks, setlist.getAttributionUrl());
+        SetlistResponse fetched = setlistFmClient.getSetlist(setlistFmId).orElse(EMPTY_SETLIST);
+        setlistCacheRepository.save(setlistFmId, fetched);
+        return fetched;
     }
 
     /**
@@ -138,13 +151,13 @@ public class ConcertService {
      * <p>모든 필터는 AND로 조합된다. EXCLUDED·PENDING은 항상 숨겨지므로 status로 요청해도 빈 페이지가 반환된다.</p>
      *
      * @param q                 검색어 (공연명, 아티스트명, alias 대소문자 무시 부분 일치). null·공백이면 텍스트 조건 없이 나머지 필터만 적용한다.
-     * @param status            null이면 전체 조회
+     * @param statuses          null·빈 리스트이면 전체 조회. 여러 값이면 그중 하나에 해당하는 공연을 반환한다
      * @param inCalendar        true이면 내 캘린더에 추가한 공연만 반환 (미인증 시 빈 페이지)
      * @param followedOnly      true이면 팔로우한 아티스트의 공연만 반환 (미인증·팔로잉 없으면 빈 페이지)
      * @param ticketOpenPending true이면 티켓 오픈 예정(ticketOpenAt > now) 공연만 반환
      * @param userId            인증 사용자 ID (null이면 isInCalendar 전부 false)
      */
-    public PageResponse<ConcertSummaryResponse> getConcerts(String q, ConcertStatus status, Boolean inCalendar, Boolean followedOnly,
+    public PageResponse<ConcertSummaryResponse> getConcerts(String q, List<ConcertStatus> statuses, Boolean inCalendar, Boolean followedOnly,
                                                               Boolean ticketOpenPending, Pageable pageable, Long userId) {
         if (Boolean.TRUE.equals(inCalendar) && userId == null) {
             return emptyPage(pageable);
@@ -157,12 +170,15 @@ public class ConcertService {
         }
         List<Long> followedArtistIds = followedResolution.orElse(null);
 
+        List<ConcertStatus> statusFilter = statuses == null || statuses.isEmpty() ? null : statuses;
         boolean pending = Boolean.TRUE.equals(ticketOpenPending);
         LocalDateTime now = LocalDateTime.now();
+        // 정렬 값이 같은 공연이 페이지 경계에 걸려도 중복·누락되지 않도록 id를 보조 정렬로 붙인다
+        Pageable stablePageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort().and(Sort.by("id")));
         boolean hasQuery = q != null && !q.isBlank();
         Page<Concert> page = hasQuery
-                ? concertRepository.searchConcerts(HIDDEN_STATUSES, status, calendarUserId, followedArtistIds, pending, now, "%" + q.toLowerCase() + "%", pageable)
-                : concertRepository.findConcerts(HIDDEN_STATUSES, status, calendarUserId, followedArtistIds, pending, now, pageable);
+                ? concertRepository.searchConcerts(HIDDEN_STATUSES, statusFilter, calendarUserId, followedArtistIds, pending, now, LikeEscapeUtils.containsPattern(q), stablePageable)
+                : concertRepository.findConcerts(HIDDEN_STATUSES, statusFilter, calendarUserId, followedArtistIds, pending, now, stablePageable);
 
         List<ConcertSummaryResponse> content = toConcertSummaryList(page.getContent(), userId);
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());

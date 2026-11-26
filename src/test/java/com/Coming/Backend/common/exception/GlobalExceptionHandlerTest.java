@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -179,6 +180,21 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().code()).isEqualTo("INVALID_INPUT");
         assertThat(response.getBody().message()).isEqualTo(ErrorCode.INVALID_INPUT.getMessage());
+    }
+
+    @Test
+    void should_return_400_without_discord_alert_when_request_body_is_not_readable() {
+        // given
+        HttpMessageNotReadableException exception = mock(HttpMessageNotReadableException.class);
+
+        // when
+        ResponseEntity<ErrorResponse> response = handler.handleNotReadable(exception);
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("INVALID_INPUT");
+        then(discordNotifier).shouldHaveNoInteractions();
     }
 
     @Test

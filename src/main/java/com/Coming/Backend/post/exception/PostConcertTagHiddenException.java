@@ -3,9 +3,9 @@ package com.Coming.Backend.post.exception;
 import com.Coming.Backend.common.exception.BusinessException;
 import com.Coming.Backend.common.exception.ErrorCode;
 
-public class PostContentTooLongException extends BusinessException {
+public class PostConcertTagHiddenException extends BusinessException {
 
-    public PostContentTooLongException() {
-        super(ErrorCode.POST_CONTENT_TOO_LONG);
+    public PostConcertTagHiddenException() {
+        super(ErrorCode.POST_CONCERT_TAG_HIDDEN);
     }
 }

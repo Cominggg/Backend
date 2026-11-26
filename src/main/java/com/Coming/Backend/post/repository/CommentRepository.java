@@ -30,6 +30,13 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Query("UPDATE Comment c SET c.likeCount = c.likeCount - 1 WHERE c.id = :id")
     void decrementLikeCount(@Param("id") Long id);
 
+    /**
+     * 아직 삭제되지 않은 댓글만 소프트 삭제한다. 동시 삭제 요청 중 한 요청만 1을 받는다.
+     */
+    @Modifying
+    @Query("UPDATE Comment c SET c.deleted = true WHERE c.id = :id AND c.deleted = false")
+    int softDeleteIfNotDeleted(@Param("id") Long id);
+
     @Query("SELECT c.likeCount FROM Comment c WHERE c.id = :id")
     Long findLikeCountById(@Param("id") Long id);
 }

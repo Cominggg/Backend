@@ -128,7 +128,8 @@ public class SecurityConfig {
                                     "/api/posts/**",
                                     "/api/notices/**",
                                     "/api/search",
-                                    "/api/entities/**"
+                                    "/api/entities/**",
+                                    "/api/app/version"
                             ).permitAll()
                             .requestMatchers("/api/admin/**").hasRole("ADMIN")
                             .requestMatchers("/api/auth/register").hasRole("PENDING")

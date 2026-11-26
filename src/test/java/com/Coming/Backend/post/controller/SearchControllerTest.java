@@ -51,7 +51,7 @@ class SearchControllerTest {
 
     private PostSummaryResponse buildSummary() {
         return new PostSummaryResponse(
-                10L, "IU", PostCategory.REVIEW, "IU 콘서트 후기", List.of(), 0L, 0L, LocalDateTime.now());
+                10L, "IU", PostCategory.REVIEW, "IU 콘서트 후기", List.of(), null, 0L, 0L, LocalDateTime.now());
     }
 
     @Test

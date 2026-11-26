@@ -8,8 +8,7 @@ public record AdminNoticeUpdateRequest(
         @Size(max = 255)
         String title,
 
-        @Pattern(regexp = "(?s).*\\S.*", message = "내용은 공백일 수 없습니다")
-        String content,
+        Object content,
 
         Boolean active
 ) {

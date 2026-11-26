@@ -96,8 +96,12 @@ com.Coming.Backend
 ### 전체 흐름
 
 ```
-구현 (클래스 단위) → 테스트 작성 → /be-review → /simplify → /commit → /pr
+[커밋 단위 반복] 구현 (클래스 단위) → 테스트 작성 → ./gradlew test → /commit
+[PR 전 1회]    ./gradlew test → /be-review (브랜치 전체) → /simplify → 수정분 /commit → /pr
 ```
+
+- 리뷰는 커밋마다 하지 않고, 이슈의 커밋을 모두 마친 뒤 PR 작성 전에 브랜치 전체(develop 대비 diff)를 한 번에 검토한다.
+- 리뷰에서 나온 수정은 별도 커밋으로 남긴다.
 
 ### 테스트 작성 시점
 
@@ -112,10 +116,11 @@ com.Coming.Backend
 - **에이전트 호출 전**: `build.gradle`과 기존 테스트 예제 파일 1개를 먼저 읽고 프롬프트에 포함해 에이전트의 중복 파일 탐색을 방지한다
 - **레이어 간 순서 유지**: 동일 도메인 내 Service + Controller 테스트는 순서대로 작성한다 (Controller는 Service 계약을 전제)
 
-### 커밋 전 체크리스트
+### 커밋·PR 전 체크리스트
 
-- `/be-review` 통과(🔴 critical 0건) 전에 `/commit`을 실행하지 않는다.
-- auth 관련 코드(JWT, OAuth2, Redis 토큰 처리) 작성 시 `security-reviewer` 에이전트도 추가로 호출한다 (Coming 인증 정책 기준 전용 체크리스트 보유, 읽기 전용).
+- 커밋 전: 해당 커밋 범위의 테스트가 통과해야 한다.
+- PR 전: 브랜치 전체에 대한 `/be-review` 통과(🔴 critical 0건) 전에 `/pr`을 실행하지 않는다.
+- auth 관련 코드(JWT, OAuth2, Redis 토큰 처리)가 브랜치에 포함되면 PR 전 리뷰에서 `security-reviewer` 에이전트도 추가로 호출한다 (Coming 인증 정책 기준 전용 체크리스트 보유, 읽기 전용).
 
 ---
 

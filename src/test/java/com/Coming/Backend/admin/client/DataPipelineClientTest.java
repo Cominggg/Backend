@@ -52,6 +52,15 @@ class DataPipelineClientTest {
             exchange.sendResponseHeaders(status, -1);
             exchange.close();
         });
+        // given: 아티스트 id에 따라 404/409를 돌려주는 릴리즈 수집 트리거 (그 밖의 id는 위 /collect/artist 핸들러가 500 응답)
+        server.createContext("/collect/artist/404/releases", exchange -> {
+            exchange.sendResponseHeaders(404, -1);
+            exchange.close();
+        });
+        server.createContext("/collect/artist/409/releases", exchange -> {
+            exchange.sendResponseHeaders(409, -1);
+            exchange.close();
+        });
         server.start();
 
         HttpClient httpClient = HttpClient.create().responseTimeout(Duration.ofMillis(500));
@@ -92,6 +101,27 @@ class DataPipelineClientTest {
     void should_throw_pipeline_server_exception_when_data_pipeline_returns_500() {
         // when & then
         assertThatThrownBy(() -> dataPipelineClient.collectArtist("error-mbid"))
+                .isInstanceOf(PipelineServerException.class);
+    }
+
+    @Test
+    void should_throw_pipeline_not_found_exception_when_artist_releases_trigger_returns_404() {
+        // when & then
+        assertThatThrownBy(() -> dataPipelineClient.triggerArtistReleases(404L))
+                .isInstanceOf(PipelineNotFoundException.class);
+    }
+
+    @Test
+    void should_throw_pipeline_conflict_exception_when_artist_releases_trigger_returns_409() {
+        // when & then
+        assertThatThrownBy(() -> dataPipelineClient.triggerArtistReleases(409L))
+                .isInstanceOf(PipelineConflictException.class);
+    }
+
+    @Test
+    void should_throw_pipeline_server_exception_when_artist_releases_trigger_returns_500() {
+        // when & then
+        assertThatThrownBy(() -> dataPipelineClient.triggerArtistReleases(500L))
                 .isInstanceOf(PipelineServerException.class);
     }
 }

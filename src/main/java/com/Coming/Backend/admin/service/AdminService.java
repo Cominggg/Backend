@@ -43,6 +43,8 @@ import com.Coming.Backend.artist.entity.ArtistUrl;
 import com.Coming.Backend.auth.entity.UserStatus;
 import com.Coming.Backend.auth.service.SuspensionService;
 import com.Coming.Backend.auth.service.WithdrawalService;
+import com.Coming.Backend.common.util.LikeEscapeUtils;
+import com.Coming.Backend.common.util.TiptapContentCodec;
 import com.Coming.Backend.concert.dto.ArtistSummary;
 import com.Coming.Backend.artist.exception.ArtistNotFoundException;
 import com.Coming.Backend.artist.repository.ArtistAliasRepository;
@@ -291,13 +293,14 @@ public class AdminService {
 
     /**
      * 공지사항을 작성한다. active를 지정하지 않으면 기본 활성 상태로 등록한다.
+     * 본문은 게시글과 같은 공통 스키마·길이 제한으로 검증하고 허용 밖 attrs는 지워 저장한다.
      */
     @Transactional
     public AdminNoticeCreateResponse createNotice(Long adminId, AdminNoticeCreateRequest request) {
         Notice notice = Notice.builder()
                 .userId(adminId)
                 .title(request.title())
-                .content(request.content())
+                .content(TiptapContentCodec.sanitize(request.content()).json())
                 .active(request.active() == null || request.active())
                 .build();
         noticeRepository.save(notice);
@@ -306,12 +309,14 @@ public class AdminService {
 
     /**
      * 공지사항을 수정한다. title·content·active 중 null인 항목은 변경하지 않는다.
+     * content가 주어지면 작성과 같은 방식으로 검증한다.
      * 존재하지 않는 ID이면 NoticeNotFoundException을 던진다.
      */
     @Transactional
     public void updateNotice(Long id, AdminNoticeUpdateRequest request) {
         Notice notice = noticeRepository.findById(id).orElseThrow(NoticeNotFoundException::new);
-        notice.update(request.title(), request.content());
+        String content = request.content() != null ? TiptapContentCodec.sanitize(request.content()).json() : null;
+        notice.update(request.title(), content);
         if (request.active() != null) {
             if (request.active()) {
                 notice.activate();
@@ -407,14 +412,8 @@ public class AdminService {
         List<UserStatus> notWithdrawn = List.of(UserStatus.ACTIVE, UserStatus.SUSPENDED);
         Page<User> page = keyword == null || keyword.isBlank()
                 ? userRepository.findByStatusIn(notWithdrawn, pageable)
-                : userRepository.searchByEmailOrNickname(escapeLikeWildcards(keyword.strip()), notWithdrawn, pageable);
+                : userRepository.searchByEmailOrNickname(LikeEscapeUtils.escape(keyword.strip()), notWithdrawn, pageable);
         return PageResponse.from(page.map(AdminUserListItemResponse::from));
-    }
-
-    private String escapeLikeWildcards(String keyword) {
-        return keyword.replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
     }
 
     /**
@@ -551,7 +550,7 @@ public class AdminService {
     }
 
     /**
-     * 공연 상태를 강제 변경한다. 새 상태가 UPCOMING 또는 ONGOING이면 연결된 아티스트의 is_coming을 갱신한다.
+     * 공연 상태를 강제 변경한다. 이전 또는 새 상태가 UPCOMING·ONGOING이면 연결된 아티스트의 is_coming을 재계산한다.
      *
      * @throws ConcertNotFoundException 존재하지 않는 공연 ID
      */
@@ -559,10 +558,10 @@ public class AdminService {
     public void forceChangeConcertState(Long id, AdminConcertStateUpdateRequest request) {
         Concert concert = concertRepository.findById(id)
                 .orElseThrow(ConcertNotFoundException::new);
-        concert.forceChangeStatus(request.status());
+        ConcertStatus previousStatus = concert.forceChangeStatus(request.status());
 
         List<ConcertStatus> activeStatuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
-        if (activeStatuses.contains(request.status())) {
+        if (activeStatuses.contains(previousStatus) || activeStatuses.contains(request.status())) {
             List<Long> artistIds = concertArtistRepository.findByConcertId(id).stream()
                     .map(ConcertArtist::getArtistId)
                     .distinct()
@@ -837,7 +836,7 @@ public class AdminService {
      */
     public PageResponse<AdminArtistSearchResult> searchLocalArtists(String name, Pageable pageable) {
         return PageResponse.from(
-                artistRepository.findByNameOrAliasContainingIgnoreCase(name, pageable)
+                artistRepository.findByNameOrAliasContainingIgnoreCase(LikeEscapeUtils.escape(name), pageable)
                         .map(artist -> new AdminArtistSearchResult(artist.getId(), artist.getName()))
         );
     }

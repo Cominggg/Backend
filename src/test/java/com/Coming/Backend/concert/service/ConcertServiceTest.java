@@ -11,6 +11,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.Coming.Backend.artist.entity.Artist;
 import com.Coming.Backend.artist.entity.UserFollowArtist;
@@ -27,9 +28,11 @@ import com.Coming.Backend.concert.dto.ConcertStatsResponse;
 import com.Coming.Backend.concert.dto.ConcertSummaryResponse;
 import com.Coming.Backend.concert.dto.SetlistResponse;
 import com.Coming.Backend.concert.entity.Setlist;
-import com.Coming.Backend.concert.entity.SetlistTrack;
 import com.Coming.Backend.concert.repository.SetlistRepository;
-import com.Coming.Backend.concert.repository.SetlistTrackRepository;
+import com.Coming.Backend.concert.repository.SetlistCacheRepository;
+import com.Coming.Backend.concert.client.SetlistFmClient;
+import com.Coming.Backend.concert.dto.SetlistTrackDto;
+import com.Coming.Backend.concert.exception.SetlistUnavailableException;
 import com.Coming.Backend.concert.entity.Concert;
 import com.Coming.Backend.concert.entity.ConcertArtist;
 import com.Coming.Backend.concert.entity.ConcertBookingLink;
@@ -59,6 +62,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class ConcertServiceTest {
@@ -94,7 +98,10 @@ class ConcertServiceTest {
     private SetlistRepository setlistRepository;
 
     @Mock
-    private SetlistTrackRepository setlistTrackRepository;
+    private SetlistCacheRepository setlistCacheRepository;
+
+    @Mock
+    private SetlistFmClient setlistFmClient;
 
     @Mock
     private RatingService ratingService;
@@ -103,6 +110,7 @@ class ConcertServiceTest {
     private static final Long ARTIST_ID = 10L;
     private static final Long USER_ID = 100L;
     private static final Pageable PAGEABLE = PageRequest.of(0, 20);
+    private static final Pageable STABLE_PAGEABLE = PageRequest.of(0, 20, Sort.by("id"));
 
     @BeforeEach
     void setUp() {
@@ -319,7 +327,7 @@ class ConcertServiceTest {
         ConcertArtist concertArtist = buildConcertArtist(CONCERT_ID, ARTIST_ID);
         Artist artist = buildArtist(ARTIST_ID, "YOASOBI");
 
-        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of(concertArtist));
@@ -329,10 +337,23 @@ class ConcertServiceTest {
         PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, null, null, null, null, PAGEABLE, null);
 
         // then
-        verify(concertRepository).findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE));
+        verify(concertRepository).findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE));
         verify(concertRepository, never()).searchConcerts(any(), any(), any(), any(), anyBoolean(), any(), any(), any());
         assertThat(response.content()).hasSize(1);
         assertThat(response.content().get(0).artists()).containsExactly(new ArtistSummary(ARTIST_ID, "YOASOBI", null));
+    }
+
+    @Test
+    void should_escape_like_wildcards_when_q_contains_percent_and_underscore() {
+        // given
+        given(concertRepository.searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%50\\%\\_off%"), eq(STABLE_PAGEABLE)))
+                .willReturn(Page.empty(PAGEABLE));
+
+        // when
+        concertService.getConcerts("50%_OFF", null, null, null, null, PAGEABLE, null);
+
+        // then
+        verify(concertRepository).searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%50\\%\\_off%"), eq(STABLE_PAGEABLE));
     }
 
     @Test
@@ -341,7 +362,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%iu%"), eq(PAGEABLE)))
+        given(concertRepository.searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%iu%"), eq(STABLE_PAGEABLE)))
                 .willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
@@ -349,7 +370,7 @@ class ConcertServiceTest {
         PageResponse<ConcertSummaryResponse> response = concertService.getConcerts("IU", null, null, null, null, PAGEABLE, null);
 
         // then
-        verify(concertRepository).searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%iu%"), eq(PAGEABLE));
+        verify(concertRepository).searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%iu%"), eq(STABLE_PAGEABLE));
         verify(concertRepository, never()).findConcerts(any(), any(), any(), any(), anyBoolean(), any(), any());
         assertThat(response.content()).hasSize(1);
     }
@@ -358,14 +379,14 @@ class ConcertServiceTest {
     void should_pass_status_filter_to_find_concerts_when_status_is_given() {
         // given
         Page<Concert> page = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.findConcerts(anyList(), eq(ConcertStatus.UPCOMING), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), eq(List.of(ConcertStatus.UPCOMING)), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(page);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, ConcertStatus.UPCOMING, null, null, null, PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, List.of(ConcertStatus.UPCOMING), null, null, null, PAGEABLE, null);
 
         // then
-        verify(concertRepository).findConcerts(anyList(), eq(ConcertStatus.UPCOMING), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE));
+        verify(concertRepository).findConcerts(anyList(), eq(List.of(ConcertStatus.UPCOMING)), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE));
         assertThat(response.content()).isEmpty();
     }
 
@@ -373,7 +394,7 @@ class ConcertServiceTest {
     void should_return_empty_page_when_no_concerts_match_filter() {
         // given
         Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(emptyPage);
 
         // when
@@ -389,16 +410,77 @@ class ConcertServiceTest {
         // given
         // EXCLUDED는 리포지토리 쿼리 내 status NOT IN :hidden 조건에 의해 항상 걸러진다
         Page<Concert> emptyPage = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.findConcerts(anyList(), eq(ConcertStatus.EXCLUDED), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), eq(List.of(ConcertStatus.EXCLUDED)), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(emptyPage);
 
         // when
-        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, ConcertStatus.EXCLUDED, null, null, null, PAGEABLE, null);
+        PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, List.of(ConcertStatus.EXCLUDED), null, null, null, PAGEABLE, null);
 
         // then
         assertThat(response.content()).isEmpty();
         assertThat(response.totalElements()).isZero();
-        verify(concertRepository).findConcerts(anyList(), eq(ConcertStatus.EXCLUDED), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE));
+        verify(concertRepository).findConcerts(anyList(), eq(List.of(ConcertStatus.EXCLUDED)), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE));
+    }
+
+    @Test
+    void should_pass_all_statuses_to_find_concerts_when_multiple_statuses_given() {
+        // given
+        List<ConcertStatus> statuses = List.of(ConcertStatus.UPCOMING, ConcertStatus.ONGOING);
+        Page<Concert> page = new PageImpl<>(List.of(), PAGEABLE, 0);
+        given(concertRepository.findConcerts(anyList(), eq(statuses), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
+                .willReturn(page);
+
+        // when
+        concertService.getConcerts(null, statuses, null, null, null, PAGEABLE, null);
+
+        // then
+        verify(concertRepository).findConcerts(anyList(), eq(statuses), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE));
+    }
+
+    @Test
+    void should_pass_null_statuses_to_find_concerts_when_empty_status_list_given() {
+        // given
+        Page<Concert> page = new PageImpl<>(List.of(), PAGEABLE, 0);
+        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
+                .willReturn(page);
+
+        // when
+        concertService.getConcerts(null, List.of(), null, null, null, PAGEABLE, null);
+
+        // then
+        verify(concertRepository).findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE));
+    }
+
+    @Test
+    void should_append_id_sort_after_requested_sort_when_find_concerts_called_with_start_date_sort() {
+        // given
+        Pageable requested = PageRequest.of(1, 10, Sort.by(Sort.Direction.ASC, "startDate"));
+        Pageable expected = PageRequest.of(1, 10, Sort.by(Sort.Order.asc("startDate"), Sort.Order.asc("id")));
+        Page<Concert> page = new PageImpl<>(List.of(), expected, 0);
+        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(expected)))
+                .willReturn(page);
+
+        // when
+        concertService.getConcerts(null, null, null, null, null, requested, null);
+
+        // then
+        verify(concertRepository).findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(expected));
+    }
+
+    @Test
+    void should_append_id_sort_after_requested_sort_when_search_concerts_called_with_start_date_sort() {
+        // given
+        Pageable requested = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "startDate"));
+        Pageable expected = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("startDate"), Sort.Order.asc("id")));
+        Page<Concert> page = new PageImpl<>(List.of(), expected, 0);
+        given(concertRepository.searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%iu%"), eq(expected)))
+                .willReturn(page);
+
+        // when
+        concertService.getConcerts("IU", null, null, null, null, requested, null);
+
+        // then
+        verify(concertRepository).searchConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq("%iu%"), eq(expected));
     }
 
     // -------------------------------------------------------------------------
@@ -426,7 +508,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.findConcerts(anyList(), isNull(), eq(USER_ID), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), isNull(), eq(USER_ID), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
         given(userConcertCalendarRepository.findByUserIdAndConcertIdIn(USER_ID, List.of(CONCERT_ID)))
@@ -436,7 +518,7 @@ class ConcertServiceTest {
         PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, null, true, null, null, PAGEABLE, USER_ID);
 
         // then
-        verify(concertRepository).findConcerts(anyList(), isNull(), eq(USER_ID), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE));
+        verify(concertRepository).findConcerts(anyList(), isNull(), eq(USER_ID), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE));
         assertThat(response.content()).hasSize(1);
     }
 
@@ -479,7 +561,7 @@ class ConcertServiceTest {
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
         given(userFollowArtistRepository.findByUserId(USER_ID)).willReturn(List.of(follow));
-        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), eq(List.of(ARTIST_ID)), eq(false), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), eq(List.of(ARTIST_ID)), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID))).willReturn(List.of());
 
@@ -487,7 +569,7 @@ class ConcertServiceTest {
         PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, null, null, true, null, PAGEABLE, USER_ID);
 
         // then
-        verify(concertRepository).findConcerts(anyList(), isNull(), isNull(), eq(List.of(ARTIST_ID)), eq(false), any(LocalDateTime.class), eq(PAGEABLE));
+        verify(concertRepository).findConcerts(anyList(), isNull(), isNull(), eq(List.of(ARTIST_ID)), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE));
         assertThat(response.content()).hasSize(1);
     }
 
@@ -499,14 +581,14 @@ class ConcertServiceTest {
     void should_pass_ticket_open_pending_true_to_repository_when_ticket_open_pending_given() {
         // given
         Page<Concert> page = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(true), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(true), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(page);
 
         // when
         PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(null, null, null, null, true, PAGEABLE, null);
 
         // then
-        verify(concertRepository).findConcerts(anyList(), isNull(), isNull(), isNull(), eq(true), any(LocalDateTime.class), eq(PAGEABLE));
+        verify(concertRepository).findConcerts(anyList(), isNull(), isNull(), isNull(), eq(true), any(LocalDateTime.class), eq(STABLE_PAGEABLE));
         assertThat(response.content()).isEmpty();
     }
 
@@ -514,15 +596,15 @@ class ConcertServiceTest {
     void should_combine_status_calendar_and_ticket_open_pending_filters_when_given_together() {
         // given
         Page<Concert> page = new PageImpl<>(List.of(), PAGEABLE, 0);
-        given(concertRepository.findConcerts(anyList(), eq(ConcertStatus.UPCOMING), eq(USER_ID), isNull(), eq(true), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), eq(List.of(ConcertStatus.UPCOMING)), eq(USER_ID), isNull(), eq(true), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(page);
 
         // when
         PageResponse<ConcertSummaryResponse> response = concertService.getConcerts(
-                null, ConcertStatus.UPCOMING, true, null, true, PAGEABLE, USER_ID);
+                null, List.of(ConcertStatus.UPCOMING), true, null, true, PAGEABLE, USER_ID);
 
         // then
-        verify(concertRepository).findConcerts(anyList(), eq(ConcertStatus.UPCOMING), eq(USER_ID), isNull(), eq(true), any(LocalDateTime.class), eq(PAGEABLE));
+        verify(concertRepository).findConcerts(anyList(), eq(List.of(ConcertStatus.UPCOMING)), eq(USER_ID), isNull(), eq(true), any(LocalDateTime.class), eq(STABLE_PAGEABLE));
         assertThat(response.content()).isEmpty();
     }
 
@@ -540,7 +622,7 @@ class ConcertServiceTest {
                 .concertId(CONCERT_ID)
                 .build();
 
-        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
@@ -560,7 +642,7 @@ class ConcertServiceTest {
         Concert concert = buildConcert(CONCERT_ID, ConcertStatus.UPCOMING);
         Page<Concert> page = new PageImpl<>(List.of(concert), PAGEABLE, 1);
 
-        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(PAGEABLE)))
+        given(concertRepository.findConcerts(anyList(), isNull(), isNull(), isNull(), eq(false), any(LocalDateTime.class), eq(STABLE_PAGEABLE)))
                 .willReturn(page);
         given(concertArtistRepository.findByConcertIdIn(List.of(CONCERT_ID)))
                 .willReturn(List.of());
@@ -739,83 +821,42 @@ class ConcertServiceTest {
     // getSetlist
     // -------------------------------------------------------------------------
 
-    @Test
-    void should_return_tracks_when_setlist_exists_for_concert() {
-        // given
-        Setlist setlist = Setlist.builder()
-                .id(1L)
+    private static final String SETLIST_FM_ID = "63de4613";
+    private static final SetlistResponse FETCHED_SETLIST = new SetlistResponse(
+            List.of(new SetlistTrackDto(1, "Pale Blue"), new SetlistTrackDto(2, "KICK BACK")),
+            "https://www.setlist.fm/setlist/kenshi-yonezu/2025/kspo-dome-63de4613.html");
+
+    private Setlist buildSetlist(Long id, String setlistFmId, LocalDateTime collectedAt) {
+        return Setlist.builder()
+                .id(id)
                 .concertId(CONCERT_ID)
-                .setlistFmId("setlist-fm-001")
-                .collectedAt(java.time.LocalDateTime.now())
+                .setlistFmId(setlistFmId)
+                .collectedAt(collectedAt)
                 .build();
-        SetlistTrack track1 = SetlistTrack.builder()
-                .id(1L).setlistId(1L).position(1).songName("Pale Blue").build();
-        SetlistTrack track2 = SetlistTrack.builder()
-                .id(2L).setlistId(1L).position(2).songName("KICK BACK").build();
+    }
 
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
-        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of(track1, track2));
-
-        // when
-        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
-
-        // then
-        assertThat(result.tracks()).hasSize(2);
-        assertThat(result.tracks().get(0).order()).isEqualTo(1);
-        assertThat(result.tracks().get(0).title()).isEqualTo("Pale Blue");
-        assertThat(result.tracks().get(1).title()).isEqualTo("KICK BACK");
+    private void givenMatchedSetlist() {
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID))
+                .willReturn(Optional.of(buildSetlist(1L, SETLIST_FM_ID, LocalDateTime.of(2025, 6, 4, 0, 0))));
     }
 
     @Test
-    void should_return_source_url_when_setlist_has_attribution_url() {
+    void should_throw_concert_not_found_when_concert_does_not_exist_for_setlist() {
         // given
-        String attributionUrl = "https://www.setlist.fm/setlist/yoasobi/2025/kspo-dome-1a2b3c4d.html";
-        Setlist setlist = Setlist.builder()
-                .id(1L)
-                .concertId(CONCERT_ID)
-                .setlistFmId("setlist-fm-001")
-                .collectedAt(LocalDateTime.now())
-                .attributionUrl(attributionUrl)
-                .build();
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(Optional.empty());
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(false);
 
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
-        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of());
-
-        // when
-        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
-
-        // then
-        assertThat(result.sourceUrl()).isEqualTo(attributionUrl);
+        // when & then
+        assertThatThrownBy(() -> concertService.getSetlist(CONCERT_ID))
+                .isInstanceOf(ConcertNotFoundException.class)
+                .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
     }
 
     @Test
-    void should_return_null_source_url_when_setlist_has_no_attribution_url() {
+    void should_return_empty_tracks_and_null_source_url_when_no_setlist_matched_to_concert() {
         // given
-        Setlist setlist = Setlist.builder()
-                .id(1L)
-                .concertId(CONCERT_ID)
-                .setlistFmId("setlist-fm-001")
-                .collectedAt(LocalDateTime.now())
-                .build();
-
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(Optional.empty());
         given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of(setlist));
-        given(setlistTrackRepository.findBySetlistIdOrderByPosition(1L)).willReturn(List.of());
-
-        // when
-        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
-
-        // then
-        assertThat(result.sourceUrl()).isNull();
-    }
-
-    @Test
-    void should_return_empty_tracks_when_no_setlist_exists_for_concert() {
-        // given
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
-        given(setlistRepository.findByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(List.of());
 
         // when
         SetlistResponse result = concertService.getSetlist(CONCERT_ID);
@@ -826,14 +867,88 @@ class ConcertServiceTest {
     }
 
     @Test
-    void should_throw_concert_not_found_when_concert_does_not_exist_for_setlist() {
+    void should_not_call_cache_or_setlist_fm_when_no_setlist_matched_to_concert() {
         // given
-        given(concertRepository.existsById(CONCERT_ID)).willReturn(false);
+        given(setlistRepository.findFirstByConcertIdOrderByCollectedAtDesc(CONCERT_ID)).willReturn(Optional.empty());
+        given(concertRepository.existsById(CONCERT_ID)).willReturn(true);
+
+        // when
+        concertService.getSetlist(CONCERT_ID);
+
+        // then
+        verifyNoInteractions(setlistCacheRepository, setlistFmClient);
+    }
+
+    @Test
+    void should_skip_concert_existence_check_when_setlist_matched() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.of(FETCHED_SETLIST));
+
+        // when
+        concertService.getSetlist(CONCERT_ID);
+
+        // then
+        verify(concertRepository, never()).existsById(any());
+    }
+
+    @Test
+    void should_return_cached_setlist_without_calling_setlist_fm_when_cache_hit() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.of(FETCHED_SETLIST));
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result).isEqualTo(FETCHED_SETLIST);
+        verifyNoInteractions(setlistFmClient);
+    }
+
+    @Test
+    void should_return_fetched_setlist_and_save_to_cache_when_cache_miss() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.empty());
+        given(setlistFmClient.getSetlist(SETLIST_FM_ID)).willReturn(Optional.of(FETCHED_SETLIST));
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result).isEqualTo(FETCHED_SETLIST);
+        verify(setlistCacheRepository).save(SETLIST_FM_ID, FETCHED_SETLIST);
+    }
+
+    @Test
+    void should_return_and_cache_empty_setlist_when_setlist_deleted_on_setlist_fm() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.empty());
+        given(setlistFmClient.getSetlist(SETLIST_FM_ID)).willReturn(Optional.empty());
+
+        // when
+        SetlistResponse result = concertService.getSetlist(CONCERT_ID);
+
+        // then
+        assertThat(result.tracks()).isEmpty();
+        assertThat(result.sourceUrl()).isNull();
+        verify(setlistCacheRepository).save(SETLIST_FM_ID, result);
+    }
+
+    @Test
+    void should_propagate_setlist_unavailable_without_caching_when_setlist_fm_fails() {
+        // given
+        givenMatchedSetlist();
+        given(setlistCacheRepository.find(SETLIST_FM_ID)).willReturn(Optional.empty());
+        given(setlistFmClient.getSetlist(SETLIST_FM_ID)).willThrow(new SetlistUnavailableException());
 
         // when & then
         assertThatThrownBy(() -> concertService.getSetlist(CONCERT_ID))
-                .isInstanceOf(ConcertNotFoundException.class)
-                .hasMessage(ErrorCode.CONCERT_NOT_FOUND.getMessage());
+                .isInstanceOf(SetlistUnavailableException.class)
+                .hasMessage(ErrorCode.SETLIST_TEMPORARILY_UNAVAILABLE.getMessage());
+        verify(setlistCacheRepository, never()).save(any(), any());
     }
 
     // -------------------------------------------------------------------------

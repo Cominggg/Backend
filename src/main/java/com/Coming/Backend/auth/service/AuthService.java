@@ -143,19 +143,33 @@ public class AuthService {
     }
 
     /**
-     * 닉네임을 수정한다.
+     * 닉네임을 수정한다. nickname이 null이면 변경하지 않는다.
+     *
+     * @throws NicknameRequiredException  nickname이 공백인 경우
+     * @throws NicknameTooLongException   nickname이 20자를 초과하는 경우
+     * @throws NicknameDuplicateException 다른 회원이 사용 중인 닉네임인 경우
      */
     @Transactional
     public MeResponse updateMe(Long userId, String nickname) {
         userStatusValidator.validateWritable(userId);
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
-        if (nickname != null && nickname.length() > 20) {
-            throw new NicknameTooLongException();
-        }
         if (nickname != null) {
+            validateNewNickname(user, nickname);
             user.updateNickname(nickname);
         }
         return toMeResponse(user);
+    }
+
+    private void validateNewNickname(User user, String nickname) {
+        if (nickname.isBlank()) {
+            throw new NicknameRequiredException();
+        }
+        if (nickname.length() > 20) {
+            throw new NicknameTooLongException();
+        }
+        if (!nickname.equals(user.getNickname()) && userRepository.existsByNickname(nickname)) {
+            throw new NicknameDuplicateException();
+        }
     }
 
     /**

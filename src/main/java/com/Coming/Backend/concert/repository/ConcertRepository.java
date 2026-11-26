@@ -35,8 +35,8 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query("UPDATE Concert c SET c.viewCount = c.viewCount + 1 WHERE c.id = :id")
     void incrementViewCount(@Param("id") Long id);
 
-    @Query(value = "SELECT c FROM Concert c WHERE c.status NOT IN :hidden AND LOWER(c.title) LIKE :q ORDER BY c.startDate DESC, c.id DESC",
-            countQuery = "SELECT COUNT(c) FROM Concert c WHERE c.status NOT IN :hidden AND LOWER(c.title) LIKE :q")
+    @Query(value = "SELECT c FROM Concert c WHERE c.status NOT IN :hidden AND LOWER(c.title) LIKE :q ESCAPE '\\' ORDER BY c.startDate DESC, c.id DESC",
+            countQuery = "SELECT COUNT(c) FROM Concert c WHERE c.status NOT IN :hidden AND LOWER(c.title) LIKE :q ESCAPE '\\'")
     Page<Concert> searchByTitleForMention(@Param("hidden") Collection<ConcertStatus> hidden, @Param("q") String q, Pageable pageable);
 
     @Query("SELECT c FROM Concert c WHERE c.startDate <= :lastDay AND c.endDate >= :firstDay AND c.status NOT IN :hidden ORDER BY c.startDate ASC")
@@ -84,7 +84,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query(value = """
             SELECT c FROM Concert c
             WHERE c.status NOT IN :hidden
-            AND (:status IS NULL OR c.status = :status)
+            AND (:statuses IS NULL OR c.status IN :statuses)
             AND (:calendarUserId IS NULL OR c.id IN (
                 SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :calendarUserId
             ))
@@ -96,7 +96,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             countQuery = """
             SELECT COUNT(c) FROM Concert c
             WHERE c.status NOT IN :hidden
-            AND (:status IS NULL OR c.status = :status)
+            AND (:statuses IS NULL OR c.status IN :statuses)
             AND (:calendarUserId IS NULL OR c.id IN (
                 SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :calendarUserId
             ))
@@ -106,7 +106,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             AND (:ticketOpenPending = false OR (c.ticketOpenAt IS NOT NULL AND c.ticketOpenAt > :now))
             """)
     Page<Concert> findConcerts(@Param("hidden") Collection<ConcertStatus> hidden,
-                                @Param("status") ConcertStatus status,
+                                @Param("statuses") Collection<ConcertStatus> statuses,
                                 @Param("calendarUserId") Long calendarUserId,
                                 @Param("followedArtistIds") List<Long> followedArtistIds,
                                 @Param("ticketOpenPending") boolean ticketOpenPending,
@@ -119,7 +119,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     @Query(value = """
             SELECT DISTINCT c FROM Concert c
             WHERE c.status NOT IN :hidden
-            AND (:status IS NULL OR c.status = :status)
+            AND (:statuses IS NULL OR c.status IN :statuses)
             AND (:calendarUserId IS NULL OR c.id IN (
                 SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :calendarUserId
             ))
@@ -128,14 +128,14 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             ))
             AND (:ticketOpenPending = false OR (c.ticketOpenAt IS NOT NULL AND c.ticketOpenAt > :now))
             AND (
-                LOWER(c.title) LIKE :q
+                LOWER(c.title) LIKE :q ESCAPE '\\'
                 OR c.id IN (
                     SELECT ca2.concertId FROM ConcertArtist ca2
                     WHERE ca2.artistId IN (
-                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q ESCAPE '\\' OR LOWER(a.sortName) LIKE :q ESCAPE '\\'
                     )
                     OR ca2.artistId IN (
-                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q ESCAPE '\\'
                     )
                 )
             )
@@ -143,7 +143,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             countQuery = """
             SELECT COUNT(DISTINCT c) FROM Concert c
             WHERE c.status NOT IN :hidden
-            AND (:status IS NULL OR c.status = :status)
+            AND (:statuses IS NULL OR c.status IN :statuses)
             AND (:calendarUserId IS NULL OR c.id IN (
                 SELECT ucc.concertId FROM UserConcertCalendar ucc WHERE ucc.userId = :calendarUserId
             ))
@@ -152,20 +152,20 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
             ))
             AND (:ticketOpenPending = false OR (c.ticketOpenAt IS NOT NULL AND c.ticketOpenAt > :now))
             AND (
-                LOWER(c.title) LIKE :q
+                LOWER(c.title) LIKE :q ESCAPE '\\'
                 OR c.id IN (
                     SELECT ca2.concertId FROM ConcertArtist ca2
                     WHERE ca2.artistId IN (
-                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q OR LOWER(a.sortName) LIKE :q
+                        SELECT a.id FROM Artist a WHERE LOWER(a.name) LIKE :q ESCAPE '\\' OR LOWER(a.sortName) LIKE :q ESCAPE '\\'
                     )
                     OR ca2.artistId IN (
-                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q
+                        SELECT al.artistId FROM ArtistAlias al WHERE LOWER(al.name) LIKE :q ESCAPE '\\'
                     )
                 )
             )
             """)
     Page<Concert> searchConcerts(@Param("hidden") Collection<ConcertStatus> hidden,
-                                  @Param("status") ConcertStatus status,
+                                  @Param("statuses") Collection<ConcertStatus> statuses,
                                   @Param("calendarUserId") Long calendarUserId,
                                   @Param("followedArtistIds") List<Long> followedArtistIds,
                                   @Param("ticketOpenPending") boolean ticketOpenPending,
